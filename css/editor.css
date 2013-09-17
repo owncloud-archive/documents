@@ -255,6 +255,7 @@ cursor div {
 
     top: -85px !important;
     left: -34px !important;
+    padding-bottom: 0 !important;
 }
 
 cursor img {
@@ -285,3 +286,13 @@ cursor div:after {
     left: 43%;
 }
 
+
+editinfo > div.editInfoMarker {
+    width: 3px;
+    border-radius: 0;
+    box-shadow: 0 0 0 #fff;
+}
+
+editinfo > div.editInfoMarker:hover {
+    box-shadow: 0 0 1px rgba(0, 0, 0, 1);
+}
