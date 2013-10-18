@@ -8,7 +8,7 @@ $(document).ready(function() {
 		];
 		for (var i = 0; i < supportedMimes.length; ++i){
 			var mime = supportedMimes[i];
-			FileActions.register(mime,'View',OC.PERMISSION_READ,'',function(filename){
+			FileActions.register(mime,'View',OC.PERMISSION_UPDATE,'',function(filename){
 				var dir = $('#dir').val().replace(/%2F/g, '/');
 				window.location = OC.linkTo('documents', 'index.php') + '?file=' + encodeURIComponent(dir + '/' + filename);
 			});
