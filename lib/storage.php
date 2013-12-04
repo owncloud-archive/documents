@@ -34,6 +34,9 @@ class Storage {
 					if (strpos($item['path'], '_trashbin')===0){
 						return false;
 					}
+					if (!\OC\Files\Filesystem::isUpdatable($item['path'])) {
+						return false;
+					}
 					return true;
 				}
 		);
