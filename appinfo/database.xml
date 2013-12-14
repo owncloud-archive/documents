@@ -13,33 +13,28 @@
 				<type>text</type>
 				<notnull>true</notnull>
 				<length>64</length>
-				<comments>Editing session id</comments>
 			</field>
 			<field>
 				<name>genesis_url</name>
 				<type>text</type>
 				<length>512</length>
-				<comments>Relative to owner documents storage /welcome.odt</comments>
 			</field>
 			<field>
 				<name>genesis_hash</name>
 				<type>text</type>
 				<length>128</length>
 				<notnull>true</notnull>
-				<comments>To be sure the genesis did not change</comments>
 			</field>
 			<field>
 				<name>file_id</name>
 				<type>text</type>
 				<length>512</length>
-				<comments>Relative to storage e.g. /welcome.odt</comments>
 			</field>
 			<field>
 				<name>owner</name>
 				<type>text</type>
 				<notnull>true</notnull>
 				<length>64</length>
-				<comments>oC user who created the session</comments>
 			</field>
 			
 			<index>
@@ -66,14 +61,12 @@
 				<autoincrement>1</autoincrement>
 				<unsigned>true</unsigned>
 				<length>4</length>
-				<comments>Unique per user and session</comments>
 			</field>
 			<field>
 				<name>es_id</name>
 				<type>text</type>
 				<notnull>true</notnull>
 				<length>64</length>
-				<comments>Related editing session id</comments>
 			</field>
 			<field>
 				<name>uid</name>
@@ -114,14 +107,12 @@
 				<autoincrement>1</autoincrement>
 				<unsigned>true</unsigned>
 				<length>4</length>
-				<comments>Sequence number</comments>
 			</field>
 			<field>
 				<name>es_id</name>
 				<type>text</type>
 				<notnull>true</notnull>
 				<length>64</length>
-				<comments>Editing session id</comments>
 			</field>
 			<field>
 				<name>member</name>
@@ -130,13 +121,11 @@
 				<notnull>true</notnull>
 				<unsigned>true</unsigned>
 				<length>4</length>
-				<comments>User and time specific</comments>
 			</field>
 			<field>
 				<name>opspec</name>
 				<type>clob</type>
 				<notnull>false</notnull>
-				<comments>json-string</comments>
 			</field>
 			
 			<index>
@@ -171,7 +160,6 @@
 				<type>text</type>
 				<notnull>true</notnull>
 				<length>64</length>
-				<comments>Related editing session id</comments>
 			</field>
 			<field>
 				<name>uid</name>
@@ -204,7 +192,6 @@
 				<type>text</type>
 				<notnull>true</notnull>
 				<length>64</length>
-				<comments>Related editing session id</comments>
 			</field>
 			<field>
 				<name>seq_head</name>
@@ -212,7 +199,6 @@
 				<notnull>true</notnull>
 				<unsigned>true</unsigned>
 				<length>4</length>
-				<comments>Sequence head number</comments>
 			</field>
 			<field>
 				<name>member_id</name>
@@ -220,20 +206,17 @@
 				<notnull>true</notnull>
 				<unsigned>true</unsigned>
 				<length>4</length>
-				<comments>the member that saved the revision</comments>
 			</field>
 			<field>
 				<name>file_id</name>
 				<type>text</type>
 				<length>512</length>
-				<comments>Relative to storage e.g. /welcome.odt</comments>
 			</field>
 			<field>
 				<name>save_hash</name>
 				<type>text</type>
 				<length>128</length>
 				<notnull>true</notnull>
-				<comments>used to lookup revision in documents folder of member, eg hash.odt</comments>
 			</field>
 			
 			<index>
