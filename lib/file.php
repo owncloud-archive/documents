@@ -224,10 +224,16 @@ class File {
 	
 	protected function getLocalFileOwnerAndPath(){
 		$fileInfo = \OC\Files\Cache\Cache::getById($this->fileId);
-		$owner = \OCP\User::getUser();
-		if (!$owner){
+		$user = \OCP\User::getUser();
+		if (!$user){
 			throw new Exception('Guest users can\'t access local files. This one was probably unshared recently.');
 		}
+		// This is a really dirt way to figure out the owner, but hey it works!
+		$owner = explode('::', $fileInfo[0], 2)[1];
+		// In order to properly read the file we also need to update the
+		// filesystem to the owner
+		\OC_Util::tearDownFS();
+		\OC_Util::setupFS($owner);
 
 		return array ($owner, @$fileInfo[1]);
 	}
