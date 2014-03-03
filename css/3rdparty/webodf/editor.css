@@ -25,13 +25,19 @@ body.claro, #mainContainer {
 
 #toolbar {
     overflow: hidden;
+    top: 0;
+    left: 0;
+    right: 0;
+    position: absolute;
+    z-index: 5;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.25);
 }
 
 #container {
     text-align: center;
     background-color: #ddd;
     overflow: auto;
-
+    -webkit-overflow-scrolling: touch;
     position: absolute;
     top: 30px;
     bottom: 0;
@@ -241,7 +247,7 @@ div.memberListLabel[fullname]:before {
     text-align: center;
 }
 
-cursor div {
+cursor .handle {
     margin-top: 5px;
     padding-top: 3px;
     margin-left: auto;
@@ -269,11 +275,11 @@ cursor img {
     margin: auto;
 }
 
-cursor div.active {
+cursor .handle.active {
     opacity: 0.8;
 }
 
-cursor div:after {
+cursor .handle:after {
     content: ' ';
     position: absolute;
     width: 0px;

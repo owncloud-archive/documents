@@ -231,8 +231,10 @@
 }
 
 #toolbar {
-	border-bottom: none !important;
+	position:static !important;
 	padding: 5px 0 0 !important;
+	border-bottom: none !important;
+	box-shadow: 0 0 0 transparent !important;
 }
 
 #toolbar > .dijit{
