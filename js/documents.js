@@ -287,7 +287,15 @@ var documentsMain = {
 		$.post(
 			OC.Router.generate('documents_documents_create'),
 			{},
-			documentsMain.show
+			function(response){
+				if (response && response.fileid){
+					documentsMain.prepareSession();
+					documentsMain.joinSession(response.fileid);
+				} else {
+					documentsMain.show();
+				}
+			}
+			
 		);
 	},
 
