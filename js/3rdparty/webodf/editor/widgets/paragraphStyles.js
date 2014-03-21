@@ -38,10 +38,12 @@
 
 /*global define,require */
 
-define("webodf/editor/widgets/paragraphStyles",
-       ["webodf/editor/EditorSession"],
+define("webodf/editor/widgets/paragraphStyles", [
+       "webodf/editor/EditorSession",
+       "webodf/editor/widgets/paragraphStylesDialog"	   
+       ],
 
-    function (EditorSession) {
+    function (EditorSession, ParagraphStylesDialog) {
     "use strict";
     /**
      * @constructor
@@ -49,8 +51,10 @@ define("webodf/editor/widgets/paragraphStyles",
     var ParagraphStyles = function (callback) {
         var self = this,
             editorSession,
+			paragraphStylesDialog,
             select,
-            defaultStyleUIId = ":default";
+            defaultStyleUIId = ":default",
+            formatStylesUIId = ':_Format_';
 
         this.widget = function () {
             return select;
@@ -91,10 +95,16 @@ define("webodf/editor/widgets/paragraphStyles",
             }
 
             // Populate the Default Style always 
-            selectionList = [{
-                label: runtime.tr("Default Style"),
-                value: defaultStyleUIId
-            }];
+            selectionList = [
+                {
+                    label: runtime.tr("Paragraph..."),
+                    value: formatStylesUIId
+                },
+                {
+                    label: runtime.tr("Default Style"),
+                    value: defaultStyleUIId
+                }
+            ];
             availableStyles = editorSession ? editorSession.getAvailableParagraphStyles() : [];
 
             for (i = 0; i < availableStyles.length; i += 1) {
@@ -160,10 +170,19 @@ define("webodf/editor/widgets/paragraphStyles",
                 // as reported by ParagraphStyles.value(), because we do not
                 // want to expose the internal naming like ":default" outside this
                 // class.
+                paragraphStylesDialog = new ParagraphStylesDialog(function (dialog) {
                 select.onChange = function () {
-                    self.onChange(self.value());
+                    if (self.value()!==formatStylesUIId){
+                        self.onChange(self.value());
+					} else {
+                        if (editorSession) {
+                            paragraphStylesDialog.startup();
+                            paragraphStylesDialog.show();
+                        }
+                    }
                 };
-
+				});
+		        //paragraphStylesDialog.onToolDone = onToolDone;
                 return cb();
             });
         }

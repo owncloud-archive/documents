@@ -78,9 +78,9 @@ define("webodf/editor/Tools", [
 
             function handleCursorMoved(cursor) {
                 var disabled = cursor.getSelectionType() === ops.OdtCursor.RegionSelection;
-                if (formatMenuButton) {
+/*                if (formatMenuButton) {
                     formatMenuButton.setAttribute('disabled', disabled);
-                }
+                }*/
             }
 
             function setEditorSession(session) {
@@ -161,7 +161,6 @@ define("webodf/editor/Tools", [
                     paragraphAlignment.onToolDone = onToolDone;
                 }
 
-
                 // Paragraph Style Selector
                 currentStyle = new CurrentStyle(function (widget) {
                     widget.placeAt(toolbar);
@@ -211,23 +210,8 @@ define("webodf/editor/Tools", [
                     saveButton.placeAt(toolbar);
                 }
 
-                // Format menu
-                formatDropDownMenu = new DropDownMenu({});
-                paragraphStylesMenuItem = new MenuItem({
-                    label: tr("Paragraph...")
-                });
-                formatDropDownMenu.addChild(paragraphStylesMenuItem);
-
-                paragraphStylesDialog = new ParagraphStylesDialog(function (dialog) {
-                    paragraphStylesMenuItem.onClick = function () {
-                        if (editorSession) {
-                            dialog.startup();
-                            dialog.show();
-                        }
-                    };
-                });
-                sessionSubscribers.push(paragraphStylesDialog);
-                paragraphStylesDialog.onToolDone = onToolDone;
+    //            sessionSubscribers.push(paragraphStylesDialog);
+     //           paragraphStylesDialog.onToolDone = onToolDone;
 
                 if (args.hyperlinkEditingEnabled) {
                     editHyperlinks = new EditHyperlinks(function (widget) {
@@ -237,16 +221,6 @@ define("webodf/editor/Tools", [
                     sessionSubscribers.push(editHyperlinks);
                     editHyperlinks.onToolDone = onToolDone;
                 }
-
-                formatMenuButton = new DropDownButton({
-                    dropDown: formatDropDownMenu,
-                    label: tr('Format'),
-                    iconClass: "dijitIconEditTask",
-                    style: {
-                        float: 'left'
-                    }
-                });
-                formatMenuButton.placeAt(toolbar);
 
                 if (args.imageInsertingEnabled) {
                     imageInserter = new ImageInserter(function (widget) {
