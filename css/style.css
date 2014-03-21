@@ -123,9 +123,11 @@
 	background-color:#1d2d44;
 }
 
-#document-title img{
+#document-title div.logo-wide{
 	float:left;
-	height: 22px;
+	height: 24px;
+	width: 80px;
+	background-size:80px 24px;
 }
 
 #document-title div{
@@ -138,6 +140,7 @@
 	padding:3px 6px;
 	width: 300px;
 	font-size: 12px;
+	color:#000;
 }
 
 #odf-close{
@@ -303,4 +306,12 @@ margin-top:-1px;
 
 document p{
 	cursor:auto;
+}
+
+
+/* backward compatibility */
+#document-title .logo-wide {
+	background-image: url(../../../../core/img/logo-wide.svg);
+	width: 147px;
+	height: 32px;
 }
