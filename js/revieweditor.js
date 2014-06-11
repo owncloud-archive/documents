@@ -198,13 +198,14 @@ var webodfEditor = (function () {
             "webodf/editornew/Editor"],
             function (Editor) {
 				//runtime.setTranslator(function (s){return t('documents', s);});
+                OC.addScript('documents', '3rdparty/webodf/webodf-rev').done(function() {
+                    var editorBase = dojo.config && dojo.config.paths && dojo.config.paths["webodf/editornew"],
+                        t;
 
-                var editorBase = dojo.config && dojo.config.paths && dojo.config.paths["webodf/editornew"],
-                    t;
-
-                runtime.assert(editorBase, "webodf/editor path not defined in dojoConfig");
-                editorInstance = new Editor("mainContainer", editorOptions);
-                editorInstance.openDocument(args.docUrl, startEditing);
+                    runtime.assert(editorBase, "webodf/editor path not defined in dojoConfig");
+                    editorInstance = new Editor("mainContainer", editorOptions);
+				    editorInstance.openDocument(args.docUrl, startEditing);
+				});
             }
         );
     }

@@ -26,10 +26,10 @@
 
 define("webodf/editornew/Editor", [
     "webodf/editornew/EditorSession",
-    "webodf/editornew/MemberListView",
+    "webodf/editor/MemberListView",
     "dijit/layout/BorderContainer",
     "dijit/layout/ContentPane",
-    "webodf/editor/Tools"],
+    "webodf/editornew/Tools"],
 
     function (EditorSession,
         MemberListView,

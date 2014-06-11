@@ -314,7 +314,7 @@ var documentsMain = {
 			documentsMain.overlay.documentOverlay('show');
 		}
 		
-		var webodfSource = (oc_debug === true) ? 'webodf-rev' : 'webodf-rev';
+		var webodfSource = (oc_debug === true) ? 'webodf-debug' : 'webodf';
 		OC.addScript('documents', '3rdparty/webodf/' + webodfSource).done(function() {
 			OC.addScript('documents', 'revieweditor').done(function() {
 				// preload stuff in the background
