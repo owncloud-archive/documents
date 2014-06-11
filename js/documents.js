@@ -440,6 +440,7 @@ var documentsMain = {
 	},
 	
 	testAnn : function(){
+		$(document.body).addClass('documents-review claro');
 		$(document.body).prepend(documentsMain.UI.container);
 		webodfEditor.boot({docUrl:'/~deo/oc6/index.php/apps/files/download/New Document (5).odt'});
 	},

@@ -149,9 +149,6 @@ define("webodf/editornew/Tools", [
                 // Paragraph Style Selector
                 //currentStyle = createTool(CurrentStyle, args.paragraphStyleSelectingEnabled);
 
-                // Zoom Level Selector
-                zoomSlider = createTool(ZoomSlider, args.zoomingEnabled);
-
                 // Load
                 if (0 && loadOdtFile) {
                     loadButton = new Button({
@@ -222,11 +219,11 @@ define("webodf/editornew/Tools", [
                 imageInserter = createTool(ImageInserter, args.imageInsertingEnabled);
 
                 // close button
-                if (close) {
+                if (true) {
                     closeButton = new Button({
                         label: tr('Close'),
-                        showLabel: false,
-                        iconClass: 'dijitEditorIcon dijitEditorIconCancel',
+                        showLabel: true,
+                        iconClass: '',
                         style: {
                             float: 'right'
                         },
@@ -236,6 +233,9 @@ define("webodf/editornew/Tools", [
                     });
                     closeButton.placeAt(toolbar);
                 }
+				
+				 // Zoom Level Selector
+                zoomSlider = createTool(ZoomSlider, args.zoomingEnabled);
 
                 setEditorSession(editorSession);
             });

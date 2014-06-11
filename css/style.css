@@ -234,6 +234,24 @@
 	top: 87px;
 }
 
+/* Review mode */
+
+.documents-review #collaboration{
+	display:none;
+}
+#webodfeditor-toolbar0{
+	margin-top:31px;
+}
+
+.documents-review #mainContainer{
+	text-align: center;
+}
+
+#webodfeditor-editor0{
+	background-color: transparent;
+	padding:0;
+}
+
 /* override WebODF styling here */
 #mainContainer #collaboration{
 	float:right;position: relative;z-index: 1;
