@@ -314,18 +314,20 @@ var documentsMain = {
 			documentsMain.overlay.documentOverlay('show');
 		}
 		
-		var webodfSource = (oc_debug === true) ? 'webodf-debug' : 'webodf';
+		var webodfSource = (oc_debug === true) ? 'webodf-rev' : 'webodf-rev';
 		OC.addScript('documents', '3rdparty/webodf/' + webodfSource).done(function() {
-			// preload stuff in the background
-			require({}, ["dojo/ready"], function(ready) {
-				ready(function() {
-					require({}, ["webodf/editor/Editor"], function(Editor) {
-						runtime.setTranslator(function(s){return t('documents', s);});
-						documentsMain.ready = true;
-						if (fileId){
-							documentsMain.prepareSession();
-							documentsMain.joinSession(fileId);
-						}
+			OC.addScript('documents', 'revieweditor').done(function() {
+				// preload stuff in the background
+				require({}, ["dojo/ready"], function(ready) {
+					ready(function() {
+						require({}, ["webodf/editor/Editor"], function(Editor) {
+							runtime.setTranslator(function(s){return t('documents', s);});
+							documentsMain.ready = true;
+							if (fileId){
+								documentsMain.prepareSession();
+								documentsMain.joinSession(fileId);
+							}
+						});
 					});
 				});
 			});
@@ -435,6 +437,11 @@ var documentsMain = {
 			odfViewer.isDocuments = true;
 			odfViewer.onView(path);
 		});
+	},
+	
+	testAnn : function(){
+		$(document.body).prepend(documentsMain.UI.container);
+		webodfEditor.boot({docUrl:'/~deo/oc6/index.php/apps/files/download/New Document (5).odt'});
 	},
 			
 	onCreate: function(event){
@@ -740,6 +747,7 @@ dojoConfig = {
 	locale: usedLocale,
 	paths: {
 		"webodf/editor": OC.appswebroots.documents + "/js/3rdparty/webodf/editor",
+		"webodf/editornew": OC.appswebroots.documents + "/js/3rdparty/webodf/editornew",
 		"dijit": OC.appswebroots.documents + "/js/3rdparty/resources/dijit",
 		"dojox": OC.appswebroots.documents + "/js/3rdparty/resources/dojox",
 		"dojo": OC.appswebroots.documents + "/js/3rdparty/resources/dojo",
