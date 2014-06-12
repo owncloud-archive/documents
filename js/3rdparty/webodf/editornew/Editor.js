@@ -72,7 +72,7 @@ define("webodf/editornew/Editor", [
          *          closeCallback:function()}}
          */
         function Editor(mainContainerElementId, args) {
-
+               console.log(args.closeCallback)
             var self = this,
                 // Private
                 session,

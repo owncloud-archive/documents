@@ -30,6 +30,7 @@
 		</li>
 		<li class="progress icon-loading"><div><?php p($l->t('Loading documents...')); ?></div></li>
 		<li class="document template" data-id="" style="display:none;">
+			<button>Review</button>
 			<a target="_blank" href=""><label></label></a>
 		</li>
 	</ul>

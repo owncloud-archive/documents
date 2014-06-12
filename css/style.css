@@ -112,6 +112,12 @@
 	white-space: nowrap;
 }
 
+.document button{
+	position: absolute;
+	z-index: 50;
+	margin: 3px;
+}
+
 #odf-toolbar{
 	text-align: left;
 	position: absolute;

@@ -190,6 +190,12 @@ var webodfEditor = (function () {
         editorOptions.imageEditingEnabled = false;
         editorOptions.paragraphStyleSelectingEnabled = false;
         editorOptions.paragraphStyleEditingEnabled = false;
+		editorOptions.closeCallback = function(){
+	        editorInstance = null,
+            booting = false,
+            loadedFilename;
+			documentsMain.closeAnnotation();
+		};
 
         runtime.assert(args.docUrl, "docUrl needs to be specified");
         runtime.assert(editorInstance === null, "cannot boot with instanciated editor");

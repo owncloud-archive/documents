@@ -439,10 +439,17 @@ var documentsMain = {
 		});
 	},
 	
-	testAnn : function(){
+	openAnnotation : function(url){
 		$(document.body).addClass('documents-review claro');
 		$(document.body).prepend(documentsMain.UI.container);
-		webodfEditor.boot({docUrl:'/~deo/oc6/index.php/apps/files/download/New Document (5).odt'});
+		documentsMain.toolbar.documentToolbar('show');
+		$('#toolbar').hide();
+		webodfEditor.boot({docUrl:url});
+	},
+	
+	closeAnnotation : function(){
+		$(document.body).removeClass('documents-review claro');
+		$('#mainContainer').remove();
 	},
 			
 	onCreate: function(event){
@@ -795,8 +802,13 @@ $(document).ready(function() {
 	
 	$('.documentslist').on('click', 'li:not(.add-document)', function(event) {
 		event.preventDefault();
-
+		
 		if (documentsMain.isEditorMode){
+			return;
+		}
+		
+		if (event.target.nodeName == 'BUTTON'){
+			documentsMain.openAnnotation($(this).find('a').attr('href'));
 			return;
 		}
 		
