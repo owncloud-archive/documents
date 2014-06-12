@@ -191,6 +191,7 @@ var webodfEditor = (function () {
         editorOptions.paragraphStyleSelectingEnabled = false;
         editorOptions.paragraphStyleEditingEnabled = false;
 		editorOptions.closeCallback = function(){
+		    editorInstance.endEditing();
 	        editorInstance = null,
             booting = false,
             loadedFilename;

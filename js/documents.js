@@ -449,6 +449,8 @@ var documentsMain = {
 	
 	closeAnnotation : function(){
 		$(document.body).removeClass('documents-review claro');
+		documentsMain.toolbar.documentToolbar('hide');
+		$('#toolbar').show();
 		$('#mainContainer').remove();
 	},
 			
