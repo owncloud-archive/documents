@@ -9,8 +9,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ownCloud\n"
 "Report-Msgid-Bugs-To: translations@owncloud.org\n"
-"POT-Creation-Date: 2014-06-06 00:43-0400\n"
-"PO-Revision-Date: 2014-06-05 06:13+0000\n"
+"POT-Creation-Date: 2014-06-15 00:43-0400\n"
+"PO-Revision-Date: 2014-06-14 07:50+0000\n"
 "Last-Translator: Jiri Grönroos <jiri.gronroos@iki.fi>\n"
 "Language-Team: Finnish (Finland) (http://www.transifex.com/projects/p/owncloud/language/fi_FI/)\n"
 "MIME-Version: 1.0\n"
@@ -21,7 +21,7 @@ msgstr ""
 
 #: ajax/admin.php:22
 msgid "Format filter server is down or misconfigured"
-msgstr ""
+msgstr "Muotosuodatuspalvelin ei ole käytettävissä tai sen asetukset ovat väärin"
 
 #: ajax/documentController.php:43
 msgid "Can't create document"
@@ -291,31 +291,39 @@ msgstr "Muokkaa"
 msgid "guest"
 msgstr "vieras"
 
-#: templates/admin.php:8
+#: templates/admin.php:4
+msgid "MS Word support (requires openOffice/libreOffice)"
+msgstr "MS Word -tuki (vaatimuksena openOffice/libreOffice)"
+
+#: templates/admin.php:9
 msgid "Local"
 msgstr "Paikallinen"
 
-#: templates/admin.php:9
-msgid "openOffice/libreOffice is installed on this server"
-msgstr "OpenOffice tai LibreOffice on asennettu tälle palvelimelle"
+#: templates/admin.php:10
+msgid ""
+"openOffice/libreOffice is installed on this server. Path to binary is "
+"provided via preview_libreoffice_path in config.php"
+msgstr "openOffice/libreOffice on asennettu tälle palvelimelle. Polku suoritettavaan tiedostoon määritetään tiedoston config.php kohdassa preview_libreoffice_path"
 
-#: templates/admin.php:15
+#: templates/admin.php:16
 msgid "External"
 msgstr "Ulkoinen"
 
-#: templates/admin.php:16
-msgid "openOffice/libreOffice is installed on another server"
-msgstr "OpenOffice tai LibreOffice on asennettu toiselle palvelimelle"
+#: templates/admin.php:17
+msgid ""
+"openOffice/libreOffice is installed on external server running a format "
+"filter server"
+msgstr "openOffice/libreOffice on asennettu erillisille palvelimelle, joka tarjoaa muotosuodatuspalvelimen ominaisuudet"
 
-#: templates/admin.php:21
+#: templates/admin.php:22
 msgid "scheme://domain.tld[:port]"
 msgstr ""
 
-#: templates/admin.php:24
+#: templates/admin.php:25
 msgid "Server URL"
 msgstr "Palvelimen osoite"
 
-#: templates/admin.php:26
+#: templates/admin.php:27
 msgid "Apply"
 msgstr "Toteuta"
 

@@ -9,8 +9,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: ownCloud\n"
 "Report-Msgid-Bugs-To: translations@owncloud.org\n"
-"POT-Creation-Date: 2014-06-06 00:43-0400\n"
-"PO-Revision-Date: 2014-06-05 06:13+0000\n"
+"POT-Creation-Date: 2014-06-16 00:43-0400\n"
+"PO-Revision-Date: 2014-06-15 17:02+0000\n"
 "Last-Translator: Miguel Anxo Bouzada <mbouzada@gmail.com>\n"
 "Language-Team: Galician (http://www.transifex.com/projects/p/owncloud/language/gl/)\n"
 "MIME-Version: 1.0\n"
@@ -291,31 +291,39 @@ msgstr "Editar"
 msgid "guest"
 msgstr "convidado"
 
-#: templates/admin.php:8
+#: templates/admin.php:4
+msgid "MS Word support (requires openOffice/libreOffice)"
+msgstr "Compatibilidade con MS Word (require OpenOffice/LibreOffice)"
+
+#: templates/admin.php:9
 msgid "Local"
 msgstr "Local"
 
-#: templates/admin.php:9
-msgid "openOffice/libreOffice is installed on this server"
-msgstr "O openOffice/libreOffice está instalado neste servidor"
+#: templates/admin.php:10
+msgid ""
+"openOffice/libreOffice is installed on this server. Path to binary is "
+"provided via preview_libreoffice_path in config.php"
+msgstr "OpenOffice/LibreOffice está instalado neste servidor. A ruta ao binario fornecese mediante preview_libreoffice_path en config.php"
 
-#: templates/admin.php:15
+#: templates/admin.php:16
 msgid "External"
 msgstr "Externo"
 
-#: templates/admin.php:16
-msgid "openOffice/libreOffice is installed on another server"
-msgstr "O openOffice/libreOffice está instalado noutro servidor"
+#: templates/admin.php:17
+msgid ""
+"openOffice/libreOffice is installed on external server running a format "
+"filter server"
+msgstr "OpenOffice/LibreOffice está instalado nun servidor externo executando un servidor de filtro de formato"
 
-#: templates/admin.php:21
+#: templates/admin.php:22
 msgid "scheme://domain.tld[:port]"
 msgstr "scheme://dominio.tld[:porto]"
 
-#: templates/admin.php:24
+#: templates/admin.php:25
 msgid "Server URL"
 msgstr "URL do servidor"
 
-#: templates/admin.php:26
+#: templates/admin.php:27
 msgid "Apply"
 msgstr "Aplicar"
 

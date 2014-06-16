@@ -1,4 +1,4 @@
-/* globals FileList, FileActions, oc_debug */
+/* globals FileList, OCA.Files.fileActions, oc_debug */
 var odfViewer = {
 	isDocuments : false,
 	supportedMimesRead: [
@@ -35,13 +35,13 @@ var odfViewer = {
 			);
 		}
 		$('#fileList tr').each(function () {
-			FileActions.display($(this).children('td.filename'));
+			OCA.Files.fileActions.display($(this).children('td.filename'));
 		});
 	},
 	
 	dispatch : function(filename){
-		if (odfViewer.supportedMimesUpdate.indexOf(FileActions.getCurrentMimeType()) !== -1
-		 && FileActions.getCurrentPermissions() & OC.PERMISSION_UPDATE
+		if (odfViewer.supportedMimesUpdate.indexOf(OCA.Files.fileActions.getCurrentMimeType()) !== -1
+		 && OCA.Files.fileActions.getCurrentPermissions() & OC.PERMISSION_UPDATE
 		){
 			odfViewer.onEdit(filename);
 		} else {
@@ -50,13 +50,13 @@ var odfViewer = {
 	},
 	
 	onEdit : function(){
-		var fileId = FileActions.currentFile.parent().attr('data-id');
-		window.open(OC.linkTo('documents', 'index.php') + '#' + fileId);
+		var fileId = OCA.Files.fileActions.currentFile.parent().attr('data-id');
+		window.location = OC.linkTo('documents', 'index.php') + '#' + fileId;
 	},
 			
 	onView: function(filename) {
 		var webodfSource = (oc_debug === true) ? 'webodf-debug' : 'webodf',
-		attachTo = odfViewer.isDocuments ? '#documents-content' : '#app-content-files',
+		attachTo = odfViewer.isDocuments ? '#documents-content' : '#controls',
 		attachToolbarTo = odfViewer.isDocuments ? '#content-wrapper' : '#controls';
 
 		if (odfViewer.isDocuments){
@@ -109,7 +109,10 @@ var odfViewer = {
 };
 
 $(document).ready(function() {
-	if (typeof FileActions !== 'undefined') {
+	if ( typeof OCA !== 'undefined' 
+		&& typeof OCA.Files !== 'undefined'
+		&& typeof OCA.Files.fileActions !== 'undefined'
+	) {
 		$.post(
 			OC.filePath('documents', 'ajax', 'mimes.php'),
 			{},
