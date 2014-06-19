@@ -43,6 +43,7 @@ OC::$CLASSPATH['OCA\Documents\Download_Range'] = 'documents/lib/download/range.p
 OC::$CLASSPATH['OCA\Documents\Db_Session'] = 'documents/lib/db/session.php';
 OC::$CLASSPATH['OCA\Documents\Db_Member'] = 'documents/lib/db/member.php';
 OC::$CLASSPATH['OCA\Documents\Db_Op'] = 'documents/lib/db/op.php';
+OC::$CLASSPATH['OCA\Documents\Db_Review'] = 'documents/lib/db/review.php';
 OC::$CLASSPATH['OCA\Documents\Filter_Office'] = 'documents/lib/filter/office.php';
 
 //Script for registering file actions
