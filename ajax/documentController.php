@@ -82,6 +82,27 @@ class DocumentController extends Controller{
 			'message' => Config::getL10n()->t('You don\'t have permission to rename this document')
 		));
 	}
+	
+	public static function canReview($args){
+		self::preDispatch();
+		$fileId = intval(Helper::getArrayValueByKey($args, 'file_id', 0));
+		$shareWith = Helper::getArrayValueByKey($_POST, 'share_with');
+		\OCP\JSON::success(array('canReview'=> Db_Review::canReview($fileId, $shareWith)));
+	}
+	
+	public static function updateReview($args){
+		self::preDispatch();
+		$fileId = intval(Helper::getArrayValueByKey($args, 'file_id', 0));
+		$shareWith = Helper::getArrayValueByKey($_POST, 'share_with');
+		$reviewAllowed = (bool) intval(Helper::getArrayValueByKey($_POST, 'can_review', 0));
+		
+		if ($reviewAllowed){
+			Db_Review::addEntry($fileId, $shareWith);
+		} else {
+			Db_Review::removeEntry($fileId, $shareWith);
+		}
+		\OCP\JSON::success(array('canReview'=> Db_Review::canReview($fileId, $shareWith)));
+	}
 
 	/**
 	 * lists the documents the user has access to (including shared files, once the code in core has been fixed)

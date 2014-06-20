@@ -34,6 +34,14 @@ $this->create('documents_documents_list', 'ajax/documents/list')
 	->get()
 	->action('\OCA\Documents\DocumentController', 'listAll')
 ;
+$this->create('documents_review_status', 'ajax/document/can_review/{file_id}')
+	->post()
+	->action('\OCA\Documents\DocumentController', 'canReview')
+;
+$this->create('documents_review_update', 'ajax/document/update_review/{file_id}')
+	->post()
+	->action('\OCA\Documents\DocumentController', 'updateReview')
+;
 
 /**
  * Session routes
