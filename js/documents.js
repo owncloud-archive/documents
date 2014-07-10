@@ -290,6 +290,38 @@ var documentsMain = {
 	onStartup: function() {
 		var fileId;
 		"use strict";
+		(function() {
+			var showLink = OC.Share.showLink;
+			OC.Share.showLink = function() {
+				var r = showLink.apply( this, arguments );
+				$('#linkText').val( $('#linkText').val().replace('service=files', 'service=documents') );
+				return r;
+			};
+			
+			var showDropDown = OC.Share.showDropDown;
+			OC.Share.showDropDown = function(){
+				var r = showDropDown.apply( this, arguments );
+				$('.cruds').append('<label><input type="checkbox" name="review" class="permissions" ' + '' + ' data-permissions="0" />'+t('documents', 'review only')+'</label>');
+				return r;
+			};
+				
+			var addShareWith = OC.Share.addShareWith;
+			OC.Share.addShareWith = function(){
+				var r = addShareWith.apply( this, arguments );
+				$('.cruds').append('<label><input type="checkbox" name="review" class="permissions" ' + '' + ' data-permissions="0" />'+t('documents', 'review only')+'</label>');
+				return r;
+			};
+				
+			var setPermissions = OC.Share.setPermissions;
+			OC.Share.setPermissions = function(){
+				var r = setPermissions.apply( this, arguments );
+				var canReview = $('.permissions').filter('input[name="review"]').is(':checked');
+				console.log(canReview);
+				return r;
+			};
+		})();
+		
+		
 		documentsMain.useUnstable = $('#webodf-unstable').val()==='true';
 		documentsMain.UI.init();
 		
@@ -316,16 +348,18 @@ var documentsMain = {
 		
 		var webodfSource = (oc_debug === true) ? 'webodf-debug' : 'webodf';
 		OC.addScript('documents', '3rdparty/webodf/' + webodfSource).done(function() {
-			// preload stuff in the background
-			require({}, ["dojo/ready"], function(ready) {
-				ready(function() {
-					require({}, ["webodf/editor/Editor"], function(Editor) {
-						runtime.setTranslator(function(s){return t('documents', s);});
-						documentsMain.ready = true;
-						if (fileId){
-							documentsMain.prepareSession();
-							documentsMain.joinSession(fileId);
-						}
+			OC.addScript('documents', 'revieweditor').done(function() {
+				// preload stuff in the background
+				require({}, ["dojo/ready"], function(ready) {
+					ready(function() {
+						require({}, ["webodf/editor/Editor"], function(Editor) {
+							runtime.setTranslator(function(s){return t('documents', s);});
+							documentsMain.ready = true;
+							if (fileId){
+								documentsMain.prepareSession();
+								documentsMain.joinSession(fileId);
+							}
+						});
 					});
 				});
 			});
@@ -436,6 +470,21 @@ var documentsMain = {
 			odfViewer.onView(path);
 		});
 	},
+	
+	openAnnotation : function(url){
+		$(document.body).addClass('documents-review claro');
+		$(document.body).prepend(documentsMain.UI.container);
+		documentsMain.toolbar.documentToolbar('show');
+		$('#toolbar').hide();
+		webodfEditor.boot({docUrl:url});
+	},
+	
+	closeAnnotation : function(){
+		$(document.body).removeClass('documents-review claro');
+		documentsMain.toolbar.documentToolbar('hide');
+		$('#toolbar').show();
+		$('#mainContainer').remove();
+	},
 			
 	onCreate: function(event){
 		event.preventDefault();
@@ -467,15 +516,6 @@ var documentsMain = {
 		if (OC.Share.droppedDown) {
 			OC.Share.hideDropDown();
 		} else {
-			(function() {
-				var target = OC.Share.showLink;
-				OC.Share.showLink = function() {
-					var r = target.apply( this, arguments );
-					$('#linkText').val( $('#linkText').val().replace('service=files', 'service=documents') );
-					return r;
-				};
-			})();
-
 			OC.Share.showDropDown(
 				'file', 
 				parent.location.hash.replace(/\W*/g, ''),
@@ -736,6 +776,7 @@ dojoConfig = {
 	locale: usedLocale,
 	paths: {
 		"webodf/editor": OC.appswebroots.documents + "/js/3rdparty/webodf/editor",
+		"webodf/editornew": OC.appswebroots.documents + "/js/3rdparty/webodf/editornew",
 		"dijit": OC.appswebroots.documents + "/js/3rdparty/resources/dijit",
 		"dojox": OC.appswebroots.documents + "/js/3rdparty/resources/dojox",
 		"dojo": OC.appswebroots.documents + "/js/3rdparty/resources/dojo",
@@ -780,10 +821,27 @@ $(document).ready(function() {
 	documentsMain.overlay = $('<div id="documents-overlay" class="icon-loading"></div><div id="documents-overlay-below" class="icon-loading-dark"></div>').documentOverlay();
 	documentsMain.toolbar = $('<div id="odf-toolbar" class="dijitToolbar"></div>').documentToolbar();
 	
+	$('#odf-toolbar').on('click', 'input[name=review]', function(event) {
+		if ($(this).is(':checked')){
+			$('input[name=update]').attr('checked', false);
+			$('input[name=edit]').attr('checked', false);
+		}
+	});
+	$('#odf-toolbar').on('click', 'input[name=edit]', function(event) {
+		if ($(this).is(':checked')){
+			$('input[name=review]').attr('checked', false);
+		}
+	});
+	
 	$('.documentslist').on('click', 'li:not(.add-document)', function(event) {
 		event.preventDefault();
-
+		
 		if (documentsMain.isEditorMode){
+			return;
+		}
+		
+		if (event.target.nodeName == 'BUTTON'){
+			documentsMain.openAnnotation($(this).find('a').attr('href'));
 			return;
 		}
 		

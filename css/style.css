@@ -112,6 +112,12 @@
 	white-space: nowrap;
 }
 
+.document button{
+	position: absolute;
+	z-index: 50;
+	margin: 3px;
+}
+
 #odf-toolbar{
 	text-align: left;
 	position: absolute;
@@ -232,6 +238,24 @@
 	width: 95%;
 	position: absolute;
 	top: 87px;
+}
+
+/* Review mode */
+
+.documents-review #collaboration{
+	display:none;
+}
+#webodfeditor-toolbar0{
+	margin-top:31px;
+}
+
+.documents-review #mainContainer{
+	text-align: center;
+}
+
+#webodfeditor-editor0{
+	background-color: transparent;
+	padding:0;
 }
 
 /* override WebODF styling here */

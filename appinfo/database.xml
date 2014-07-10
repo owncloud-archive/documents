@@ -178,36 +178,16 @@
 		</declaration>
 	</table>
 	<table>
-		<name>*dbprefix*documents_invite</name>
+		<name>*dbprefix*documents_review</name>
 		<declaration>
 			
 			<field>
-				<name>es_id</name>
-				<type>text</type>
-				<notnull>true</notnull>
-				<length>64</length>
-				<comments>Related editing session id</comments>
-			</field>
-			<field>
-				<name>uid</name>
-				<type>text</type>
-				<length>64</length>
-			</field>
-			<field>
-				<name>status</name>
+				<name>share_id</name>
 				<type>integer</type>
 				<default>0</default>
-				<length>2</length>
-			</field>
-			<field>
-				<name>sent_on</name>
-				<type>integer</type>
-				<default></default>
-				<notnull>false</notnull>
-				<unsigned>true</unsigned>
+				<notnull>true</notnull>
 				<length>4</length>
-			</field>
-			
+			</field>	
 		</declaration>
 	</table>
 	<table>
