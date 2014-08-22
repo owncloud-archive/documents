@@ -1,5 +1,4 @@
 /**
- * @license
  * Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
  *
  * @licstart
@@ -25,7 +24,7 @@
 
 /*global XMLHttpRequest, runtime, core, ops*/
 
-define("webodf/editor/server/pullbox/Server", [], function () {
+define("webodf/editor/backend/pullbox/Server", [], function () {
     "use strict";
 
     runtime.loadClass("core.Base64");
@@ -89,6 +88,7 @@ runtime.log("Sending message to server: "+messageString);
             if (token) {
                 xhr.setRequestHeader("requesttoken", token);
             }
+            xhr.setRequestHeader("content-type", "application/json");
             xhr.onreadystatechange = handleResult;
             xhr.timeout = serverCallTimeout;
             // TODO: seems handleResult is called on timeout as well, with xhr.status === 0

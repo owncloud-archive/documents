@@ -1,4 +1,30 @@
-var webodf_version = "0.4.2-2050-g8d8fc02";
+/*
+
+ This is a generated file. DO NOT EDIT.
+
+ Copyright (C) 2010-2014 KO GmbH <copyright@kogmbh.com>
+
+ @licstart
+ This file is the compiled version of the WebODF library.
+
+ WebODF is free software: you can redistribute it and/or modify it
+ under the terms of the GNU Affero General Public License (GNU AGPL)
+ as published by the Free Software Foundation, either version 3 of
+ the License, or (at your option) any later version.
+
+ WebODF is distributed in the hope that it will be useful, but
+ WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU Affero General Public License for more details.
+
+ You should have received a copy of the GNU Affero General Public License
+ along with WebODF.  If not, see <http://www.gnu.org/licenses/>.
+ @licend
+
+ @source: http://www.webodf.org/
+ @source: https://github.com/kogmbh/WebODF/
+*/
+var webodf_version = "0.5.2-114-g2ab94c5";
 function Runtime() {
 }
 Runtime.prototype.getVariable = function(name) {
@@ -53,7 +79,7 @@ Runtime.prototype.requestAnimationFrame = function(callback) {
 };
 Runtime.prototype.cancelAnimationFrame = function(requestId) {
 };
-Runtime.prototype.assert = function(condition, message, callback) {
+Runtime.prototype.assert = function(condition, message) {
 };
 var IS_COMPILED_CODE = true;
 Runtime.byteArrayToString = function(bytearray, encoding) {
@@ -91,7 +117,7 @@ Runtime.byteArrayToString = function(bytearray, encoding) {
           }
         }
       }
-      if(chars.length === 1E3) {
+      if(chars.length >= 1E3) {
         s += String.fromCharCode.apply(null, chars);
         chars.length = 0
       }
@@ -129,6 +155,12 @@ Runtime.getFunctionName = function getFunctionName(f) {
     return m && m[1]
   }
   return f.name
+};
+Runtime.assert = function(condition, message) {
+  if(!condition) {
+    this.log("alert", "ASSERTION FAILED:\n" + message);
+    throw new Error(message);
+  }
 };
 function BrowserRuntime(logoutput) {
   var self = this, cache = {};
@@ -248,17 +280,8 @@ function BrowserRuntime(logoutput) {
         console.log(msg)
       }
     }
-    if(category === "alert") {
+    if(self.enableAlerts && category === "alert") {
       alert(msg)
-    }
-  }
-  function assert(condition, message, callback) {
-    if(!condition) {
-      log("alert", "ASSERTION FAILED:\n" + message);
-      if(callback) {
-        callback()
-      }
-      throw message;
     }
   }
   function arrayToUint8Array(buffer) {
@@ -490,7 +513,8 @@ function BrowserRuntime(logoutput) {
   this.isFile = isFile;
   this.getFileSize = getFileSize;
   this.log = log;
-  this.assert = assert;
+  this.enableAlerts = true;
+  this.assert = Runtime.assert;
   this.setTimeout = function(f, msec) {
     return setTimeout(function() {
       f()
@@ -671,15 +695,7 @@ function NodeJSRuntime() {
     }
   }
   this.log = log;
-  function assert(condition, message, callback) {
-    if(!condition) {
-      process.stderr.write("ASSERTION FAILED: " + message);
-      if(callback) {
-        callback()
-      }
-    }
-  }
-  this.assert = assert;
+  this.assert = Runtime.assert;
   this.setTimeout = function(f, msec) {
     return setTimeout(function() {
       f()
@@ -863,15 +879,7 @@ function RhinoRuntime() {
     }
   }
   this.log = log;
-  function assert(condition, message, callback) {
-    if(!condition) {
-      log("alert", "ASSERTION FAILED: " + message);
-      if(callback) {
-        callback()
-      }
-    }
-  }
-  this.assert = assert;
+  this.assert = Runtime.assert;
   this.setTimeout = function(f) {
     f();
     return 0
@@ -927,6 +935,14 @@ var gui = {};
 var xmldom = {};
 var odf = {};
 var ops = {};
+var webodf = {};
+(function() {
+  function getWebODFVersion() {
+    var version = String(typeof webodf_version) !== "undefined" ? webodf_version : "From Source";
+    return version
+  }
+  webodf.Version = getWebODFVersion()
+})();
 (function() {
   function loadDependenciesFromManifest(dir, dependencies, expectFail) {
     var path = dir + "/manifest.json", content, list, manifest, m;
@@ -989,7 +1005,6 @@ var ops = {};
   }
   function addContent(path, content) {
     content += "\n//# sourceURL=" + path;
-    content += "\n//@ sourceURL=" + path;
     return content
   }
   function loadFiles(paths) {
@@ -1117,43 +1132,47 @@ var ops = {};
     }
   }
 })(String(typeof arguments) !== "undefined" && arguments);
-core.Async = function Async() {
-  this.forEach = function(items, f, callback) {
-    var i, l = items.length, itemsDone = 0;
-    function end(err) {
-      if(itemsDone !== l) {
-        if(err) {
-          itemsDone = l;
-          callback(err)
-        }else {
-          itemsDone += 1;
-          if(itemsDone === l) {
-            callback(null)
+(function() {
+  function createASyncSingleton() {
+    function forEach(items, f, callback) {
+      var i, l = items.length, itemsDone = 0;
+      function end(err) {
+        if(itemsDone !== l) {
+          if(err) {
+            itemsDone = l;
+            callback(err)
+          }else {
+            itemsDone += 1;
+            if(itemsDone === l) {
+              callback(null)
+            }
           }
         }
       }
-    }
-    for(i = 0;i < l;i += 1) {
-      f(items[i], end)
-    }
-  };
-  this.destroyAll = function(items, callback) {
-    function destroy(itemIndex, err) {
-      if(err) {
-        callback(err)
-      }else {
-        if(itemIndex < items.length) {
-          items[itemIndex](function(err) {
-            destroy(itemIndex + 1, err)
-          })
-        }else {
-          callback()
-        }
+      for(i = 0;i < l;i += 1) {
+        f(items[i], end)
       }
     }
-    destroy(0, undefined)
+    function destroyAll(items, callback) {
+      function destroy(itemIndex, err) {
+        if(err) {
+          callback(err)
+        }else {
+          if(itemIndex < items.length) {
+            items[itemIndex](function(err) {
+              destroy(itemIndex + 1, err)
+            })
+          }else {
+            callback()
+          }
+        }
+      }
+      destroy(0, undefined)
+    }
+    return{forEach:forEach, destroyAll:destroyAll}
   }
-};
+  core.Async = createASyncSingleton()
+})();
 function makeBase64() {
   function makeB64tab(bin) {
     var t = {}, i, l;
@@ -1441,7 +1460,7 @@ core.ByteArrayWriter = function ByteArrayWriter(encoding) {
   }
 };
 core.CSSUnits = function CSSUnits() {
-  var self = this, sizemap = {"in":1, "cm":2.54, "mm":25.4, "pt":72, "pc":12};
+  var self = this, sizemap = {"in":1, "cm":2.54, "mm":25.4, "pt":72, "pc":12, "px":96};
   this.convert = function(value, oldUnit, newUnit) {
     return value * sizemap[newUnit] / sizemap[oldUnit]
   };
@@ -1450,9 +1469,7 @@ core.CSSUnits = function CSSUnits() {
     if(measure && newUnit) {
       value = parseFloat(measure);
       oldUnit = measure.replace(value.toString(), "");
-      newMeasure = self.convert(value, oldUnit, newUnit).toString()
-    }else {
-      newMeasure = ""
+      newMeasure = self.convert(value, oldUnit, newUnit)
     }
     return newMeasure
   };
@@ -1460,43 +1477,6 @@ core.CSSUnits = function CSSUnits() {
     return measure.substr(measure.length - 2, measure.length)
   }
 };
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 (function() {
   var browserQuirks;
   function getBrowserQuirks() {
@@ -1650,8 +1630,35 @@ core.CSSUnits = function CSSUnits() {
       return range1.compareBoundaryPoints(Range.END_TO_START, range2) <= 0 && range1.compareBoundaryPoints(Range.START_TO_END, range2) >= 0
     }
     this.rangesIntersect = rangesIntersect;
+    function rangeIntersection(range1, range2) {
+      var newRange;
+      if(rangesIntersect(range1, range2)) {
+        newRange = (range1.cloneRange());
+        if(range1.compareBoundaryPoints(Range.START_TO_START, range2) === -1) {
+          newRange.setStart(range2.startContainer, range2.startOffset)
+        }
+        if(range1.compareBoundaryPoints(Range.END_TO_END, range2) === 1) {
+          newRange.setEnd(range2.endContainer, range2.endOffset)
+        }
+      }
+      return newRange
+    }
+    this.rangeIntersection = rangeIntersection;
     function maximumOffset(node) {
       return node.nodeType === Node.TEXT_NODE ? (node).length : node.childNodes.length
+    }
+    function moveToNonRejectedNode(walker, root, nodeFilter) {
+      var node = walker.currentNode;
+      if(node !== root) {
+        node = node.parentNode;
+        while(node && node !== root) {
+          if(nodeFilter(node) === NodeFilter.FILTER_REJECT) {
+            walker.currentNode = node
+          }
+          node = node.parentNode
+        }
+      }
+      return walker.currentNode
     }
     function getNodesInRange(range, nodeFilter, whatToShow) {
       var document = range.startContainer.ownerDocument, elements = [], rangeRoot = range.commonAncestorContainer, root = (rangeRoot.nodeType === Node.TEXT_NODE ? rangeRoot.parentNode : rangeRoot), treeWalker = document.createTreeWalker(root, whatToShow, nodeFilter, false), currentNode, lastNodeInRange, endNodeCompareFlags, comparePositionResult;
@@ -1676,17 +1683,29 @@ core.CSSUnits = function CSSUnits() {
           treeWalker.currentNode = currentNode
         }
       }
-      if(currentNode && nodeFilter(currentNode) === NodeFilter.FILTER_ACCEPT) {
-        elements.push(currentNode)
-      }
-      currentNode = treeWalker.nextNode();
-      while(currentNode) {
-        comparePositionResult = lastNodeInRange.compareDocumentPosition(currentNode);
-        if(comparePositionResult !== 0 && (comparePositionResult & endNodeCompareFlags) === 0) {
-          break
+      if(currentNode) {
+        currentNode = moveToNonRejectedNode(treeWalker, root, nodeFilter);
+        switch(nodeFilter((currentNode))) {
+          case NodeFilter.FILTER_REJECT:
+            currentNode = treeWalker.nextSibling();
+            while(!currentNode && treeWalker.parentNode()) {
+              currentNode = treeWalker.nextSibling()
+            }
+            break;
+          case NodeFilter.FILTER_SKIP:
+            currentNode = treeWalker.nextNode();
+            break;
+          default:
+            break
         }
-        elements.push(currentNode);
-        currentNode = treeWalker.nextNode()
+        while(currentNode) {
+          comparePositionResult = lastNodeInRange.compareDocumentPosition(currentNode);
+          if(comparePositionResult !== 0 && (comparePositionResult & endNodeCompareFlags) === 0) {
+            break
+          }
+          elements.push(currentNode);
+          currentNode = treeWalker.nextNode()
+        }
       }
       return elements
     }
@@ -1763,6 +1782,16 @@ core.CSSUnits = function CSSUnits() {
       return e
     }
     this.getElementsByTagNameNS = getElementsByTagNameNS;
+    function getElementsByTagName(node, tagName) {
+      var e = [], list, i, l;
+      list = node.getElementsByTagName(tagName);
+      e.length = l = list.length;
+      for(i = 0;i < l;i += 1) {
+        e[i] = (list.item(i))
+      }
+      return e
+    }
+    this.getElementsByTagName = getElementsByTagName;
     function containsNode(parent, descendant) {
       return parent === descendant || (parent).contains((descendant))
     }
@@ -1800,6 +1829,9 @@ core.CSSUnits = function CSSUnits() {
       return inputNumber / zoomLevel
     }
     this.adaptRangeDifferenceToZoomLevel = adaptRangeDifferenceToZoomLevel;
+    this.translateRect = function(child, parent, zoomLevel) {
+      return{top:adaptRangeDifferenceToZoomLevel(child.top - parent.top, zoomLevel), left:adaptRangeDifferenceToZoomLevel(child.left - parent.left, zoomLevel), bottom:adaptRangeDifferenceToZoomLevel(child.bottom - parent.top, zoomLevel), right:adaptRangeDifferenceToZoomLevel(child.right - parent.left, zoomLevel), width:adaptRangeDifferenceToZoomLevel(child.width, zoomLevel), height:adaptRangeDifferenceToZoomLevel(child.height, zoomLevel)}
+    };
     function getBoundingClientRect(node) {
       var doc = (node.ownerDocument), quirks = getBrowserQuirks(), range, element, rect, body = doc.body;
       if(quirks.unscaledRangeClientRects === false || quirks.rangeBCRIgnoresElementBCR) {
@@ -1883,6 +1915,15 @@ core.CSSUnits = function CSSUnits() {
       })
     }
     this.mapObjOntoNode = mapObjOntoNode;
+    function cloneEvent(event) {
+      var e = Object.create(null);
+      Object.keys((event)).forEach(function(x) {
+        e[x] = event[x]
+      });
+      e.prototype = event.constructor.prototype;
+      return(e)
+    }
+    this.cloneEvent = cloneEvent;
     this.getDirectChild = getDirectChild;
     function init(self) {
       var appVersion, webKitOrSafari, ie, window = runtime.getWindow();
@@ -1897,8 +1938,7 @@ core.CSSUnits = function CSSUnits() {
       }
     }
     init(this)
-  };
-  return core.DomUtils
+  }
 })();
 core.Cursor = function Cursor(document, memberId) {
   var cursorns = "urn:webodf:names:cursor", cursorNode = document.createElementNS(cursorns, "cursor"), anchorNode = document.createElementNS(cursorns, "anchor"), forwardSelection, recentlyModifiedNodes = [], selectedRange = (document.createRange()), isCollapsed, domUtils = new core.DomUtils;
@@ -1992,84 +2032,10 @@ core.Cursor = function Cursor(document, memberId) {
   }
   init()
 };
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 core.Destroyable = function Destroyable() {
 };
 core.Destroyable.prototype.destroy = function(callback) {
 };
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 core.EventNotifier = function EventNotifier(eventIds) {
   var eventListener = {};
   this.emit = function(eventId, args) {
@@ -2093,53 +2059,31 @@ core.EventNotifier = function EventNotifier(eventIds) {
       eventListener[eventId].splice(cbIndex, 1)
     }
   };
+  function register(eventId) {
+    runtime.assert(!eventListener.hasOwnProperty(eventId), 'Duplicated event ids: "' + eventId + '" registered more than once.');
+    eventListener[eventId] = []
+  }
+  this.register = register;
   function init() {
-    var i, eventId;
-    for(i = 0;i < eventIds.length;i += 1) {
-      eventId = eventIds[i];
-      runtime.assert(!eventListener.hasOwnProperty(eventId), 'Duplicated event ids: "' + eventId + '" registered more than once.');
-      eventListener[eventId] = []
+    if(eventIds) {
+      eventIds.forEach(register)
     }
   }
   init()
 };
-/*
-
- Copyright (C) 2012 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
+core.LazyProperty = function(valueLoader) {
+  var cachedValue, valueLoaded = false;
+  this.value = function() {
+    if(!valueLoaded) {
+      cachedValue = valueLoader();
+      valueLoaded = true
+    }
+    return cachedValue
+  };
+  this.reset = function() {
+    valueLoaded = false
+  }
+};
 core.LoopWatchDog = function LoopWatchDog(timeout, maxChecks) {
   var startTime = Date.now(), checks = 0;
   function check() {
@@ -2425,9 +2369,6 @@ core.PositionFilter = function PositionFilter() {
 core.PositionFilter.FilterResult = {FILTER_ACCEPT:1, FILTER_REJECT:2, FILTER_SKIP:3};
 core.PositionFilter.prototype.acceptPosition = function(point) {
 };
-(function() {
-  return core.PositionFilter
-})();
 core.PositionFilterChain = function PositionFilterChain() {
   var filterChain = [], FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT, FILTER_REJECT = core.PositionFilter.FilterResult.FILTER_REJECT;
   this.acceptPosition = function(iterator) {
@@ -2443,597 +2384,2049 @@ core.PositionFilterChain = function PositionFilterChain() {
     filterChain.push(filterInstance)
   }
 };
-core.zip_HuftNode = function() {
-  this.e = 0;
-  this.b = 0;
-  this.n = 0;
-  this.t = null
-};
-core.zip_HuftList = function() {
-  this.next = null;
-  this.list = null
-};
-core.RawInflate = function RawInflate() {
-  var zip_WSIZE = 32768;
-  var zip_STORED_BLOCK = 0;
-  var zip_lbits = 9;
-  var zip_dbits = 6;
-  var zip_slide = [];
-  var zip_wp;
-  var zip_fixed_tl = null;
-  var zip_fixed_td;
-  var zip_fixed_bl;
-  var zip_bit_buf;
-  var zip_bit_len;
-  var zip_method;
-  var zip_eof;
-  var zip_copy_leng;
-  var zip_copy_dist;
-  var zip_tl, zip_td;
-  var zip_bl, zip_bd;
-  var zip_inflate_data;
-  var zip_inflate_pos;
-  var zip_MASK_BITS = [0, 1, 3, 7, 15, 31, 63, 127, 255, 511, 1023, 2047, 4095, 8191, 16383, 32767, 65535];
-  var zip_cplens = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258, 0, 0];
-  var zip_cplext = [0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0, 99, 99];
-  var zip_cpdist = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577];
-  var zip_cpdext = [0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13];
-  var zip_border = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
-  function Zip_HuftBuild(b, n, s, d, e, mm) {
-    this.BMAX = 16;
-    this.N_MAX = 288;
-    this.status = 0;
-    this.root = null;
-    this.m = 0;
-    var a, c = new Array(this.BMAX + 1), el, f, g, h, i, j, k, lx = new Array(this.BMAX + 1), p, pidx, q, r = new core.zip_HuftNode, u = new Array(this.BMAX), v = new Array(this.N_MAX), w, x = new Array(this.BMAX + 1), xp, y, z, o, tail;
-    tail = this.root = null;
-    for(i = 0;i < c.length;i++) {
-      c[i] = 0
-    }
-    for(i = 0;i < lx.length;i++) {
-      lx[i] = 0
-    }
-    for(i = 0;i < u.length;i++) {
-      u[i] = null
-    }
-    for(i = 0;i < v.length;i++) {
-      v[i] = 0
-    }
-    for(i = 0;i < x.length;i++) {
-      x[i] = 0
-    }
-    el = n > 256 ? b[256] : this.BMAX;
-    p = b;
-    pidx = 0;
-    i = n;
-    do {
-      c[p[pidx]]++;
-      pidx++
-    }while(--i > 0);
-    if(c[0] === n) {
-      this.root = null;
-      this.m = 0;
-      this.status = 0;
-      return
-    }
-    for(j = 1;j <= this.BMAX;j++) {
-      if(c[j] !== 0) {
-        break
-      }
-    }
-    k = j;
-    if(mm < j) {
-      mm = j
-    }
-    for(i = this.BMAX;i !== 0;i--) {
-      if(c[i] !== 0) {
-        break
-      }
-    }
-    g = i;
-    if(mm > i) {
-      mm = i
-    }
-    for(y = 1 << j;j < i;j++, y <<= 1) {
-      y -= c[j];
-      if(y < 0) {
-        this.status = 2;
-        this.m = mm;
-        return
-      }
-    }
-    y -= c[i];
-    if(y < 0) {
-      this.status = 2;
-      this.m = mm;
-      return
-    }
-    c[i] += y;
-    x[1] = j = 0;
-    p = c;
-    pidx = 1;
-    xp = 2;
-    while(--i > 0) {
-      j += p[pidx++];
-      x[xp++] = j
-    }
-    p = b;
-    pidx = 0;
-    i = 0;
-    do {
-      j = p[pidx++];
-      if(j !== 0) {
-        v[x[j]++] = i
-      }
-    }while(++i < n);
-    n = x[g];
-    x[0] = i = 0;
-    p = v;
-    pidx = 0;
-    h = -1;
-    w = lx[0] = 0;
-    q = null;
-    z = 0;
-    k -= 1;
-    for(k += 1;k <= g;k++) {
-      a = c[k];
-      while(a-- > 0) {
-        while(k > w + lx[1 + h]) {
-          w += lx[1 + h];
-          h++;
-          z = g - w;
-          z = z > mm ? mm : z;
-          j = k - w;
-          f = 1 << j;
-          if(f > a + 1) {
-            f -= a + 1;
-            xp = k;
-            while(++j < z) {
-              f <<= 1;
-              if(f <= c[++xp]) {
-                break
+(function() {
+  function createRawInflateSingleton() {
+    var pako;
+    (function(e) {
+      pako = e()
+    })(function() {
+      var module, exports;
+      return function e(t, n, r) {
+        function s(o, u) {
+          if(!n[o]) {
+            if(!t[o]) {
+              throw new Error("Cannot find module '" + o + "'");
+            }
+            var f = n[o] = {exports:{}};
+            t[o][0].call(f.exports, function(e) {
+              var n = t[o][1][e];
+              return s(n ? n : e)
+            }, f, f.exports, e, t, n, r)
+          }
+          return n[o].exports
+        }
+        for(var o = 0;o < r.length;o++) {
+          s(r[o])
+        }
+        return s
+      }({1:[function(_dereq_, module, exports) {
+        var zlib_inflate = _dereq_("./zlib/inflate.js");
+        var utils = _dereq_("./utils/common");
+        var strings = _dereq_("./utils/strings");
+        var c = _dereq_("./zlib/constants");
+        var msg = _dereq_("./zlib/messages");
+        var zstream = _dereq_("./zlib/zstream");
+        var gzheader = _dereq_("./zlib/gzheader");
+        var Inflate = function(options) {
+          this.options = utils.assign({chunkSize:16384, windowBits:0, to:""}, options || {});
+          var opt = this.options;
+          if(opt.raw && (opt.windowBits >= 0 && opt.windowBits < 16)) {
+            opt.windowBits = -opt.windowBits;
+            if(opt.windowBits === 0) {
+              opt.windowBits = -15
+            }
+          }
+          if(opt.windowBits >= 0 && (opt.windowBits < 16 && !(options && options.windowBits))) {
+            opt.windowBits += 32
+          }
+          if(opt.windowBits > 15 && opt.windowBits < 48) {
+            if((opt.windowBits & 15) === 0) {
+              opt.windowBits |= 15
+            }
+          }
+          this.err = 0;
+          this.msg = "";
+          this.ended = false;
+          this.chunks = [];
+          this.strm = new zstream;
+          this.strm.avail_out = 0;
+          var status = zlib_inflate.inflateInit2(this.strm, opt.windowBits);
+          if(status !== c.Z_OK) {
+            throw new Error(msg[status]);
+          }
+          this.header = new gzheader;
+          zlib_inflate.inflateGetHeader(this.strm, this.header)
+        };
+        Inflate.prototype.push = function(data, mode) {
+          var strm = this.strm;
+          var chunkSize = this.options.chunkSize;
+          var status, _mode;
+          var next_out_utf8, tail, utf8str;
+          if(this.ended) {
+            return false
+          }
+          _mode = mode === ~~mode ? mode : mode === true ? c.Z_FINISH : c.Z_NO_FLUSH;
+          if(typeof data === "string") {
+            strm.input = strings.binstring2buf(data)
+          }else {
+            strm.input = data
+          }
+          strm.next_in = 0;
+          strm.avail_in = strm.input.length;
+          do {
+            if(strm.avail_out === 0) {
+              strm.output = new utils.Buf8(chunkSize);
+              strm.next_out = 0;
+              strm.avail_out = chunkSize
+            }
+            status = zlib_inflate.inflate(strm, c.Z_NO_FLUSH);
+            if(status !== c.Z_STREAM_END && status !== c.Z_OK) {
+              this.onEnd(status);
+              this.ended = true;
+              return false
+            }
+            if(strm.next_out) {
+              if(strm.avail_out === 0 || (status === c.Z_STREAM_END || strm.avail_in === 0 && _mode === c.Z_FINISH)) {
+                if(this.options.to === "string") {
+                  next_out_utf8 = strings.utf8border(strm.output, strm.next_out);
+                  tail = strm.next_out - next_out_utf8;
+                  utf8str = strings.buf2string(strm.output, next_out_utf8);
+                  strm.next_out = tail;
+                  strm.avail_out = chunkSize - tail;
+                  if(tail) {
+                    utils.arraySet(strm.output, strm.output, next_out_utf8, tail, 0)
+                  }
+                  this.onData(utf8str)
+                }else {
+                  this.onData(utils.shrinkBuf(strm.output, strm.next_out))
+                }
               }
-              f -= c[xp]
+            }
+          }while((strm.avail_in > 0 || strm.avail_out === 0) && status !== c.Z_STREAM_END);
+          if(status === c.Z_STREAM_END) {
+            _mode = c.Z_FINISH
+          }
+          if(_mode === c.Z_FINISH) {
+            status = zlib_inflate.inflateEnd(this.strm);
+            this.onEnd(status);
+            this.ended = true;
+            return status === c.Z_OK
+          }
+          return true
+        };
+        Inflate.prototype.onData = function(chunk) {
+          this.chunks.push(chunk)
+        };
+        Inflate.prototype.onEnd = function(status) {
+          if(status === c.Z_OK) {
+            if(this.options.to === "string") {
+              this.result = this.chunks.join("")
+            }else {
+              this.result = utils.flattenChunks(this.chunks)
             }
           }
-          if(w + j > el && w < el) {
-            j = el - w
+          this.chunks = [];
+          this.err = status;
+          this.msg = this.strm.msg
+        };
+        function inflate(input, options) {
+          var inflator = new Inflate(options);
+          inflator.push(input, true);
+          if(inflator.err) {
+            throw inflator.msg;
           }
-          z = 1 << j;
-          lx[1 + h] = j;
-          q = new Array(z);
-          for(o = 0;o < z;o++) {
-            q[o] = new core.zip_HuftNode
-          }
-          if(tail === null) {
-            tail = this.root = new core.zip_HuftList
-          }else {
-            tail = tail.next = new core.zip_HuftList
-          }
-          tail.next = null;
-          tail.list = q;
-          u[h] = q;
-          if(h > 0) {
-            x[h] = i;
-            r.b = lx[h];
-            r.e = 16 + j;
-            r.t = q;
-            j = (i & (1 << w) - 1) >> w - lx[h];
-            u[h - 1][j].e = r.e;
-            u[h - 1][j].b = r.b;
-            u[h - 1][j].n = (r).n;
-            u[h - 1][j].t = r.t
-          }
+          return inflator.result
         }
-        r.b = k - w;
-        if(pidx >= n) {
-          r.e = 99
-        }else {
-          if(p[pidx] < s) {
-            r.e = p[pidx] < 256 ? 16 : 15;
-            r.n = p[pidx++]
-          }else {
-            r.e = e[p[pidx] - s];
-            r.n = d[p[pidx++] - s]
-          }
+        function inflateRaw(input, options) {
+          options = options || {};
+          options.raw = true;
+          return inflate(input, options)
         }
-        f = 1 << k - w;
-        for(j = i >> w;j < z;j += f) {
-          q[j].e = r.e;
-          q[j].b = r.b;
-          q[j].n = (r).n;
-          q[j].t = r.t
-        }
-        for(j = 1 << k - 1;(i & j) !== 0;j >>= 1) {
-          i ^= j
-        }
-        i ^= j;
-        while((i & (1 << w) - 1) !== x[h]) {
-          w -= lx[h];
-          h--
-        }
-      }
-    }
-    this.m = lx[1];
-    this.status = y !== 0 && g !== 1 ? 1 : 0
-  }
-  function zip_GET_BYTE() {
-    if(zip_inflate_data.length === zip_inflate_pos) {
-      return-1
-    }
-    return zip_inflate_data[zip_inflate_pos++]
-  }
-  function zip_NEEDBITS(n) {
-    while(zip_bit_len < n) {
-      zip_bit_buf |= zip_GET_BYTE() << zip_bit_len;
-      zip_bit_len += 8
-    }
-  }
-  function zip_GETBITS(n) {
-    return zip_bit_buf & zip_MASK_BITS[n]
-  }
-  function zip_DUMPBITS(n) {
-    zip_bit_buf >>= n;
-    zip_bit_len -= n
-  }
-  function zip_inflate_codes(buff, off, size) {
-    var e, t, n;
-    if(size === 0) {
-      return 0
-    }
-    n = 0;
-    for(;;) {
-      zip_NEEDBITS(zip_bl);
-      t = zip_tl.list[zip_GETBITS(zip_bl)];
-      e = t.e;
-      while(e > 16) {
-        if(e === 99) {
-          return-1
-        }
-        zip_DUMPBITS(t.b);
-        e -= 16;
-        zip_NEEDBITS(e);
-        t = t.t[zip_GETBITS(e)];
-        e = t.e
-      }
-      zip_DUMPBITS(t.b);
-      if(e === 16) {
-        zip_wp &= zip_WSIZE - 1;
-        buff[off + n++] = zip_slide[zip_wp++] = t.n;
-        if(n === size) {
-          return size
-        }
-      }else {
-        if(e === 15) {
-          break
-        }
-        zip_NEEDBITS(e);
-        zip_copy_leng = t.n + zip_GETBITS(e);
-        zip_DUMPBITS(e);
-        zip_NEEDBITS(zip_bd);
-        t = zip_td.list[zip_GETBITS(zip_bd)];
-        e = t.e;
-        while(e > 16) {
-          if(e === 99) {
-            return-1
-          }
-          zip_DUMPBITS(t.b);
-          e -= 16;
-          zip_NEEDBITS(e);
-          t = t.t[zip_GETBITS(e)];
-          e = t.e
-        }
-        zip_DUMPBITS(t.b);
-        zip_NEEDBITS(e);
-        zip_copy_dist = zip_wp - t.n - zip_GETBITS(e);
-        zip_DUMPBITS(e);
-        while(zip_copy_leng > 0 && n < size) {
-          zip_copy_leng--;
-          zip_copy_dist &= zip_WSIZE - 1;
-          zip_wp &= zip_WSIZE - 1;
-          buff[off + n++] = zip_slide[zip_wp++] = zip_slide[zip_copy_dist++]
-        }
-        if(n === size) {
-          return size
-        }
-      }
-    }
-    zip_method = -1;
-    return n
-  }
-  function zip_inflate_stored(buff, off, size) {
-    var n;
-    n = zip_bit_len & 7;
-    zip_DUMPBITS(n);
-    zip_NEEDBITS(16);
-    n = zip_GETBITS(16);
-    zip_DUMPBITS(16);
-    zip_NEEDBITS(16);
-    if(n !== (~zip_bit_buf & 65535)) {
-      return-1
-    }
-    zip_DUMPBITS(16);
-    zip_copy_leng = n;
-    n = 0;
-    while(zip_copy_leng > 0 && n < size) {
-      zip_copy_leng--;
-      zip_wp &= zip_WSIZE - 1;
-      zip_NEEDBITS(8);
-      buff[off + n++] = zip_slide[zip_wp++] = zip_GETBITS(8);
-      zip_DUMPBITS(8)
-    }
-    if(zip_copy_leng === 0) {
-      zip_method = -1
-    }
-    return n
-  }
-  var zip_fixed_bd;
-  function zip_inflate_fixed(buff, off, size) {
-    if(zip_fixed_tl === null) {
-      var i;
-      var l = new Array(288);
-      var h;
-      for(i = 0;i < 144;i++) {
-        l[i] = 8
-      }
-      for(i = 144;i < 256;i++) {
-        l[i] = 9
-      }
-      for(i = 256;i < 280;i++) {
-        l[i] = 7
-      }
-      for(i = 280;i < 288;i++) {
-        l[i] = 8
-      }
-      zip_fixed_bl = 7;
-      h = new Zip_HuftBuild(l, 288, 257, zip_cplens, zip_cplext, zip_fixed_bl);
-      if(h.status !== 0) {
-        alert("HufBuild error: " + h.status);
-        return-1
-      }
-      zip_fixed_tl = h.root;
-      zip_fixed_bl = h.m;
-      for(i = 0;i < 30;i++) {
-        l[i] = 5
-      }
-      zip_fixed_bd = 5;
-      h = new Zip_HuftBuild(l, 30, 0, zip_cpdist, zip_cpdext, zip_fixed_bd);
-      if(h.status > 1) {
-        zip_fixed_tl = null;
-        alert("HufBuild error: " + h.status);
-        return-1
-      }
-      zip_fixed_td = h.root;
-      zip_fixed_bd = h.m
-    }
-    zip_tl = zip_fixed_tl;
-    zip_td = zip_fixed_td;
-    zip_bl = zip_fixed_bl;
-    zip_bd = zip_fixed_bd;
-    return zip_inflate_codes(buff, off, size)
-  }
-  function zip_inflate_dynamic(buff, off, size) {
-    var i;
-    var j;
-    var l;
-    var n;
-    var t;
-    var nb;
-    var nl;
-    var nd;
-    var ll = new Array(286 + 30);
-    var h;
-    for(i = 0;i < ll.length;i++) {
-      ll[i] = 0
-    }
-    zip_NEEDBITS(5);
-    nl = 257 + zip_GETBITS(5);
-    zip_DUMPBITS(5);
-    zip_NEEDBITS(5);
-    nd = 1 + zip_GETBITS(5);
-    zip_DUMPBITS(5);
-    zip_NEEDBITS(4);
-    nb = 4 + zip_GETBITS(4);
-    zip_DUMPBITS(4);
-    if(nl > 286 || nd > 30) {
-      return-1
-    }
-    for(j = 0;j < nb;j++) {
-      zip_NEEDBITS(3);
-      ll[zip_border[j]] = zip_GETBITS(3);
-      zip_DUMPBITS(3)
-    }
-    for(j = nb;j < 19;j++) {
-      ll[zip_border[j]] = 0
-    }
-    zip_bl = 7;
-    h = new Zip_HuftBuild(ll, 19, 19, null, null, zip_bl);
-    if(h.status !== 0) {
-      return-1
-    }
-    zip_tl = h.root;
-    zip_bl = h.m;
-    n = nl + nd;
-    i = l = 0;
-    while(i < n) {
-      zip_NEEDBITS(zip_bl);
-      t = zip_tl.list[zip_GETBITS(zip_bl)];
-      j = t.b;
-      zip_DUMPBITS(j);
-      j = t.n;
-      if(j < 16) {
-        ll[i++] = l = j
-      }else {
-        if(j === 16) {
-          zip_NEEDBITS(2);
-          j = 3 + zip_GETBITS(2);
-          zip_DUMPBITS(2);
-          if(i + j > n) {
-            return-1
-          }
-          while(j-- > 0) {
-            ll[i++] = l
-          }
-        }else {
-          if(j === 17) {
-            zip_NEEDBITS(3);
-            j = 3 + zip_GETBITS(3);
-            zip_DUMPBITS(3);
-            if(i + j > n) {
-              return-1
+        exports.Inflate = Inflate;
+        exports.inflate = inflate;
+        exports.inflateRaw = inflateRaw;
+        exports.ungzip = inflate
+      }, {"./utils/common":2, "./utils/strings":3, "./zlib/constants":5, "./zlib/gzheader":7, "./zlib/inflate.js":9, "./zlib/messages":11, "./zlib/zstream":12}], 2:[function(_dereq_, module, exports) {
+        var TYPED_OK = typeof Uint8Array !== "undefined" && (typeof Uint16Array !== "undefined" && typeof Int32Array !== "undefined");
+        exports.assign = function(obj) {
+          var sources = Array.prototype.slice.call(arguments, 1);
+          while(sources.length) {
+            var source = sources.shift();
+            if(!source) {
+              continue
             }
-            while(j-- > 0) {
-              ll[i++] = 0
+            if(typeof source !== "object") {
+              throw new TypeError(source + "must be non-object");
             }
-            l = 0
-          }else {
-            zip_NEEDBITS(7);
-            j = 11 + zip_GETBITS(7);
-            zip_DUMPBITS(7);
-            if(i + j > n) {
-              return-1
+            for(var p in source) {
+              if(source.hasOwnProperty(p)) {
+                obj[p] = source[p]
+              }
             }
-            while(j-- > 0) {
-              ll[i++] = 0
+          }
+          return obj
+        };
+        exports.shrinkBuf = function(buf, size) {
+          if(buf.length === size) {
+            return buf
+          }
+          if(buf.subarray) {
+            return buf.subarray(0, size)
+          }
+          buf.length = size;
+          return buf
+        };
+        var fnTyped = {arraySet:function(dest, src, src_offs, len, dest_offs) {
+          if(src.subarray && dest.subarray) {
+            dest.set(src.subarray(src_offs, src_offs + len), dest_offs);
+            return
+          }
+          for(var i = 0;i < len;i++) {
+            dest[dest_offs + i] = src[src_offs + i]
+          }
+        }, flattenChunks:function(chunks) {
+          var i, l, len, pos, chunk, result;
+          len = 0;
+          for(i = 0, l = chunks.length;i < l;i++) {
+            len += chunks[i].length
+          }
+          result = new Uint8Array(len);
+          pos = 0;
+          for(i = 0, l = chunks.length;i < l;i++) {
+            chunk = chunks[i];
+            result.set(chunk, pos);
+            pos += chunk.length
+          }
+          return result
+        }};
+        var fnUntyped = {arraySet:function(dest, src, src_offs, len, dest_offs) {
+          for(var i = 0;i < len;i++) {
+            dest[dest_offs + i] = src[src_offs + i]
+          }
+        }, flattenChunks:function(chunks) {
+          return[].concat.apply([], chunks)
+        }};
+        exports.setTyped = function(on) {
+          if(on) {
+            exports.Buf8 = Uint8Array;
+            exports.Buf16 = Uint16Array;
+            exports.Buf32 = Int32Array;
+            exports.assign(exports, fnTyped)
+          }else {
+            exports.Buf8 = Array;
+            exports.Buf16 = Array;
+            exports.Buf32 = Array;
+            exports.assign(exports, fnUntyped)
+          }
+        };
+        exports.setTyped(TYPED_OK)
+      }, {}], 3:[function(_dereq_, module, exports) {
+        var utils = _dereq_("./common");
+        var STR_APPLY_OK = true;
+        var STR_APPLY_UIA_OK = true;
+        try {
+          String.fromCharCode.apply(null, [0])
+        }catch(__) {
+          STR_APPLY_OK = false
+        }
+        try {
+          String.fromCharCode.apply(null, new Uint8Array(1))
+        }catch(__) {
+          STR_APPLY_UIA_OK = false
+        }
+        var _utf8len = new utils.Buf8(256);
+        for(var i = 0;i < 256;i++) {
+          _utf8len[i] = i >= 252 ? 6 : i >= 248 ? 5 : i >= 240 ? 4 : i >= 224 ? 3 : i >= 192 ? 2 : 1
+        }
+        _utf8len[254] = _utf8len[254] = 1;
+        exports.string2buf = function(str) {
+          var buf, c, c2, m_pos, i, str_len = str.length, buf_len = 0;
+          for(m_pos = 0;m_pos < str_len;m_pos++) {
+            c = str.charCodeAt(m_pos);
+            if((c & 64512) === 55296 && m_pos + 1 < str_len) {
+              c2 = str.charCodeAt(m_pos + 1);
+              if((c2 & 64512) === 56320) {
+                c = 65536 + (c - 55296 << 10) + (c2 - 56320);
+                m_pos++
+              }
             }
-            l = 0
+            buf_len += c < 128 ? 1 : c < 2048 ? 2 : c < 65536 ? 3 : 4
           }
-        }
-      }
-    }
-    zip_bl = zip_lbits;
-    h = new Zip_HuftBuild(ll, nl, 257, zip_cplens, zip_cplext, zip_bl);
-    if(zip_bl === 0) {
-      h.status = 1
-    }
-    if(h.status !== 0) {
-      return-1
-    }
-    zip_tl = h.root;
-    zip_bl = h.m;
-    for(i = 0;i < nd;i++) {
-      ll[i] = ll[i + nl]
-    }
-    zip_bd = zip_dbits;
-    h = new Zip_HuftBuild(ll, nd, 0, zip_cpdist, zip_cpdext, zip_bd);
-    zip_td = h.root;
-    zip_bd = h.m;
-    if(zip_bd === 0 && nl > 257) {
-      return-1
-    }
-    if(h.status !== 0) {
-      return-1
-    }
-    return zip_inflate_codes(buff, off, size)
-  }
-  function zip_inflate_start() {
-    zip_slide.length = 2 * zip_WSIZE;
-    zip_wp = 0;
-    zip_bit_buf = 0;
-    zip_bit_len = 0;
-    zip_method = -1;
-    zip_eof = false;
-    zip_copy_leng = zip_copy_dist = 0;
-    zip_tl = null
-  }
-  function zip_inflate_internal(buff, off, size) {
-    var n = 0, i;
-    while(n < size) {
-      if(zip_eof && zip_method === -1) {
-        return n
-      }
-      if(zip_copy_leng > 0) {
-        if(zip_method !== zip_STORED_BLOCK) {
-          while(zip_copy_leng > 0 && n < size) {
-            zip_copy_leng--;
-            zip_copy_dist &= zip_WSIZE - 1;
-            zip_wp &= zip_WSIZE - 1;
-            buff[off + n] = zip_slide[zip_wp] = zip_slide[zip_copy_dist];
-            n += 1;
-            zip_wp += 1;
-            zip_copy_dist += 1
+          buf = new utils.Buf8(buf_len);
+          for(i = 0, m_pos = 0;i < buf_len;m_pos++) {
+            c = str.charCodeAt(m_pos);
+            if((c & 64512) === 55296 && m_pos + 1 < str_len) {
+              c2 = str.charCodeAt(m_pos + 1);
+              if((c2 & 64512) === 56320) {
+                c = 65536 + (c - 55296 << 10) + (c2 - 56320);
+                m_pos++
+              }
+            }
+            if(c < 128) {
+              buf[i++] = c
+            }else {
+              if(c < 2048) {
+                buf[i++] = 192 | c >>> 6;
+                buf[i++] = 128 | c & 63
+              }else {
+                if(c < 65536) {
+                  buf[i++] = 224 | c >>> 12;
+                  buf[i++] = 128 | c >>> 6 & 63;
+                  buf[i++] = 128 | c & 63
+                }else {
+                  buf[i++] = 240 | c >>> 18;
+                  buf[i++] = 128 | c >>> 12 & 63;
+                  buf[i++] = 128 | c >>> 6 & 63;
+                  buf[i++] = 128 | c & 63
+                }
+              }
+            }
           }
-        }else {
-          while(zip_copy_leng > 0 && n < size) {
-            zip_copy_leng -= 1;
-            zip_wp &= zip_WSIZE - 1;
-            zip_NEEDBITS(8);
-            buff[off + n] = zip_slide[zip_wp] = zip_GETBITS(8);
-            n += 1;
-            zip_wp += 1;
-            zip_DUMPBITS(8)
+          return buf
+        };
+        function buf2binstring(buf, len) {
+          if(len < 65537) {
+            if(buf.subarray && STR_APPLY_UIA_OK || !buf.subarray && STR_APPLY_OK) {
+              return String.fromCharCode.apply(null, utils.shrinkBuf(buf, len))
+            }
           }
-          if(zip_copy_leng === 0) {
-            zip_method = -1
+          var result = "";
+          for(var i = 0;i < len;i++) {
+            result += String.fromCharCode(buf[i])
           }
+          return result
         }
-        if(n === size) {
-          return n
+        exports.buf2binstring = function(buf) {
+          return buf2binstring(buf, buf.length)
+        };
+        exports.binstring2buf = function(str) {
+          var buf = new utils.Buf8(str.length);
+          for(var i = 0, len = buf.length;i < len;i++) {
+            buf[i] = str.charCodeAt(i)
+          }
+          return buf
+        };
+        exports.buf2string = function(buf, max) {
+          var i, out, c, c_len;
+          var len = max || buf.length;
+          var utf16buf = new Array(len * 2);
+          for(out = 0, i = 0;i < len;) {
+            c = buf[i++];
+            if(c < 128) {
+              utf16buf[out++] = c;
+              continue
+            }
+            c_len = _utf8len[c];
+            if(c_len > 4) {
+              utf16buf[out++] = 65533;
+              i += c_len - 1;
+              continue
+            }
+            c &= c_len === 2 ? 31 : c_len === 3 ? 15 : 7;
+            while(c_len > 1 && i < len) {
+              c = c << 6 | buf[i++] & 63;
+              c_len--
+            }
+            if(c_len > 1) {
+              utf16buf[out++] = 65533;
+              continue
+            }
+            if(c < 65536) {
+              utf16buf[out++] = c
+            }else {
+              c -= 65536;
+              utf16buf[out++] = 55296 | c >> 10 & 1023;
+              utf16buf[out++] = 56320 | c & 1023
+            }
+          }
+          return buf2binstring(utf16buf, out)
+        };
+        exports.utf8border = function(buf, max) {
+          var pos;
+          max = max || buf.length;
+          if(max > buf.length) {
+            max = buf.length
+          }
+          pos = max - 1;
+          while(pos >= 0 && (buf[pos] & 192) === 128) {
+            pos--
+          }
+          if(pos < 0) {
+            return max
+          }
+          if(pos === 0) {
+            return max
+          }
+          return pos + _utf8len[buf[pos]] > max ? pos : max
         }
-      }
-      if(zip_method === -1) {
-        if(zip_eof) {
-          break
+      }, {"./common":2}], 4:[function(_dereq_, module, exports) {
+        function adler32(adler, buf, len, pos) {
+          var s1 = adler & 65535 | 0, s2 = adler >>> 16 & 65535 | 0, n = 0;
+          while(len !== 0) {
+            n = len > 2E3 ? 2E3 : len;
+            len -= n;
+            do {
+              s1 = s1 + buf[pos++] | 0;
+              s2 = s2 + s1 | 0
+            }while(--n);
+            s1 %= 65521;
+            s2 %= 65521
+          }
+          return s1 | s2 << 16 | 0
         }
-        zip_NEEDBITS(1);
-        if(zip_GETBITS(1) !== 0) {
-          zip_eof = true
+        module.exports = adler32
+      }, {}], 5:[function(_dereq_, module, exports) {
+        module.exports = {Z_NO_FLUSH:0, Z_PARTIAL_FLUSH:1, Z_SYNC_FLUSH:2, Z_FULL_FLUSH:3, Z_FINISH:4, Z_BLOCK:5, Z_TREES:6, Z_OK:0, Z_STREAM_END:1, Z_NEED_DICT:2, Z_ERRNO:-1, Z_STREAM_ERROR:-2, Z_DATA_ERROR:-3, Z_BUF_ERROR:-5, Z_NO_COMPRESSION:0, Z_BEST_SPEED:1, Z_BEST_COMPRESSION:9, Z_DEFAULT_COMPRESSION:-1, Z_FILTERED:1, Z_HUFFMAN_ONLY:2, Z_RLE:3, Z_FIXED:4, Z_DEFAULT_STRATEGY:0, Z_BINARY:0, Z_TEXT:1, Z_UNKNOWN:2, Z_DEFLATED:8}
+      }, {}], 6:[function(_dereq_, module, exports) {
+        function makeTable() {
+          var c, table = [];
+          for(var n = 0;n < 256;n++) {
+            c = n;
+            for(var k = 0;k < 8;k++) {
+              c = c & 1 ? 3988292384 ^ c >>> 1 : c >>> 1
+            }
+            table[n] = c
+          }
+          return table
         }
-        zip_DUMPBITS(1);
-        zip_NEEDBITS(2);
-        zip_method = zip_GETBITS(2);
-        zip_DUMPBITS(2);
-        zip_tl = null;
-        zip_copy_leng = 0
-      }
-      switch(zip_method) {
-        case 0:
-          i = zip_inflate_stored(buff, off + n, size - n);
-          break;
-        case 1:
-          if(zip_tl !== null) {
-            i = zip_inflate_codes(buff, off + n, size - n)
+        var crcTable = makeTable();
+        function crc32(crc, buf, len, pos) {
+          var t = crcTable, end = pos + len;
+          crc = crc ^ -1;
+          for(var i = pos;i < end;i++) {
+            crc = crc >>> 8 ^ t[(crc ^ buf[i]) & 255]
+          }
+          return crc ^ -1
+        }
+        module.exports = crc32
+      }, {}], 7:[function(_dereq_, module, exports) {
+        function GZheader() {
+          this.text = 0;
+          this.time = 0;
+          this.xflags = 0;
+          this.os = 0;
+          this.extra = null;
+          this.extra_len = 0;
+          this.name = "";
+          this.comment = "";
+          this.hcrc = 0;
+          this.done = false
+        }
+        module.exports = GZheader
+      }, {}], 8:[function(_dereq_, module, exports) {
+        var BAD = 30;
+        var TYPE = 12;
+        module.exports = function inflate_fast(strm, start) {
+          var state;
+          var _in;
+          var last;
+          var _out;
+          var beg;
+          var end;
+          var dmax;
+          var wsize;
+          var whave;
+          var wnext;
+          var window;
+          var hold;
+          var bits;
+          var lcode;
+          var dcode;
+          var lmask;
+          var dmask;
+          var here;
+          var op;
+          var len;
+          var dist;
+          var from;
+          var from_source;
+          var input, output;
+          state = strm.state;
+          _in = strm.next_in;
+          input = strm.input;
+          last = _in + (strm.avail_in - 5);
+          _out = strm.next_out;
+          output = strm.output;
+          beg = _out - (start - strm.avail_out);
+          end = _out + (strm.avail_out - 257);
+          dmax = state.dmax;
+          wsize = state.wsize;
+          whave = state.whave;
+          wnext = state.wnext;
+          window = state.window;
+          hold = state.hold;
+          bits = state.bits;
+          lcode = state.lencode;
+          dcode = state.distcode;
+          lmask = (1 << state.lenbits) - 1;
+          dmask = (1 << state.distbits) - 1;
+          top:do {
+            if(bits < 15) {
+              hold += input[_in++] << bits;
+              bits += 8;
+              hold += input[_in++] << bits;
+              bits += 8
+            }
+            here = lcode[hold & lmask];
+            dolen:for(;;) {
+              op = here >>> 24;
+              hold >>>= op;
+              bits -= op;
+              op = here >>> 16 & 255;
+              if(op === 0) {
+                output[_out++] = here & 65535
+              }else {
+                if(op & 16) {
+                  len = here & 65535;
+                  op &= 15;
+                  if(op) {
+                    if(bits < op) {
+                      hold += input[_in++] << bits;
+                      bits += 8
+                    }
+                    len += hold & (1 << op) - 1;
+                    hold >>>= op;
+                    bits -= op
+                  }
+                  if(bits < 15) {
+                    hold += input[_in++] << bits;
+                    bits += 8;
+                    hold += input[_in++] << bits;
+                    bits += 8
+                  }
+                  here = dcode[hold & dmask];
+                  dodist:for(;;) {
+                    op = here >>> 24;
+                    hold >>>= op;
+                    bits -= op;
+                    op = here >>> 16 & 255;
+                    if(op & 16) {
+                      dist = here & 65535;
+                      op &= 15;
+                      if(bits < op) {
+                        hold += input[_in++] << bits;
+                        bits += 8;
+                        if(bits < op) {
+                          hold += input[_in++] << bits;
+                          bits += 8
+                        }
+                      }
+                      dist += hold & (1 << op) - 1;
+                      if(dist > dmax) {
+                        strm.msg = "invalid distance too far back";
+                        state.mode = BAD;
+                        break top
+                      }
+                      hold >>>= op;
+                      bits -= op;
+                      op = _out - beg;
+                      if(dist > op) {
+                        op = dist - op;
+                        if(op > whave) {
+                          if(state.sane) {
+                            strm.msg = "invalid distance too far back";
+                            state.mode = BAD;
+                            break top
+                          }
+                        }
+                        from = 0;
+                        from_source = window;
+                        if(wnext === 0) {
+                          from += wsize - op;
+                          if(op < len) {
+                            len -= op;
+                            do {
+                              output[_out++] = window[from++]
+                            }while(--op);
+                            from = _out - dist;
+                            from_source = output
+                          }
+                        }else {
+                          if(wnext < op) {
+                            from += wsize + wnext - op;
+                            op -= wnext;
+                            if(op < len) {
+                              len -= op;
+                              do {
+                                output[_out++] = window[from++]
+                              }while(--op);
+                              from = 0;
+                              if(wnext < len) {
+                                op = wnext;
+                                len -= op;
+                                do {
+                                  output[_out++] = window[from++]
+                                }while(--op);
+                                from = _out - dist;
+                                from_source = output
+                              }
+                            }
+                          }else {
+                            from += wnext - op;
+                            if(op < len) {
+                              len -= op;
+                              do {
+                                output[_out++] = window[from++]
+                              }while(--op);
+                              from = _out - dist;
+                              from_source = output
+                            }
+                          }
+                        }
+                        while(len > 2) {
+                          output[_out++] = from_source[from++];
+                          output[_out++] = from_source[from++];
+                          output[_out++] = from_source[from++];
+                          len -= 3
+                        }
+                        if(len) {
+                          output[_out++] = from_source[from++];
+                          if(len > 1) {
+                            output[_out++] = from_source[from++]
+                          }
+                        }
+                      }else {
+                        from = _out - dist;
+                        do {
+                          output[_out++] = output[from++];
+                          output[_out++] = output[from++];
+                          output[_out++] = output[from++];
+                          len -= 3
+                        }while(len > 2);
+                        if(len) {
+                          output[_out++] = output[from++];
+                          if(len > 1) {
+                            output[_out++] = output[from++]
+                          }
+                        }
+                      }
+                    }else {
+                      if((op & 64) === 0) {
+                        here = dcode[(here & 65535) + (hold & (1 << op) - 1)];
+                        continue dodist
+                      }else {
+                        strm.msg = "invalid distance code";
+                        state.mode = BAD;
+                        break top
+                      }
+                    }
+                    break
+                  }
+                }else {
+                  if((op & 64) === 0) {
+                    here = lcode[(here & 65535) + (hold & (1 << op) - 1)];
+                    continue dolen
+                  }else {
+                    if(op & 32) {
+                      state.mode = TYPE;
+                      break top
+                    }else {
+                      strm.msg = "invalid literal/length code";
+                      state.mode = BAD;
+                      break top
+                    }
+                  }
+                }
+              }
+              break
+            }
+          }while(_in < last && _out < end);
+          len = bits >> 3;
+          _in -= len;
+          bits -= len << 3;
+          hold &= (1 << bits) - 1;
+          strm.next_in = _in;
+          strm.next_out = _out;
+          strm.avail_in = _in < last ? 5 + (last - _in) : 5 - (_in - last);
+          strm.avail_out = _out < end ? 257 + (end - _out) : 257 - (_out - end);
+          state.hold = hold;
+          state.bits = bits;
+          return
+        }
+      }, {}], 9:[function(_dereq_, module, exports) {
+        var utils = _dereq_("../utils/common");
+        var adler32 = _dereq_("./adler32");
+        var crc32 = _dereq_("./crc32");
+        var inflate_fast = _dereq_("./inffast");
+        var inflate_table = _dereq_("./inftrees");
+        var CODES = 0;
+        var LENS = 1;
+        var DISTS = 2;
+        var Z_FINISH = 4;
+        var Z_BLOCK = 5;
+        var Z_TREES = 6;
+        var Z_OK = 0;
+        var Z_STREAM_END = 1;
+        var Z_NEED_DICT = 2;
+        var Z_STREAM_ERROR = -2;
+        var Z_DATA_ERROR = -3;
+        var Z_MEM_ERROR = -4;
+        var Z_BUF_ERROR = -5;
+        var Z_DEFLATED = 8;
+        var HEAD = 1;
+        var FLAGS = 2;
+        var TIME = 3;
+        var OS = 4;
+        var EXLEN = 5;
+        var EXTRA = 6;
+        var NAME = 7;
+        var COMMENT = 8;
+        var HCRC = 9;
+        var DICTID = 10;
+        var DICT = 11;
+        var TYPE = 12;
+        var TYPEDO = 13;
+        var STORED = 14;
+        var COPY_ = 15;
+        var COPY = 16;
+        var TABLE = 17;
+        var LENLENS = 18;
+        var CODELENS = 19;
+        var LEN_ = 20;
+        var LEN = 21;
+        var LENEXT = 22;
+        var DIST = 23;
+        var DISTEXT = 24;
+        var MATCH = 25;
+        var LIT = 26;
+        var CHECK = 27;
+        var LENGTH = 28;
+        var DONE = 29;
+        var BAD = 30;
+        var MEM = 31;
+        var SYNC = 32;
+        var ENOUGH_LENS = 852;
+        var ENOUGH_DISTS = 592;
+        var MAX_WBITS = 15;
+        var DEF_WBITS = MAX_WBITS;
+        function ZSWAP32(q) {
+          return(q >>> 24 & 255) + (q >>> 8 & 65280) + ((q & 65280) << 8) + ((q & 255) << 24)
+        }
+        function InflateState() {
+          this.mode = 0;
+          this.last = false;
+          this.wrap = 0;
+          this.havedict = false;
+          this.flags = 0;
+          this.dmax = 0;
+          this.check = 0;
+          this.total = 0;
+          this.head = null;
+          this.wbits = 0;
+          this.wsize = 0;
+          this.whave = 0;
+          this.wnext = 0;
+          this.window = null;
+          this.hold = 0;
+          this.bits = 0;
+          this.length = 0;
+          this.offset = 0;
+          this.extra = 0;
+          this.lencode = null;
+          this.distcode = null;
+          this.lenbits = 0;
+          this.distbits = 0;
+          this.ncode = 0;
+          this.nlen = 0;
+          this.ndist = 0;
+          this.have = 0;
+          this.next = null;
+          this.lens = new utils.Buf16(320);
+          this.work = new utils.Buf16(288);
+          this.lendyn = null;
+          this.distdyn = null;
+          this.sane = 0;
+          this.back = 0;
+          this.was = 0
+        }
+        function inflateResetKeep(strm) {
+          var state;
+          if(!strm || !strm.state) {
+            return Z_STREAM_ERROR
+          }
+          state = strm.state;
+          strm.total_in = strm.total_out = state.total = 0;
+          strm.msg = "";
+          if(state.wrap) {
+            strm.adler = state.wrap & 1
+          }
+          state.mode = HEAD;
+          state.last = 0;
+          state.havedict = 0;
+          state.dmax = 32768;
+          state.head = null;
+          state.hold = 0;
+          state.bits = 0;
+          state.lencode = state.lendyn = new utils.Buf32(ENOUGH_LENS);
+          state.distcode = state.distdyn = new utils.Buf32(ENOUGH_DISTS);
+          state.sane = 1;
+          state.back = -1;
+          return Z_OK
+        }
+        function inflateReset(strm) {
+          var state;
+          if(!strm || !strm.state) {
+            return Z_STREAM_ERROR
+          }
+          state = strm.state;
+          state.wsize = 0;
+          state.whave = 0;
+          state.wnext = 0;
+          return inflateResetKeep(strm)
+        }
+        function inflateReset2(strm, windowBits) {
+          var wrap;
+          var state;
+          if(!strm || !strm.state) {
+            return Z_STREAM_ERROR
+          }
+          state = strm.state;
+          if(windowBits < 0) {
+            wrap = 0;
+            windowBits = -windowBits
           }else {
-            i = zip_inflate_fixed(buff, off + n, size - n)
+            wrap = (windowBits >> 4) + 1;
+            if(windowBits < 48) {
+              windowBits &= 15
+            }
           }
-          break;
-        case 2:
-          if(zip_tl !== null) {
-            i = zip_inflate_codes(buff, off + n, size - n)
+          if(windowBits && (windowBits < 8 || windowBits > 15)) {
+            return Z_STREAM_ERROR
+          }
+          if(state.window !== null && state.wbits !== windowBits) {
+            state.window = null
+          }
+          state.wrap = wrap;
+          state.wbits = windowBits;
+          return inflateReset(strm)
+        }
+        function inflateInit2(strm, windowBits) {
+          var ret;
+          var state;
+          if(!strm) {
+            return Z_STREAM_ERROR
+          }
+          state = new InflateState;
+          strm.state = state;
+          state.window = null;
+          ret = inflateReset2(strm, windowBits);
+          if(ret !== Z_OK) {
+            strm.state = null
+          }
+          return ret
+        }
+        function inflateInit(strm) {
+          return inflateInit2(strm, DEF_WBITS)
+        }
+        var virgin = true;
+        var lenfix, distfix;
+        function fixedtables(state) {
+          if(virgin) {
+            var sym;
+            lenfix = new utils.Buf32(512);
+            distfix = new utils.Buf32(32);
+            sym = 0;
+            while(sym < 144) {
+              state.lens[sym++] = 8
+            }
+            while(sym < 256) {
+              state.lens[sym++] = 9
+            }
+            while(sym < 280) {
+              state.lens[sym++] = 7
+            }
+            while(sym < 288) {
+              state.lens[sym++] = 8
+            }
+            inflate_table(LENS, state.lens, 0, 288, lenfix, 0, state.work, {bits:9});
+            sym = 0;
+            while(sym < 32) {
+              state.lens[sym++] = 5
+            }
+            inflate_table(DISTS, state.lens, 0, 32, distfix, 0, state.work, {bits:5});
+            virgin = false
+          }
+          state.lencode = lenfix;
+          state.lenbits = 9;
+          state.distcode = distfix;
+          state.distbits = 5
+        }
+        function updatewindow(strm, src, end, copy) {
+          var dist;
+          var state = strm.state;
+          if(state.window === null) {
+            state.wsize = 1 << state.wbits;
+            state.wnext = 0;
+            state.whave = 0;
+            state.window = new utils.Buf8(state.wsize)
+          }
+          if(copy >= state.wsize) {
+            utils.arraySet(state.window, src, end - state.wsize, state.wsize, 0);
+            state.wnext = 0;
+            state.whave = state.wsize
           }else {
-            i = zip_inflate_dynamic(buff, off + n, size - n)
+            dist = state.wsize - state.wnext;
+            if(dist > copy) {
+              dist = copy
+            }
+            utils.arraySet(state.window, src, end - copy, dist, state.wnext);
+            copy -= dist;
+            if(copy) {
+              utils.arraySet(state.window, src, end - copy, copy, 0);
+              state.wnext = copy;
+              state.whave = state.wsize
+            }else {
+              state.wnext += dist;
+              if(state.wnext === state.wsize) {
+                state.wnext = 0
+              }
+              if(state.whave < state.wsize) {
+                state.whave += dist
+              }
+            }
           }
-          break;
-        default:
-          i = -1;
-          break
-      }
-      if(i === -1) {
-        if(zip_eof) {
           return 0
         }
-        return-1
-      }
-      n += i
+        function inflate(strm, flush) {
+          var state;
+          var input, output;
+          var next;
+          var put;
+          var have, left;
+          var hold;
+          var bits;
+          var _in, _out;
+          var copy;
+          var from;
+          var from_source;
+          var here = 0;
+          var here_bits, here_op, here_val;
+          var last_bits, last_op, last_val;
+          var len;
+          var ret;
+          var hbuf = new utils.Buf8(4);
+          var opts;
+          var n;
+          var order = [16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15];
+          if(!strm || (!strm.state || (!strm.output || !strm.input && strm.avail_in !== 0))) {
+            return Z_STREAM_ERROR
+          }
+          state = strm.state;
+          if(state.mode === TYPE) {
+            state.mode = TYPEDO
+          }
+          put = strm.next_out;
+          output = strm.output;
+          left = strm.avail_out;
+          next = strm.next_in;
+          input = strm.input;
+          have = strm.avail_in;
+          hold = state.hold;
+          bits = state.bits;
+          _in = have;
+          _out = left;
+          ret = Z_OK;
+          inf_leave:for(;;) {
+            switch(state.mode) {
+              case HEAD:
+                if(state.wrap === 0) {
+                  state.mode = TYPEDO;
+                  break
+                }
+                while(bits < 16) {
+                  if(have === 0) {
+                    break inf_leave
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8
+                }
+                if(state.wrap & 2 && hold === 35615) {
+                  state.check = 0;
+                  hbuf[0] = hold & 255;
+                  hbuf[1] = hold >>> 8 & 255;
+                  state.check = crc32(state.check, hbuf, 2, 0);
+                  hold = 0;
+                  bits = 0;
+                  state.mode = FLAGS;
+                  break
+                }
+                state.flags = 0;
+                if(state.head) {
+                  state.head.done = false
+                }
+                if(!(state.wrap & 1) || (((hold & 255) << 8) + (hold >> 8)) % 31) {
+                  strm.msg = "incorrect header check";
+                  state.mode = BAD;
+                  break
+                }
+                if((hold & 15) !== Z_DEFLATED) {
+                  strm.msg = "unknown compression method";
+                  state.mode = BAD;
+                  break
+                }
+                hold >>>= 4;
+                bits -= 4;
+                len = (hold & 15) + 8;
+                if(state.wbits === 0) {
+                  state.wbits = len
+                }else {
+                  if(len > state.wbits) {
+                    strm.msg = "invalid window size";
+                    state.mode = BAD;
+                    break
+                  }
+                }
+                state.dmax = 1 << len;
+                strm.adler = state.check = 1;
+                state.mode = hold & 512 ? DICTID : TYPE;
+                hold = 0;
+                bits = 0;
+                break;
+              case FLAGS:
+                while(bits < 16) {
+                  if(have === 0) {
+                    break inf_leave
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8
+                }
+                state.flags = hold;
+                if((state.flags & 255) !== Z_DEFLATED) {
+                  strm.msg = "unknown compression method";
+                  state.mode = BAD;
+                  break
+                }
+                if(state.flags & 57344) {
+                  strm.msg = "unknown header flags set";
+                  state.mode = BAD;
+                  break
+                }
+                if(state.head) {
+                  state.head.text = hold >> 8 & 1
+                }
+                if(state.flags & 512) {
+                  hbuf[0] = hold & 255;
+                  hbuf[1] = hold >>> 8 & 255;
+                  state.check = crc32(state.check, hbuf, 2, 0)
+                }
+                hold = 0;
+                bits = 0;
+                state.mode = TIME;
+              case TIME:
+                while(bits < 32) {
+                  if(have === 0) {
+                    break inf_leave
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8
+                }
+                if(state.head) {
+                  state.head.time = hold
+                }
+                if(state.flags & 512) {
+                  hbuf[0] = hold & 255;
+                  hbuf[1] = hold >>> 8 & 255;
+                  hbuf[2] = hold >>> 16 & 255;
+                  hbuf[3] = hold >>> 24 & 255;
+                  state.check = crc32(state.check, hbuf, 4, 0)
+                }
+                hold = 0;
+                bits = 0;
+                state.mode = OS;
+              case OS:
+                while(bits < 16) {
+                  if(have === 0) {
+                    break inf_leave
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8
+                }
+                if(state.head) {
+                  state.head.xflags = hold & 255;
+                  state.head.os = hold >> 8
+                }
+                if(state.flags & 512) {
+                  hbuf[0] = hold & 255;
+                  hbuf[1] = hold >>> 8 & 255;
+                  state.check = crc32(state.check, hbuf, 2, 0)
+                }
+                hold = 0;
+                bits = 0;
+                state.mode = EXLEN;
+              case EXLEN:
+                if(state.flags & 1024) {
+                  while(bits < 16) {
+                    if(have === 0) {
+                      break inf_leave
+                    }
+                    have--;
+                    hold += input[next++] << bits;
+                    bits += 8
+                  }
+                  state.length = hold;
+                  if(state.head) {
+                    state.head.extra_len = hold
+                  }
+                  if(state.flags & 512) {
+                    hbuf[0] = hold & 255;
+                    hbuf[1] = hold >>> 8 & 255;
+                    state.check = crc32(state.check, hbuf, 2, 0)
+                  }
+                  hold = 0;
+                  bits = 0
+                }else {
+                  if(state.head) {
+                    state.head.extra = null
+                  }
+                }
+                state.mode = EXTRA;
+              case EXTRA:
+                if(state.flags & 1024) {
+                  copy = state.length;
+                  if(copy > have) {
+                    copy = have
+                  }
+                  if(copy) {
+                    if(state.head) {
+                      len = state.head.extra_len - state.length;
+                      if(!state.head.extra) {
+                        state.head.extra = new Array(state.head.extra_len)
+                      }
+                      utils.arraySet(state.head.extra, input, next, copy, len)
+                    }
+                    if(state.flags & 512) {
+                      state.check = crc32(state.check, input, copy, next)
+                    }
+                    have -= copy;
+                    next += copy;
+                    state.length -= copy
+                  }
+                  if(state.length) {
+                    break inf_leave
+                  }
+                }
+                state.length = 0;
+                state.mode = NAME;
+              case NAME:
+                if(state.flags & 2048) {
+                  if(have === 0) {
+                    break inf_leave
+                  }
+                  copy = 0;
+                  do {
+                    len = input[next + copy++];
+                    if(state.head && (len && state.length < 65536)) {
+                      state.head.name += String.fromCharCode(len)
+                    }
+                  }while(len && copy < have);
+                  if(state.flags & 512) {
+                    state.check = crc32(state.check, input, copy, next)
+                  }
+                  have -= copy;
+                  next += copy;
+                  if(len) {
+                    break inf_leave
+                  }
+                }else {
+                  if(state.head) {
+                    state.head.name = null
+                  }
+                }
+                state.length = 0;
+                state.mode = COMMENT;
+              case COMMENT:
+                if(state.flags & 4096) {
+                  if(have === 0) {
+                    break inf_leave
+                  }
+                  copy = 0;
+                  do {
+                    len = input[next + copy++];
+                    if(state.head && (len && state.length < 65536)) {
+                      state.head.comment += String.fromCharCode(len)
+                    }
+                  }while(len && copy < have);
+                  if(state.flags & 512) {
+                    state.check = crc32(state.check, input, copy, next)
+                  }
+                  have -= copy;
+                  next += copy;
+                  if(len) {
+                    break inf_leave
+                  }
+                }else {
+                  if(state.head) {
+                    state.head.comment = null
+                  }
+                }
+                state.mode = HCRC;
+              case HCRC:
+                if(state.flags & 512) {
+                  while(bits < 16) {
+                    if(have === 0) {
+                      break inf_leave
+                    }
+                    have--;
+                    hold += input[next++] << bits;
+                    bits += 8
+                  }
+                  if(hold !== (state.check & 65535)) {
+                    strm.msg = "header crc mismatch";
+                    state.mode = BAD;
+                    break
+                  }
+                  hold = 0;
+                  bits = 0
+                }
+                if(state.head) {
+                  state.head.hcrc = state.flags >> 9 & 1;
+                  state.head.done = true
+                }
+                strm.adler = state.check = 0;
+                state.mode = TYPE;
+                break;
+              case DICTID:
+                while(bits < 32) {
+                  if(have === 0) {
+                    break inf_leave
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8
+                }
+                strm.adler = state.check = ZSWAP32(hold);
+                hold = 0;
+                bits = 0;
+                state.mode = DICT;
+              case DICT:
+                if(state.havedict === 0) {
+                  strm.next_out = put;
+                  strm.avail_out = left;
+                  strm.next_in = next;
+                  strm.avail_in = have;
+                  state.hold = hold;
+                  state.bits = bits;
+                  return Z_NEED_DICT
+                }
+                strm.adler = state.check = 1;
+                state.mode = TYPE;
+              case TYPE:
+                if(flush === Z_BLOCK || flush === Z_TREES) {
+                  break inf_leave
+                }
+              ;
+              case TYPEDO:
+                if(state.last) {
+                  hold >>>= bits & 7;
+                  bits -= bits & 7;
+                  state.mode = CHECK;
+                  break
+                }
+                while(bits < 3) {
+                  if(have === 0) {
+                    break inf_leave
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8
+                }
+                state.last = hold & 1;
+                hold >>>= 1;
+                bits -= 1;
+                switch(hold & 3) {
+                  case 0:
+                    state.mode = STORED;
+                    break;
+                  case 1:
+                    fixedtables(state);
+                    state.mode = LEN_;
+                    if(flush === Z_TREES) {
+                      hold >>>= 2;
+                      bits -= 2;
+                      break inf_leave
+                    }
+                    break;
+                  case 2:
+                    state.mode = TABLE;
+                    break;
+                  case 3:
+                    strm.msg = "invalid block type";
+                    state.mode = BAD
+                }
+                hold >>>= 2;
+                bits -= 2;
+                break;
+              case STORED:
+                hold >>>= bits & 7;
+                bits -= bits & 7;
+                while(bits < 32) {
+                  if(have === 0) {
+                    break inf_leave
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8
+                }
+                if((hold & 65535) !== (hold >>> 16 ^ 65535)) {
+                  strm.msg = "invalid stored block lengths";
+                  state.mode = BAD;
+                  break
+                }
+                state.length = hold & 65535;
+                hold = 0;
+                bits = 0;
+                state.mode = COPY_;
+                if(flush === Z_TREES) {
+                  break inf_leave
+                }
+              ;
+              case COPY_:
+                state.mode = COPY;
+              case COPY:
+                copy = state.length;
+                if(copy) {
+                  if(copy > have) {
+                    copy = have
+                  }
+                  if(copy > left) {
+                    copy = left
+                  }
+                  if(copy === 0) {
+                    break inf_leave
+                  }
+                  utils.arraySet(output, input, next, copy, put);
+                  have -= copy;
+                  next += copy;
+                  left -= copy;
+                  put += copy;
+                  state.length -= copy;
+                  break
+                }
+                state.mode = TYPE;
+                break;
+              case TABLE:
+                while(bits < 14) {
+                  if(have === 0) {
+                    break inf_leave
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8
+                }
+                state.nlen = (hold & 31) + 257;
+                hold >>>= 5;
+                bits -= 5;
+                state.ndist = (hold & 31) + 1;
+                hold >>>= 5;
+                bits -= 5;
+                state.ncode = (hold & 15) + 4;
+                hold >>>= 4;
+                bits -= 4;
+                if(state.nlen > 286 || state.ndist > 30) {
+                  strm.msg = "too many length or distance symbols";
+                  state.mode = BAD;
+                  break
+                }
+                state.have = 0;
+                state.mode = LENLENS;
+              case LENLENS:
+                while(state.have < state.ncode) {
+                  while(bits < 3) {
+                    if(have === 0) {
+                      break inf_leave
+                    }
+                    have--;
+                    hold += input[next++] << bits;
+                    bits += 8
+                  }
+                  state.lens[order[state.have++]] = hold & 7;
+                  hold >>>= 3;
+                  bits -= 3
+                }
+                while(state.have < 19) {
+                  state.lens[order[state.have++]] = 0
+                }
+                state.lencode = state.lendyn;
+                state.lenbits = 7;
+                opts = {bits:state.lenbits};
+                ret = inflate_table(CODES, state.lens, 0, 19, state.lencode, 0, state.work, opts);
+                state.lenbits = opts.bits;
+                if(ret) {
+                  strm.msg = "invalid code lengths set";
+                  state.mode = BAD;
+                  break
+                }
+                state.have = 0;
+                state.mode = CODELENS;
+              case CODELENS:
+                while(state.have < state.nlen + state.ndist) {
+                  for(;;) {
+                    here = state.lencode[hold & (1 << state.lenbits) - 1];
+                    here_bits = here >>> 24;
+                    here_op = here >>> 16 & 255;
+                    here_val = here & 65535;
+                    if(here_bits <= bits) {
+                      break
+                    }
+                    if(have === 0) {
+                      break inf_leave
+                    }
+                    have--;
+                    hold += input[next++] << bits;
+                    bits += 8
+                  }
+                  if(here_val < 16) {
+                    hold >>>= here_bits;
+                    bits -= here_bits;
+                    state.lens[state.have++] = here_val
+                  }else {
+                    if(here_val === 16) {
+                      n = here_bits + 2;
+                      while(bits < n) {
+                        if(have === 0) {
+                          break inf_leave
+                        }
+                        have--;
+                        hold += input[next++] << bits;
+                        bits += 8
+                      }
+                      hold >>>= here_bits;
+                      bits -= here_bits;
+                      if(state.have === 0) {
+                        strm.msg = "invalid bit length repeat";
+                        state.mode = BAD;
+                        break
+                      }
+                      len = state.lens[state.have - 1];
+                      copy = 3 + (hold & 3);
+                      hold >>>= 2;
+                      bits -= 2
+                    }else {
+                      if(here_val === 17) {
+                        n = here_bits + 3;
+                        while(bits < n) {
+                          if(have === 0) {
+                            break inf_leave
+                          }
+                          have--;
+                          hold += input[next++] << bits;
+                          bits += 8
+                        }
+                        hold >>>= here_bits;
+                        bits -= here_bits;
+                        len = 0;
+                        copy = 3 + (hold & 7);
+                        hold >>>= 3;
+                        bits -= 3
+                      }else {
+                        n = here_bits + 7;
+                        while(bits < n) {
+                          if(have === 0) {
+                            break inf_leave
+                          }
+                          have--;
+                          hold += input[next++] << bits;
+                          bits += 8
+                        }
+                        hold >>>= here_bits;
+                        bits -= here_bits;
+                        len = 0;
+                        copy = 11 + (hold & 127);
+                        hold >>>= 7;
+                        bits -= 7
+                      }
+                    }
+                    if(state.have + copy > state.nlen + state.ndist) {
+                      strm.msg = "invalid bit length repeat";
+                      state.mode = BAD;
+                      break
+                    }
+                    while(copy--) {
+                      state.lens[state.have++] = len
+                    }
+                  }
+                }
+                if(state.mode === BAD) {
+                  break
+                }
+                if(state.lens[256] === 0) {
+                  strm.msg = "invalid code -- missing end-of-block";
+                  state.mode = BAD;
+                  break
+                }
+                state.lenbits = 9;
+                opts = {bits:state.lenbits};
+                ret = inflate_table(LENS, state.lens, 0, state.nlen, state.lencode, 0, state.work, opts);
+                state.lenbits = opts.bits;
+                if(ret) {
+                  strm.msg = "invalid literal/lengths set";
+                  state.mode = BAD;
+                  break
+                }
+                state.distbits = 6;
+                state.distcode = state.distdyn;
+                opts = {bits:state.distbits};
+                ret = inflate_table(DISTS, state.lens, state.nlen, state.ndist, state.distcode, 0, state.work, opts);
+                state.distbits = opts.bits;
+                if(ret) {
+                  strm.msg = "invalid distances set";
+                  state.mode = BAD;
+                  break
+                }
+                state.mode = LEN_;
+                if(flush === Z_TREES) {
+                  break inf_leave
+                }
+              ;
+              case LEN_:
+                state.mode = LEN;
+              case LEN:
+                if(have >= 6 && left >= 258) {
+                  strm.next_out = put;
+                  strm.avail_out = left;
+                  strm.next_in = next;
+                  strm.avail_in = have;
+                  state.hold = hold;
+                  state.bits = bits;
+                  inflate_fast(strm, _out);
+                  put = strm.next_out;
+                  output = strm.output;
+                  left = strm.avail_out;
+                  next = strm.next_in;
+                  input = strm.input;
+                  have = strm.avail_in;
+                  hold = state.hold;
+                  bits = state.bits;
+                  if(state.mode === TYPE) {
+                    state.back = -1
+                  }
+                  break
+                }
+                state.back = 0;
+                for(;;) {
+                  here = state.lencode[hold & (1 << state.lenbits) - 1];
+                  here_bits = here >>> 24;
+                  here_op = here >>> 16 & 255;
+                  here_val = here & 65535;
+                  if(here_bits <= bits) {
+                    break
+                  }
+                  if(have === 0) {
+                    break inf_leave
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8
+                }
+                if(here_op && (here_op & 240) === 0) {
+                  last_bits = here_bits;
+                  last_op = here_op;
+                  last_val = here_val;
+                  for(;;) {
+                    here = state.lencode[last_val + ((hold & (1 << last_bits + last_op) - 1) >> last_bits)];
+                    here_bits = here >>> 24;
+                    here_op = here >>> 16 & 255;
+                    here_val = here & 65535;
+                    if(last_bits + here_bits <= bits) {
+                      break
+                    }
+                    if(have === 0) {
+                      break inf_leave
+                    }
+                    have--;
+                    hold += input[next++] << bits;
+                    bits += 8
+                  }
+                  hold >>>= last_bits;
+                  bits -= last_bits;
+                  state.back += last_bits
+                }
+                hold >>>= here_bits;
+                bits -= here_bits;
+                state.back += here_bits;
+                state.length = here_val;
+                if(here_op === 0) {
+                  state.mode = LIT;
+                  break
+                }
+                if(here_op & 32) {
+                  state.back = -1;
+                  state.mode = TYPE;
+                  break
+                }
+                if(here_op & 64) {
+                  strm.msg = "invalid literal/length code";
+                  state.mode = BAD;
+                  break
+                }
+                state.extra = here_op & 15;
+                state.mode = LENEXT;
+              case LENEXT:
+                if(state.extra) {
+                  n = state.extra;
+                  while(bits < n) {
+                    if(have === 0) {
+                      break inf_leave
+                    }
+                    have--;
+                    hold += input[next++] << bits;
+                    bits += 8
+                  }
+                  state.length += hold & (1 << state.extra) - 1;
+                  hold >>>= state.extra;
+                  bits -= state.extra;
+                  state.back += state.extra
+                }
+                state.was = state.length;
+                state.mode = DIST;
+              case DIST:
+                for(;;) {
+                  here = state.distcode[hold & (1 << state.distbits) - 1];
+                  here_bits = here >>> 24;
+                  here_op = here >>> 16 & 255;
+                  here_val = here & 65535;
+                  if(here_bits <= bits) {
+                    break
+                  }
+                  if(have === 0) {
+                    break inf_leave
+                  }
+                  have--;
+                  hold += input[next++] << bits;
+                  bits += 8
+                }
+                if((here_op & 240) === 0) {
+                  last_bits = here_bits;
+                  last_op = here_op;
+                  last_val = here_val;
+                  for(;;) {
+                    here = state.distcode[last_val + ((hold & (1 << last_bits + last_op) - 1) >> last_bits)];
+                    here_bits = here >>> 24;
+                    here_op = here >>> 16 & 255;
+                    here_val = here & 65535;
+                    if(last_bits + here_bits <= bits) {
+                      break
+                    }
+                    if(have === 0) {
+                      break inf_leave
+                    }
+                    have--;
+                    hold += input[next++] << bits;
+                    bits += 8
+                  }
+                  hold >>>= last_bits;
+                  bits -= last_bits;
+                  state.back += last_bits
+                }
+                hold >>>= here_bits;
+                bits -= here_bits;
+                state.back += here_bits;
+                if(here_op & 64) {
+                  strm.msg = "invalid distance code";
+                  state.mode = BAD;
+                  break
+                }
+                state.offset = here_val;
+                state.extra = here_op & 15;
+                state.mode = DISTEXT;
+              case DISTEXT:
+                if(state.extra) {
+                  n = state.extra;
+                  while(bits < n) {
+                    if(have === 0) {
+                      break inf_leave
+                    }
+                    have--;
+                    hold += input[next++] << bits;
+                    bits += 8
+                  }
+                  state.offset += hold & (1 << state.extra) - 1;
+                  hold >>>= state.extra;
+                  bits -= state.extra;
+                  state.back += state.extra
+                }
+                if(state.offset > state.dmax) {
+                  strm.msg = "invalid distance too far back";
+                  state.mode = BAD;
+                  break
+                }
+                state.mode = MATCH;
+              case MATCH:
+                if(left === 0) {
+                  break inf_leave
+                }
+                copy = _out - left;
+                if(state.offset > copy) {
+                  copy = state.offset - copy;
+                  if(copy > state.whave) {
+                    if(state.sane) {
+                      strm.msg = "invalid distance too far back";
+                      state.mode = BAD;
+                      break
+                    }
+                  }
+                  if(copy > state.wnext) {
+                    copy -= state.wnext;
+                    from = state.wsize - copy
+                  }else {
+                    from = state.wnext - copy
+                  }
+                  if(copy > state.length) {
+                    copy = state.length
+                  }
+                  from_source = state.window
+                }else {
+                  from_source = output;
+                  from = put - state.offset;
+                  copy = state.length
+                }
+                if(copy > left) {
+                  copy = left
+                }
+                left -= copy;
+                state.length -= copy;
+                do {
+                  output[put++] = from_source[from++]
+                }while(--copy);
+                if(state.length === 0) {
+                  state.mode = LEN
+                }
+                break;
+              case LIT:
+                if(left === 0) {
+                  break inf_leave
+                }
+                output[put++] = state.length;
+                left--;
+                state.mode = LEN;
+                break;
+              case CHECK:
+                if(state.wrap) {
+                  while(bits < 32) {
+                    if(have === 0) {
+                      break inf_leave
+                    }
+                    have--;
+                    hold |= input[next++] << bits;
+                    bits += 8
+                  }
+                  _out -= left;
+                  strm.total_out += _out;
+                  state.total += _out;
+                  if(_out) {
+                    strm.adler = state.check = state.flags ? crc32(state.check, output, _out, put - _out) : adler32(state.check, output, _out, put - _out)
+                  }
+                  _out = left;
+                  if((state.flags ? hold : ZSWAP32(hold)) !== state.check) {
+                    strm.msg = "incorrect data check";
+                    state.mode = BAD;
+                    break
+                  }
+                  hold = 0;
+                  bits = 0
+                }
+                state.mode = LENGTH;
+              case LENGTH:
+                if(state.wrap && state.flags) {
+                  while(bits < 32) {
+                    if(have === 0) {
+                      break inf_leave
+                    }
+                    have--;
+                    hold += input[next++] << bits;
+                    bits += 8
+                  }
+                  if(hold !== (state.total & 4294967295)) {
+                    strm.msg = "incorrect length check";
+                    state.mode = BAD;
+                    break
+                  }
+                  hold = 0;
+                  bits = 0
+                }
+                state.mode = DONE;
+              case DONE:
+                ret = Z_STREAM_END;
+                break inf_leave;
+              case BAD:
+                ret = Z_DATA_ERROR;
+                break inf_leave;
+              case MEM:
+                return Z_MEM_ERROR;
+              case SYNC:
+              ;
+              default:
+                return Z_STREAM_ERROR
+            }
+          }
+          strm.next_out = put;
+          strm.avail_out = left;
+          strm.next_in = next;
+          strm.avail_in = have;
+          state.hold = hold;
+          state.bits = bits;
+          if(state.wsize || _out !== strm.avail_out && (state.mode < BAD && (state.mode < CHECK || flush !== Z_FINISH))) {
+            if(updatewindow(strm, strm.output, strm.next_out, _out - strm.avail_out)) {
+              state.mode = MEM;
+              return Z_MEM_ERROR
+            }
+          }
+          _in -= strm.avail_in;
+          _out -= strm.avail_out;
+          strm.total_in += _in;
+          strm.total_out += _out;
+          state.total += _out;
+          if(state.wrap && _out) {
+            strm.adler = state.check = state.flags ? crc32(state.check, output, _out, strm.next_out - _out) : adler32(state.check, output, _out, strm.next_out - _out)
+          }
+          strm.data_type = state.bits + (state.last ? 64 : 0) + (state.mode === TYPE ? 128 : 0) + (state.mode === LEN_ || state.mode === COPY_ ? 256 : 0);
+          if((_in === 0 && _out === 0 || flush === Z_FINISH) && ret === Z_OK) {
+            ret = Z_BUF_ERROR
+          }
+          return ret
+        }
+        function inflateEnd(strm) {
+          if(!strm || !strm.state) {
+            return Z_STREAM_ERROR
+          }
+          var state = strm.state;
+          if(state.window) {
+            state.window = null
+          }
+          strm.state = null;
+          return Z_OK
+        }
+        function inflateGetHeader(strm, head) {
+          var state;
+          if(!strm || !strm.state) {
+            return Z_STREAM_ERROR
+          }
+          state = strm.state;
+          if((state.wrap & 2) === 0) {
+            return Z_STREAM_ERROR
+          }
+          state.head = head;
+          head.done = false;
+          return Z_OK
+        }
+        exports.inflateReset = inflateReset;
+        exports.inflateReset2 = inflateReset2;
+        exports.inflateResetKeep = inflateResetKeep;
+        exports.inflateInit = inflateInit;
+        exports.inflateInit2 = inflateInit2;
+        exports.inflate = inflate;
+        exports.inflateEnd = inflateEnd;
+        exports.inflateGetHeader = inflateGetHeader;
+        exports.inflateInfo = "pako inflate (from Nodeca project)"
+      }, {"../utils/common":2, "./adler32":4, "./crc32":6, "./inffast":8, "./inftrees":10}], 10:[function(_dereq_, module, exports) {
+        var utils = _dereq_("../utils/common");
+        var MAXBITS = 15;
+        var ENOUGH_LENS = 852;
+        var ENOUGH_DISTS = 592;
+        var CODES = 0;
+        var LENS = 1;
+        var DISTS = 2;
+        var lbase = [3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131, 163, 195, 227, 258, 0, 0];
+        var lext = [16, 16, 16, 16, 16, 16, 16, 16, 17, 17, 17, 17, 18, 18, 18, 18, 19, 19, 19, 19, 20, 20, 20, 20, 21, 21, 21, 21, 16, 72, 78];
+        var dbase = [1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577, 0, 0];
+        var dext = [16, 16, 16, 16, 17, 17, 18, 18, 19, 19, 20, 20, 21, 21, 22, 22, 23, 23, 24, 24, 25, 25, 26, 26, 27, 27, 28, 28, 29, 29, 64, 64];
+        module.exports = function inflate_table(type, lens, lens_index, codes, table, table_index, work, opts) {
+          var bits = opts.bits;
+          var len = 0;
+          var sym = 0;
+          var min = 0, max = 0;
+          var root = 0;
+          var curr = 0;
+          var drop = 0;
+          var left = 0;
+          var used = 0;
+          var huff = 0;
+          var incr;
+          var fill;
+          var low;
+          var mask;
+          var next;
+          var base = null;
+          var base_index = 0;
+          var end;
+          var count = new utils.Buf16(MAXBITS + 1);
+          var offs = new utils.Buf16(MAXBITS + 1);
+          var extra = null;
+          var extra_index = 0;
+          var here_bits, here_op, here_val;
+          for(len = 0;len <= MAXBITS;len++) {
+            count[len] = 0
+          }
+          for(sym = 0;sym < codes;sym++) {
+            count[lens[lens_index + sym]]++
+          }
+          root = bits;
+          for(max = MAXBITS;max >= 1;max--) {
+            if(count[max] !== 0) {
+              break
+            }
+          }
+          if(root > max) {
+            root = max
+          }
+          if(max === 0) {
+            table[table_index++] = 1 << 24 | 64 << 16 | 0;
+            table[table_index++] = 1 << 24 | 64 << 16 | 0;
+            opts.bits = 1;
+            return 0
+          }
+          for(min = 1;min < max;min++) {
+            if(count[min] !== 0) {
+              break
+            }
+          }
+          if(root < min) {
+            root = min
+          }
+          left = 1;
+          for(len = 1;len <= MAXBITS;len++) {
+            left <<= 1;
+            left -= count[len];
+            if(left < 0) {
+              return-1
+            }
+          }
+          if(left > 0 && (type === CODES || max !== 1)) {
+            return-1
+          }
+          offs[1] = 0;
+          for(len = 1;len < MAXBITS;len++) {
+            offs[len + 1] = offs[len] + count[len]
+          }
+          for(sym = 0;sym < codes;sym++) {
+            if(lens[lens_index + sym] !== 0) {
+              work[offs[lens[lens_index + sym]]++] = sym
+            }
+          }
+          switch(type) {
+            case CODES:
+              base = extra = work;
+              end = 19;
+              break;
+            case LENS:
+              base = lbase;
+              base_index -= 257;
+              extra = lext;
+              extra_index -= 257;
+              end = 256;
+              break;
+            default:
+              base = dbase;
+              extra = dext;
+              end = -1
+          }
+          huff = 0;
+          sym = 0;
+          len = min;
+          next = table_index;
+          curr = root;
+          drop = 0;
+          low = -1;
+          used = 1 << root;
+          mask = used - 1;
+          if(type === LENS && used > ENOUGH_LENS || type === DISTS && used > ENOUGH_DISTS) {
+            return 1
+          }
+          var i = 0;
+          for(;;) {
+            i++;
+            here_bits = len - drop;
+            if(work[sym] < end) {
+              here_op = 0;
+              here_val = work[sym]
+            }else {
+              if(work[sym] > end) {
+                here_op = extra[extra_index + work[sym]];
+                here_val = base[base_index + work[sym]]
+              }else {
+                here_op = 32 + 64;
+                here_val = 0
+              }
+            }
+            incr = 1 << len - drop;
+            fill = 1 << curr;
+            min = fill;
+            do {
+              fill -= incr;
+              table[next + (huff >> drop) + fill] = here_bits << 24 | here_op << 16 | here_val | 0
+            }while(fill !== 0);
+            incr = 1 << len - 1;
+            while(huff & incr) {
+              incr >>= 1
+            }
+            if(incr !== 0) {
+              huff &= incr - 1;
+              huff += incr
+            }else {
+              huff = 0
+            }
+            sym++;
+            if(--count[len] === 0) {
+              if(len === max) {
+                break
+              }
+              len = lens[lens_index + work[sym]]
+            }
+            if(len > root && (huff & mask) !== low) {
+              if(drop === 0) {
+                drop = root
+              }
+              next += min;
+              curr = len - drop;
+              left = 1 << curr;
+              while(curr + drop < max) {
+                left -= count[curr + drop];
+                if(left <= 0) {
+                  break
+                }
+                curr++;
+                left <<= 1
+              }
+              used += 1 << curr;
+              if(type === LENS && used > ENOUGH_LENS || type === DISTS && used > ENOUGH_DISTS) {
+                return 1
+              }
+              low = huff & mask;
+              table[low] = root << 24 | curr << 16 | next - table_index | 0
+            }
+          }
+          if(huff !== 0) {
+            table[next + huff] = len - drop << 24 | 64 << 16 | 0
+          }
+          opts.bits = root;
+          return 0
+        }
+      }, {"../utils/common":2}], 11:[function(_dereq_, module, exports) {
+        module.exports = {2:"need dictionary", 1:"stream end", 0:"", "-1":"file error", "-2":"stream error", "-3":"data error", "-4":"insufficient memory", "-5":"buffer error", "-6":"incompatible version"}
+      }, {}], 12:[function(_dereq_, module, exports) {
+        function ZStream() {
+          this.input = null;
+          this.next_in = 0;
+          this.avail_in = 0;
+          this.total_in = 0;
+          this.output = null;
+          this.next_out = 0;
+          this.avail_out = 0;
+          this.total_out = 0;
+          this.msg = "";
+          this.state = null;
+          this.data_type = 2;
+          this.adler = 0
+        }
+        module.exports = ZStream
+      }, {}]}, {}, [1])(1)
+    });
+    function zip_inflate(data, size) {
+      return pako.inflateRaw(data)
     }
-    return n
+    return{inflate:zip_inflate}
   }
-  function zip_inflate(data, size) {
-    zip_inflate_start();
-    zip_inflate_data = data;
-    zip_inflate_pos = 0;
-    var buff = new Uint8Array(new ArrayBuffer(size));
-    zip_inflate_internal(buff, 0, size);
-    zip_inflate_data = new Uint8Array(new ArrayBuffer(0));
-    return buff
-  }
-  this.inflate = zip_inflate
-};
-core.ScheduledTask = function ScheduledTask(fn, delay) {
-  var timeoutId, scheduled = false, args = [];
+  core.RawInflate = createRawInflateSingleton()
+})();
+core.ScheduledTask = function ScheduledTask(fn, scheduleTask, cancelTask) {
+  var timeoutId, scheduled = false, args = [], destroyed = false;
   function cancel() {
     if(scheduled) {
-      runtime.clearTimeout(timeoutId);
+      cancelTask(timeoutId);
       scheduled = false
     }
   }
@@ -3043,13 +4436,15 @@ core.ScheduledTask = function ScheduledTask(fn, delay) {
     args = null
   }
   this.trigger = function() {
+    runtime.assert(destroyed === false, "Can't trigger destroyed ScheduledTask instance");
     args = Array.prototype.slice.call(arguments);
     if(!scheduled) {
       scheduled = true;
-      timeoutId = runtime.setTimeout(execute, delay)
+      timeoutId = scheduleTask(execute)
     }
   };
   this.triggerImmediate = function() {
+    runtime.assert(destroyed === false, "Can't trigger destroyed ScheduledTask instance");
     args = Array.prototype.slice.call(arguments);
     execute()
   };
@@ -3059,50 +4454,21 @@ core.ScheduledTask = function ScheduledTask(fn, delay) {
     }
   };
   this.cancel = cancel;
+  this.restart = function() {
+    runtime.assert(destroyed === false, "Can't trigger destroyed ScheduledTask instance");
+    cancel();
+    scheduled = true;
+    timeoutId = scheduleTask(execute)
+  };
   this.destroy = function(callback) {
     cancel();
+    destroyed = true;
     callback()
   }
 };
-/*
-
- Copyright (C) 2014 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
+core.StepDirection = {PREVIOUS:1, NEXT:2};
 core.StepIterator = function StepIterator(filter, iterator) {
-  var FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT, cachedContainer, cachedOffset, cachedFilterResult;
+  var FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT, NEXT = core.StepDirection.NEXT, cachedContainer, cachedOffset, cachedFilterResult;
   function resetCache() {
     cachedContainer = null;
     cachedOffset = undefined;
@@ -3156,9 +4522,14 @@ core.StepIterator = function StepIterator(filter, iterator) {
     return false
   }
   this.previousStep = previousStep;
+  this.advanceStep = function(direction) {
+    return direction === NEXT ? nextStep() : previousStep()
+  };
   this.roundToClosestStep = function() {
-    var currentContainer = container(), currentOffset = offset(), isAtStep = isStep();
+    var currentContainer, currentOffset, isAtStep = isStep();
     if(!isAtStep) {
+      currentContainer = container();
+      currentOffset = offset();
       isAtStep = previousStep();
       if(!isAtStep) {
         setPosition(currentContainer, currentOffset);
@@ -3180,8 +4551,65 @@ core.StepIterator = function StepIterator(filter, iterator) {
       isAtStep = nextStep()
     }
     return isAtStep
+  };
+  this.leftNode = function() {
+    return iterator.leftNode()
+  };
+  this.snapshot = function() {
+    return new core.StepIterator.StepSnapshot(container(), offset())
+  };
+  this.restore = function(snapshot) {
+    setPosition(snapshot.container, snapshot.offset)
   }
 };
+core.StepIterator.StepSnapshot = function(container, offset) {
+  this.container = container;
+  this.offset = offset
+};
+(function() {
+  var redrawTasks;
+  function RedrawTasks() {
+    var callbacks = {};
+    this.requestRedrawTask = function(callback) {
+      var id = runtime.requestAnimationFrame(function() {
+        callback();
+        delete callbacks[id]
+      });
+      callbacks[id] = callback;
+      return id
+    };
+    this.performRedraw = function() {
+      Object.keys(callbacks).forEach(function(id) {
+        callbacks[id]();
+        runtime.cancelAnimationFrame(parseInt(id, 10))
+      });
+      callbacks = {}
+    };
+    this.cancelRedrawTask = function(id) {
+      runtime.cancelAnimationFrame(id);
+      delete callbacks[id]
+    }
+  }
+  core.Task = {};
+  core.Task.SUPPRESS_MANUAL_PROCESSING = false;
+  core.Task.processTasks = function() {
+    if(!core.Task.SUPPRESS_MANUAL_PROCESSING) {
+      redrawTasks.performRedraw()
+    }
+  };
+  core.Task.createRedrawTask = function(callback) {
+    return new core.ScheduledTask(callback, redrawTasks.requestRedrawTask, redrawTasks.cancelRedrawTask)
+  };
+  core.Task.createTimeoutTask = function(callback, delay) {
+    return new core.ScheduledTask(callback, function(callback) {
+      return runtime.setTimeout(callback, delay)
+    }, runtime.clearTimeout)
+  };
+  function init() {
+    redrawTasks = new RedrawTasks
+  }
+  init()
+})();
 core.TestData;
 core.AsyncTestData;
 core.UnitTest = function UnitTest() {
@@ -3209,16 +4637,19 @@ core.UnitTest.cleanupTestAreaDiv = function() {
   runtime.assert(!!testarea && testarea.parentNode === maindoc.body, 'Test environment broken, found no div with id "testarea" below body.');
   maindoc.body.removeChild(testarea)
 };
-core.UnitTest.createOdtDocument = function(xml, namespaceMap) {
+core.UnitTest.createXmlDocument = function(rootElementName, xmlBodyString, namespaceMap) {
   var xmlDoc = "<?xml version='1.0' encoding='UTF-8'?>";
-  xmlDoc += "<office:document";
+  xmlDoc += "<" + rootElementName;
   Object.keys(namespaceMap).forEach(function(key) {
     xmlDoc += " xmlns:" + key + '="' + namespaceMap[key] + '"'
   });
   xmlDoc += ">";
-  xmlDoc += xml;
-  xmlDoc += "</office:document>";
+  xmlDoc += xmlBodyString;
+  xmlDoc += "</" + rootElementName + ">";
   return runtime.parseXML(xmlDoc)
+};
+core.UnitTest.createOdtDocument = function(xml, namespaceMap) {
+  return core.UnitTest.createXmlDocument("office:document", xml, namespaceMap)
 };
 core.UnitTestLogger = function UnitTestLogger() {
   var messages = [], errors = 0, start = 0, suite = "", test = "";
@@ -3227,10 +4658,10 @@ core.UnitTestLogger = function UnitTestLogger() {
     errors = 0;
     suite = suiteName;
     test = testName;
-    start = (new Date).getTime()
+    start = Date.now()
   };
   this.endTest = function() {
-    var end = (new Date).getTime();
+    var end = Date.now();
     return{description:test, suite:[suite, test], success:errors === 0, log:messages, time:end - start}
   };
   this.debug = function(msg) {
@@ -3356,7 +4787,8 @@ core.UnitTestRunner = function UnitTestRunner(resourcePrefix, logger) {
     }
     return true
   }
-  function isResultCorrect(actual, expected) {
+  function isResultCorrect(actual, expected, absoluteTolerance) {
+    var diff;
     if(expected === 0) {
       return actual === expected && 1 / actual === 1 / expected
     }
@@ -3368,6 +4800,18 @@ core.UnitTestRunner = function UnitTestRunner(resourcePrefix, logger) {
     }
     if(typeof expected === "number" && isNaN(expected)) {
       return typeof actual === "number" && isNaN(actual)
+    }
+    if(typeof expected === "number" && typeof actual === "number") {
+      if(actual === expected) {
+        return true
+      }
+      if(absoluteTolerance === undefined) {
+        absoluteTolerance = 1E-4
+      }
+      runtime.assert(typeof absoluteTolerance === "number", "Absolute tolerance not given as number.");
+      runtime.assert(absoluteTolerance >= 0, "Absolute tolerance should be given as positive number, was " + absoluteTolerance);
+      diff = Math.abs(actual - expected);
+      return diff <= absoluteTolerance
     }
     if(Object.prototype.toString.call(expected) === Object.prototype.toString.call([])) {
       return areArraysEqual((actual), (expected))
@@ -3384,9 +4828,15 @@ core.UnitTestRunner = function UnitTestRunner(resourcePrefix, logger) {
     if(v === 0 && 1 / v < 0) {
       return"-0"
     }
+    if(typeof v === "object") {
+      try {
+        return JSON.stringify(v)
+      }catch(ignore) {
+      }
+    }
     return String(v)
   }
-  function shouldBe(t, a, b) {
+  function shouldBe(t, a, b, absoluteTolerance) {
     if(typeof a !== "string" || typeof b !== "string") {
       debug("WARN: shouldBe() expects string arguments")
     }
@@ -3400,11 +4850,11 @@ core.UnitTestRunner = function UnitTestRunner(resourcePrefix, logger) {
     if(exception) {
       testFailed(a + " should be " + bv + ". Threw exception " + exception)
     }else {
-      if(isResultCorrect(av, bv)) {
+      if(isResultCorrect(av, bv, absoluteTolerance)) {
         testPassed(a + " is " + b)
       }else {
         if(String(typeof av) === String(typeof bv)) {
-          testFailed(a + " should be " + bv + ". Was " + stringify(av) + ".")
+          testFailed(a + " should be " + stringify(bv) + ". Was " + stringify(av) + ".")
         }else {
           testFailed(a + " should be " + bv + " (of type " + typeof bv + "). Was " + av + " (of type " + typeof av + ").")
         }
@@ -3528,14 +4978,25 @@ core.UnitTester = function UnitTester() {
       testResults[tname] = lastFailCount === runner.countFailedTests()
     }
     function runAsyncTests(todo) {
+      var fname, expectFail;
       if(todo.length === 0) {
         results[testName] = testResults;
         failedTests += runner.countFailedTests();
         callback();
         return
       }
+      function tearDownAndRunNext() {
+        if(expectFail) {
+          runner.endExpectFail()
+        }
+        report(logger.endTest());
+        test.tearDown();
+        testResults[fname] = lastFailCount === runner.countFailedTests();
+        runAsyncTests(todo.slice(1))
+      }
       t = todo[0].f;
-      var fname = todo[0].name, expectFail = todo[0].expectFail === true;
+      fname = todo[0].name;
+      expectFail = todo[0].expectFail === true;
       lastFailCount = runner.countFailedTests();
       if(testNames.length && testNames.indexOf(fname) === -1) {
         runAsyncTests(todo.slice(1))
@@ -3545,20 +5006,17 @@ core.UnitTester = function UnitTester() {
         if(expectFail) {
           runner.beginExpectFail()
         }
-        t(function() {
-          if(expectFail) {
-            runner.endExpectFail()
-          }
-          report(logger.endTest());
-          test.tearDown();
-          testResults[fname] = lastFailCount === runner.countFailedTests();
-          runAsyncTests(todo.slice(1))
-        })
+        try {
+          t(tearDownAndRunNext)
+        }catch(e) {
+          runner.testFailed("Unexpected exception encountered: " + e.toString() + "\n" + e.stack);
+          tearDownAndRunNext()
+        }
       }
     }
     runAsyncTests(test.asyncTests())
   };
-  this.countFailedTests = function() {
+  this.failedTestsCount = function() {
     return failedTests
   };
   this.results = function() {
@@ -3608,16 +5066,8 @@ core.Utils = function Utils() {
   };
   this.mergeObjects = mergeObjects
 };
-/*
-
- WebODF
- Copyright (c) 2010 Jos van den Oever
- Licensed under the ... License:
-
- Project home: http://www.webodf.org/
-*/
 core.Zip = function Zip(url, entriesReadCallback) {
-  var entries, filesize, nEntries, inflate = (new core.RawInflate).inflate, zip = this, base64 = new core.Base64;
+  var entries, filesize, nEntries, inflate = core.RawInflate.inflate, zip = this, base64 = new core.Base64;
   function crc32(data) {
     var table = [0, 1996959894, 3993919788, 2567524794, 124634137, 1886057615, 3915621685, 2657392035, 249268274, 2044508324, 3772115230, 2547177864, 162941995, 2125561021, 3887607047, 2428444049, 498536548, 1789927666, 4089016648, 2227061214, 450548861, 1843258603, 4107580753, 2211677639, 325883990, 1684777152, 4251122042, 2321926636, 335633487, 1661365465, 4195302755, 2366115317, 997073096, 1281953886, 3579855332, 2724688242, 1006888145, 1258607687, 3524101629, 2768942443, 901097722, 1119000684, 
     3686517206, 2898065728, 853044451, 1172266101, 3705015759, 2882616665, 651767980, 1373503546, 3369554304, 3218104598, 565507253, 1454621731, 3485111705, 3099436303, 671266974, 1594198024, 3322730930, 2970347812, 795835527, 1483230225, 3244367275, 3060149565, 1994146192, 31158534, 2563907772, 4023717930, 1907459465, 112637215, 2680153253, 3904427059, 2013776290, 251722036, 2517215374, 3775830040, 2137656763, 141376813, 2439277719, 3865271297, 1802195444, 476864866, 2238001368, 4066508878, 1812370925, 
@@ -3989,47 +5439,55 @@ core.Zip = function Zip(url, entriesReadCallback) {
     }
   })
 };
+core.SimpleClientRect = null;
+gui.CommonConstraints = {EDIT:{ANNOTATIONS:{ONLY_DELETE_OWN:"onlyDeleteOwn"}, REVIEW_MODE:"reviewMode"}};
+gui.SessionConstraints = function SessionConstraints() {
+  var constraints = {}, constraintNotifier = new core.EventNotifier;
+  function registerConstraint(constraint) {
+    if(!constraints.hasOwnProperty(constraint)) {
+      constraints[constraint] = false;
+      constraintNotifier.register(constraint)
+    }
+  }
+  this.registerConstraint = registerConstraint;
+  this.subscribe = function(constraint, callback) {
+    registerConstraint(constraint);
+    constraintNotifier.subscribe(constraint, callback)
+  };
+  this.unsubscribe = function(constraint, callback) {
+    constraintNotifier.unsubscribe(constraint, callback)
+  };
+  this.setState = function(constraint, enabled) {
+    runtime.assert(constraints.hasOwnProperty(constraint) === true, "No such constraint");
+    if(constraints[constraint] !== enabled) {
+      constraints[constraint] = enabled;
+      constraintNotifier.emit(constraint, enabled)
+    }
+  };
+  this.getState = function(constraint) {
+    runtime.assert(constraints.hasOwnProperty(constraint) === true, "No such constraint");
+    return constraints[constraint]
+  }
+};
+gui.BlacklistNamespaceNodeFilter = function(excludedNamespaces) {
+  var excludedNamespacesObj = {};
+  this.acceptNode = function(node) {
+    if(!node || excludedNamespacesObj.hasOwnProperty(node.namespaceURI)) {
+      return NodeFilter.FILTER_REJECT
+    }
+    return NodeFilter.FILTER_ACCEPT
+  };
+  function init() {
+    excludedNamespaces.forEach(function(ns) {
+      excludedNamespacesObj[ns] = true
+    })
+  }
+  init()
+};
 xmldom.LSSerializerFilter = function LSSerializerFilter() {
 };
 xmldom.LSSerializerFilter.prototype.acceptNode = function(node) {
 };
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 odf.OdfNodeFilter = function OdfNodeFilter() {
   this.acceptNode = function(node) {
     var result;
@@ -4045,43 +5503,6 @@ odf.OdfNodeFilter = function OdfNodeFilter() {
     return result
   }
 };
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 odf.Namespaces = {namespaceMap:{db:"urn:oasis:names:tc:opendocument:xmlns:database:1.0", dc:"http://purl.org/dc/elements/1.1/", dr3d:"urn:oasis:names:tc:opendocument:xmlns:dr3d:1.0", draw:"urn:oasis:names:tc:opendocument:xmlns:drawing:1.0", chart:"urn:oasis:names:tc:opendocument:xmlns:chart:1.0", fo:"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0", form:"urn:oasis:names:tc:opendocument:xmlns:form:1.0", meta:"urn:oasis:names:tc:opendocument:xmlns:meta:1.0", number:"urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0", 
 office:"urn:oasis:names:tc:opendocument:xmlns:office:1.0", presentation:"urn:oasis:names:tc:opendocument:xmlns:presentation:1.0", style:"urn:oasis:names:tc:opendocument:xmlns:style:1.0", svg:"urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0", table:"urn:oasis:names:tc:opendocument:xmlns:table:1.0", text:"urn:oasis:names:tc:opendocument:xmlns:text:1.0", xlink:"http://www.w3.org/1999/xlink", xml:"http://www.w3.org/XML/1998/namespace"}, prefixMap:{}, dbns:"urn:oasis:names:tc:opendocument:xmlns:database:1.0", 
 dcns:"http://purl.org/dc/elements/1.1/", dr3dns:"urn:oasis:names:tc:opendocument:xmlns:dr3d:1.0", drawns:"urn:oasis:names:tc:opendocument:xmlns:drawing:1.0", chartns:"urn:oasis:names:tc:opendocument:xmlns:chart:1.0", fons:"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0", formns:"urn:oasis:names:tc:opendocument:xmlns:form:1.0", metans:"urn:oasis:names:tc:opendocument:xmlns:meta:1.0", numberns:"urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0", officens:"urn:oasis:names:tc:opendocument:xmlns:office:1.0", 
@@ -4356,43 +5777,6 @@ function createXPathSingleton() {
   return{getODFElementsWithXPath:getODFElementsWithXPath}
 }
 xmldom.XPath = createXPathSingleton();
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 odf.StyleInfo = function StyleInfo() {
   var chartns = odf.Namespaces.chartns, dbns = odf.Namespaces.dbns, dr3dns = odf.Namespaces.dr3dns, drawns = odf.Namespaces.drawns, formns = odf.Namespaces.formns, numberns = odf.Namespaces.numberns, officens = odf.Namespaces.officens, presentationns = odf.Namespaces.presentationns, stylens = odf.Namespaces.stylens, tablens = odf.Namespaces.tablens, textns = odf.Namespaces.textns, nsprefixes = {"urn:oasis:names:tc:opendocument:xmlns:chart:1.0":"chart:", "urn:oasis:names:tc:opendocument:xmlns:database:1.0":"db:", 
   "urn:oasis:names:tc:opendocument:xmlns:dr3d:1.0":"dr3d:", "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0":"draw:", "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0":"fo:", "urn:oasis:names:tc:opendocument:xmlns:form:1.0":"form:", "urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0":"number:", "urn:oasis:names:tc:opendocument:xmlns:office:1.0":"office:", "urn:oasis:names:tc:opendocument:xmlns:presentation:1.0":"presentation:", "urn:oasis:names:tc:opendocument:xmlns:style:1.0":"style:", 
@@ -4726,6 +6110,25 @@ odf.StyleInfo = function StyleInfo() {
       mergeUsedAutomaticStyles(automaticStylesRoot, usedStyles)
     }
   };
+  function getStyleName(family, element) {
+    var stylename, i, map = elements[element.localName];
+    if(map) {
+      map = map[element.namespaceURI];
+      if(map) {
+        for(i = 0;i < map.length;i += 1) {
+          if(map[i].keyname === family) {
+            map = map[i];
+            if(element.hasAttributeNS(map.ns, map.localname)) {
+              stylename = element.getAttributeNS(map.ns, map.localname);
+              break
+            }
+          }
+        }
+      }
+    }
+    return stylename
+  }
+  this.getStyleName = getStyleName;
   this.hasDerivedStyles = hasDerivedStyles;
   this.prefixStyleNames = prefixStyleNames;
   this.removePrefixFromStyleNames = removePrefixFromStyleNames;
@@ -4865,45 +6268,8 @@ xmldom.LSSerializer = function LSSerializer() {
     return serializeNode(ns, node)
   }
 };
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 (function() {
-  var styleInfo = new odf.StyleInfo, domUtils = new core.DomUtils, officens = "urn:oasis:names:tc:opendocument:xmlns:office:1.0", manifestns = "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0", webodfns = "urn:webodf:names:scope", stylens = odf.Namespaces.stylens, nodeorder = ["meta", "settings", "scripts", "font-face-decls", "styles", "automatic-styles", "master-styles", "body"], automaticStylePrefix = (new Date).getTime() + "_webodf_", base64 = new core.Base64, documentStylesScope = "document-styles", 
+  var styleInfo = new odf.StyleInfo, domUtils = new core.DomUtils, officens = "urn:oasis:names:tc:opendocument:xmlns:office:1.0", manifestns = "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0", webodfns = "urn:webodf:names:scope", stylens = odf.Namespaces.stylens, nodeorder = ["meta", "settings", "scripts", "font-face-decls", "styles", "automatic-styles", "master-styles", "body"], automaticStylePrefix = Date.now() + "_webodf_", base64 = new core.Base64, documentStylesScope = "document-styles", 
   documentContentScope = "document-content";
   function getNodePosition(child) {
     var i, l = nodeorder.length;
@@ -5017,8 +6383,8 @@ xmldom.LSSerializer = function LSSerializer() {
     }
     return null
   };
-  odf.OdfContainer = function OdfContainer(url, onstatereadychange) {
-    var self = this, zip, partMimetypes = {}, contentElement;
+  odf.OdfContainer = function OdfContainer(urlOrType, onstatereadychange) {
+    var self = this, zip, partMimetypes = {}, contentElement, url = "";
     this.onstatereadychange = onstatereadychange;
     this.onchange = null;
     this.state = null;
@@ -5092,7 +6458,7 @@ xmldom.LSSerializer = function LSSerializer() {
       }
       return meta
     }
-    function getMetaData(metadataNs, metadataLocalName) {
+    function getMetadata(metadataNs, metadataLocalName) {
       var node = self.rootElement.meta, textNode;
       node = node && node.firstChild;
       while(node && (node.namespaceURI !== metadataNs || node.localName !== metadataLocalName)) {
@@ -5108,6 +6474,7 @@ xmldom.LSSerializer = function LSSerializer() {
       }
       return null
     }
+    this.getMetadata = getMetadata;
     function unusedKey(key, map1, map2) {
       var i = 0, postFixedKey;
       key = key.replace(/\d+$/, "");
@@ -5222,6 +6589,8 @@ xmldom.LSSerializer = function LSSerializer() {
       root.masterStyles = domUtils.getDirectChild(root, officens, "master-styles");
       root.body = domUtils.getDirectChild(root, officens, "body");
       root.meta = domUtils.getDirectChild(root, officens, "meta");
+      root.settings = domUtils.getDirectChild(root, officens, "settings");
+      root.scripts = domUtils.getDirectChild(root, officens, "scripts");
       linkAnnotationStartAndEndElements(root)
     }
     function handleFlatXml(xmldoc) {
@@ -5326,13 +6695,56 @@ xmldom.LSSerializer = function LSSerializer() {
         e = e.nextElementSibling
       }
     }
+    function removeElements(xmldoc, localName, allowedNamespaces) {
+      var elements = domUtils.getElementsByTagName(xmldoc, localName), element, i;
+      for(i = 0;i < elements.length;i += 1) {
+        element = elements[i];
+        if(!allowedNamespaces.hasOwnProperty(element.namespaceURI)) {
+          element.parentNode.removeChild(element)
+        }
+      }
+    }
+    function removeDangerousElements(xmldoc) {
+      removeElements(xmldoc, "script", {"urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0":true, "urn:oasis:names:tc:opendocument:xmlns:office:1.0":true, "urn:oasis:names:tc:opendocument:xmlns:table:1.0":true, "urn:oasis:names:tc:opendocument:xmlns:text:1.0":true, "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0":true});
+      removeElements(xmldoc, "style", {"urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0":true, "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0":true, "urn:oasis:names:tc:opendocument:xmlns:style:1.0":true})
+    }
+    function removeDangerousAttributes(element) {
+      var e = element.firstElementChild, as = [], i, n, a, atts = element.attributes, l = atts.length;
+      for(i = 0;i < l;i += 1) {
+        a = atts.item(i);
+        n = a.localName.substr(0, 2).toLowerCase();
+        if(a.namespaceURI === null && n === "on") {
+          as.push(a)
+        }
+      }
+      l = as.length;
+      for(i = 0;i < l;i += 1) {
+        element.removeAttributeNode(as[i])
+      }
+      while(e) {
+        removeDangerousAttributes(e);
+        e = e.nextElementSibling
+      }
+    }
     function loadNextComponent(remainingComponents) {
       var component = remainingComponents.shift();
       if(component) {
         zip.loadAsDOM(component.path, function(err, xmldoc) {
+          if(xmldoc) {
+            removeDangerousElements(xmldoc);
+            removeDangerousAttributes(xmldoc.documentElement)
+          }
           component.handler(xmldoc);
-          if(err || self.state === OdfContainer.INVALID) {
+          if(self.state === OdfContainer.INVALID) {
+            if(err) {
+              runtime.log("ERROR: Unable to load " + component.path + " - " + err)
+            }else {
+              runtime.log("ERROR: Unable to load " + component.path)
+            }
             return
+          }
+          if(err) {
+            runtime.log("DEBUG: Unable to load " + component.path + " - " + err)
           }
           loadNextComponent(remainingComponents)
         })
@@ -5377,12 +6789,14 @@ xmldom.LSSerializer = function LSSerializer() {
       return header + serializer.writeToString(manifest, odf.Namespaces.namespaceMap)
     }
     function serializeSettingsXml() {
-      var serializer = new xmldom.LSSerializer, s = createDocumentElement("document-settings");
-      serializer.filter = new odf.OdfNodeFilter;
-      if(self.rootElement.settings.firstElementChild) {
-        s += serializer.writeToString(self.rootElement.settings, odf.Namespaces.namespaceMap)
+      var serializer, s = "";
+      if(self.rootElement.settings && self.rootElement.settings.firstElementChild) {
+        serializer = new xmldom.LSSerializer;
+        s = createDocumentElement("document-settings");
+        serializer.filter = new odf.OdfNodeFilter;
+        s += serializer.writeToString(self.rootElement.settings, odf.Namespaces.namespaceMap);
+        s += "</office:document-settings>"
       }
-      s += "</office:document-settings>";
       return s
     }
     function serializeStylesXml() {
@@ -5420,13 +6834,20 @@ xmldom.LSSerializer = function LSSerializer() {
       return original
     }
     function loadFromXML(url, callback) {
-      runtime.loadXML(url, function(err, dom) {
+      function handler(err, dom) {
         if(err) {
           callback(err)
         }else {
-          handleFlatXml(dom)
+          if(!dom) {
+            callback("No DOM was loaded.")
+          }else {
+            removeDangerousElements(dom);
+            removeDangerousAttributes(dom.documentElement);
+            handleFlatXml(dom)
+          }
         }
-      })
+      }
+      runtime.loadXML(url, handler)
     }
     this.setRootElement = setRootElement;
     this.getContentElement = function() {
@@ -5443,6 +6864,24 @@ xmldom.LSSerializer = function LSSerializer() {
     this.getDocumentType = function() {
       var content = self.getContentElement();
       return content && content.localName
+    };
+    this.isTemplate = function() {
+      var docMimetype = partMimetypes["/"];
+      return docMimetype.substr(-9) === "-template"
+    };
+    this.setIsTemplate = function(isTemplate) {
+      var docMimetype = partMimetypes["/"], oldIsTemplate = docMimetype.substr(-9) === "-template", data;
+      if(isTemplate === oldIsTemplate) {
+        return
+      }
+      if(isTemplate) {
+        docMimetype = docMimetype + "-template"
+      }else {
+        docMimetype = docMimetype.substr(0, docMimetype.length - 9)
+      }
+      partMimetypes["/"] = docMimetype;
+      data = runtime.byteArrayFromString(docMimetype, "utf8");
+      zip.save("mimetype", data, false, new Date)
     };
     this.getPart = function(partname) {
       return new odf.OdfPart(partname, partMimetypes[partname], self, zip)
@@ -5461,22 +6900,23 @@ xmldom.LSSerializer = function LSSerializer() {
     }
     this.setMetadata = setMetadata;
     this.incrementEditingCycles = function() {
-      var currentValueString = getMetaData(odf.Namespaces.metans, "editing-cycles"), currentCycles = currentValueString ? parseInt(currentValueString, 10) : 0;
+      var currentValueString = getMetadata(odf.Namespaces.metans, "editing-cycles"), currentCycles = currentValueString ? parseInt(currentValueString, 10) : 0;
       if(isNaN(currentCycles)) {
         currentCycles = 0
       }
-      setMetadata({"meta:editing-cycles":currentCycles + 1}, null)
+      setMetadata({"meta:editing-cycles":currentCycles + 1}, null);
+      return currentCycles + 1
     };
     function updateMetadataForSaving() {
       var generatorString, window = runtime.getWindow();
-      generatorString = "WebODF/" + (String(typeof webodf_version) !== "undefined" ? webodf_version : "FromSource");
+      generatorString = "WebODF/" + webodf.Version;
       if(window) {
         generatorString = generatorString + " " + window.navigator.userAgent
       }
       setMetadata({"meta:generator":generatorString}, null)
     }
-    function createEmptyTextDocument() {
-      var emptyzip = new core.Zip("", null), data = runtime.byteArrayFromString("application/vnd.oasis.opendocument.text", "utf8"), root = self.rootElement, text = document.createElementNS(officens, "text");
+    function createEmptyDocument(type, isTemplate) {
+      var emptyzip = new core.Zip("", null), mimetype = "application/vnd.oasis.opendocument." + type + (isTemplate === true ? "-template" : ""), data = runtime.byteArrayFromString(mimetype, "utf8"), root = self.rootElement, content = document.createElementNS(officens, type);
       emptyzip.save("mimetype", data, false, new Date);
       function addToplevelElement(memberName, realLocalName) {
         var element;
@@ -5495,8 +6935,8 @@ xmldom.LSSerializer = function LSSerializer() {
       addToplevelElement("automaticStyles", "automatic-styles");
       addToplevelElement("masterStyles", "master-styles");
       addToplevelElement("body");
-      root.body.appendChild(text);
-      partMimetypes["/"] = "application/vnd.oasis.opendocument.text";
+      root.body.appendChild(content);
+      partMimetypes["/"] = mimetype;
       partMimetypes["settings.xml"] = "text/xml";
       partMimetypes["meta.xml"] = "text/xml";
       partMimetypes["styles.xml"] = "text/xml";
@@ -5505,10 +6945,15 @@ xmldom.LSSerializer = function LSSerializer() {
       return emptyzip
     }
     function fillZip() {
-      var data, date = new Date;
+      var data, date = new Date, settings;
+      settings = serializeSettingsXml();
+      if(settings) {
+        data = runtime.byteArrayFromString(settings, "utf8");
+        zip.save("settings.xml", data, true, date)
+      }else {
+        zip.remove("settings.xml")
+      }
       updateMetadataForSaving();
-      data = runtime.byteArrayFromString(serializeSettingsXml(), "utf8");
-      zip.save("settings.xml", data, true, date);
       data = runtime.byteArrayFromString(serializeMetaXml(), "utf8");
       zip.save("meta.xml", data, true, date);
       data = runtime.byteArrayFromString(serializeStylesXml(), "utf8");
@@ -5551,22 +6996,43 @@ xmldom.LSSerializer = function LSSerializer() {
     };
     this.state = OdfContainer.LOADING;
     this.rootElement = (createElement({Type:odf.ODFDocumentElement, namespaceURI:odf.ODFDocumentElement.namespaceURI, localName:odf.ODFDocumentElement.localName}));
-    if(url) {
-      zip = new core.Zip(url, function(err, zipobject) {
-        zip = zipobject;
-        if(err) {
-          loadFromXML(url, function(xmlerr) {
-            if(err) {
-              zip.error = err + "\n" + xmlerr;
-              setState(OdfContainer.INVALID)
-            }
-          })
-        }else {
-          loadComponents()
-        }
-      })
+    if(urlOrType === odf.OdfContainer.DocumentType.TEXT) {
+      zip = createEmptyDocument("text")
     }else {
-      zip = createEmptyTextDocument()
+      if(urlOrType === odf.OdfContainer.DocumentType.TEXT_TEMPLATE) {
+        zip = createEmptyDocument("text", true)
+      }else {
+        if(urlOrType === odf.OdfContainer.DocumentType.PRESENTATION) {
+          zip = createEmptyDocument("presentation")
+        }else {
+          if(urlOrType === odf.OdfContainer.DocumentType.PRESENTATION_TEMPLATE) {
+            zip = createEmptyDocument("presentation", true)
+          }else {
+            if(urlOrType === odf.OdfContainer.DocumentType.SPREADSHEET) {
+              zip = createEmptyDocument("spreadsheet")
+            }else {
+              if(urlOrType === odf.OdfContainer.DocumentType.SPREADSHEET_TEMPLATE) {
+                zip = createEmptyDocument("spreadsheet", true)
+              }else {
+                url = (urlOrType);
+                zip = new core.Zip(url, function(err, zipobject) {
+                  zip = zipobject;
+                  if(err) {
+                    loadFromXML(url, function(xmlerr) {
+                      if(err) {
+                        zip.error = err + "\n" + xmlerr;
+                        setState(OdfContainer.INVALID)
+                      }
+                    })
+                  }else {
+                    loadComponents()
+                  }
+                })
+              }
+            }
+          }
+        }
+      }
     }
   };
   odf.OdfContainer.EMPTY = 0;
@@ -5577,48 +7043,11 @@ xmldom.LSSerializer = function LSSerializer() {
   odf.OdfContainer.MODIFIED = 5;
   odf.OdfContainer.getContainer = function(url) {
     return new odf.OdfContainer(url, null)
-  };
-  return odf.OdfContainer
+  }
 })();
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
+odf.OdfContainer.DocumentType = {TEXT:1, TEXT_TEMPLATE:2, PRESENTATION:3, PRESENTATION_TEMPLATE:4, SPREADSHEET:5, SPREADSHEET_TEMPLATE:6};
 odf.OdfUtils = function OdfUtils() {
-  var textns = odf.Namespaces.textns, drawns = odf.Namespaces.drawns, xlinkns = odf.Namespaces.xlinkns, whitespaceOnly = /^\s*$/, domUtils = new core.DomUtils;
+  var textns = odf.Namespaces.textns, drawns = odf.Namespaces.drawns, xlinkns = odf.Namespaces.xlinkns, domUtils = new core.DomUtils, odfNodeNamespaceMap = [odf.Namespaces.dbns, odf.Namespaces.dcns, odf.Namespaces.dr3dns, odf.Namespaces.drawns, odf.Namespaces.chartns, odf.Namespaces.formns, odf.Namespaces.numberns, odf.Namespaces.officens, odf.Namespaces.presentationns, odf.Namespaces.stylens, odf.Namespaces.svgns, odf.Namespaces.tablens, odf.Namespaces.textns];
   function isImage(e) {
     var name = e && e.localName;
     return name === "image" && e.namespaceURI === drawns
@@ -5650,14 +7079,17 @@ odf.OdfUtils = function OdfUtils() {
   }
   this.isHyperlink = isHyperlink;
   this.getHyperlinkTarget = function(element) {
-    return element.getAttributeNS(xlinkns, "href")
+    return element.getAttributeNS(xlinkns, "href") || ""
   };
   function isParagraph(e) {
     var name = e && e.localName;
     return(name === "p" || name === "h") && e.namespaceURI === textns
   }
   this.isParagraph = isParagraph;
-  function getParagraphElement(node) {
+  function getParagraphElement(node, offset) {
+    if(node && (offset !== undefined && (!isParagraph(node) && node.childNodes.item(offset)))) {
+      node = node.childNodes.item(offset)
+    }
     while(node && !isParagraph(node)) {
       node = node.parentNode
     }
@@ -5672,6 +7104,23 @@ odf.OdfUtils = function OdfUtils() {
       node = node.parentNode
     }
     return false
+  };
+  function getParentAnnotation(node, container) {
+    while(node && node !== container) {
+      if(node.namespaceURI === odf.Namespaces.officens && node.localName === "annotation") {
+        return(node)
+      }
+      node = node.parentNode
+    }
+    return null
+  }
+  this.getParentAnnotation = getParentAnnotation;
+  this.isWithinAnnotation = function(node, container) {
+    return Boolean(getParentAnnotation(node, container))
+  };
+  this.getAnnotationCreator = function(annotationElement) {
+    var creatorElement = (annotationElement.getElementsByTagNameNS(odf.Namespaces.dcns, "creator")[0]);
+    return creatorElement.textContent
   };
   this.isListItem = function(e) {
     var name = e && e.localName;
@@ -5690,7 +7139,7 @@ odf.OdfUtils = function OdfUtils() {
       return false
     }
     var e = (n), localName = e.localName;
-    return/^(span|p|h|a|meta)$/.test(localName) && e.namespaceURI === textns || localName === "span" && e.className === "annotationHighlight"
+    return/^(span|p|h|a|meta)$/.test(localName) && e.namespaceURI === textns || localName === "span" && e.className === "webodf-annotationHighlight"
   }
   this.isGroupingElement = isGroupingElement;
   function isCharacterElement(e) {
@@ -5719,6 +7168,28 @@ odf.OdfUtils = function OdfUtils() {
     return r
   }
   this.isSpaceElement = isSpaceElement;
+  function isODFNode(node) {
+    return odfNodeNamespaceMap.indexOf(node.namespaceURI) !== -1
+  }
+  this.isODFNode = isODFNode;
+  function hasNoODFContent(node) {
+    var childNode;
+    if(isCharacterElement(node)) {
+      return false
+    }
+    if(isGroupingElement((node.parentNode)) && node.nodeType === Node.TEXT_NODE) {
+      return node.textContent.length === 0
+    }
+    childNode = node.firstChild;
+    while(childNode) {
+      if(isODFNode(childNode) || !hasNoODFContent(childNode)) {
+        return false
+      }
+      childNode = childNode.nextSibling
+    }
+    return true
+  }
+  this.hasNoODFContent = hasNoODFContent;
   function firstChild(node) {
     while(node.firstChild !== null && isGroupingElement(node)) {
       node = node.firstChild
@@ -5883,19 +7354,11 @@ odf.OdfUtils = function OdfUtils() {
   }
   this.isSignificantWhitespace = isSignificantWhitespace;
   this.isDowngradableSpaceElement = function(node) {
-    if(node.namespaceURI === textns && node.localName === "s") {
+    if(isSpaceElement(node)) {
       return scanLeftForNonSpace(previousNode(node)) && scanRightForAnyCharacter(nextNode(node))
     }
     return false
   };
-  function getFirstNonWhitespaceChild(node) {
-    var child = node && node.firstChild;
-    while(child && (child.nodeType === Node.TEXT_NODE && whitespaceOnly.test(child.nodeValue))) {
-      child = child.nextSibling
-    }
-    return child
-  }
-  this.getFirstNonWhitespaceChild = getFirstNonWhitespaceChild;
   function parseLength(length) {
     var re = /(-?[0-9]*[0-9][0-9]*(\.[0-9]*)?|0+\.[0-9]*[1-9][0-9]*|\.[0-9]*[1-9][0-9]*)((cm)|(mm)|(in)|(pt)|(pc)|(px)|(%))/, m = re.exec(length);
     if(!m) {
@@ -6116,45 +7579,17 @@ odf.OdfUtils = function OdfUtils() {
     });
     newRange.detach();
     return links
+  };
+  this.getNormalizedFontFamilyName = function(fontFamilyName) {
+    if(!/^(["'])(?:.|[\n\r])*?\1$/.test(fontFamilyName)) {
+      fontFamilyName = fontFamilyName.replace(/^[ \t\r\n\f]*((?:.|[\n\r])*?)[ \t\r\n\f]*$/, "$1");
+      if(/[ \t\r\n\f]/.test(fontFamilyName)) {
+        fontFamilyName = "'" + fontFamilyName.replace(/[ \t\r\n\f]+/g, " ") + "'"
+      }
+    }
+    return fontFamilyName
   }
 };
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 gui.AnnotatableCanvas = function AnnotatableCanvas() {
 };
 gui.AnnotatableCanvas.prototype.refreshSize = function() {
@@ -6164,11 +7599,12 @@ gui.AnnotatableCanvas.prototype.getZoomLevel = function() {
 gui.AnnotatableCanvas.prototype.getSizer = function() {
 };
 gui.AnnotationViewManager = function AnnotationViewManager(canvas, odfFragment, annotationsPane, showAnnotationRemoveButton) {
-  var annotations = [], doc = odfFragment.ownerDocument, odfUtils = new odf.OdfUtils, CONNECTOR_MARGIN = 30, NOTE_MARGIN = 20, window = runtime.getWindow();
+  var annotations = [], doc = odfFragment.ownerDocument, odfUtils = new odf.OdfUtils, CONNECTOR_MARGIN = 30, NOTE_MARGIN = 20, window = runtime.getWindow(), htmlns = "http://www.w3.org/1999/xhtml";
   runtime.assert(Boolean(window), "Expected to be run in an environment which has a global window, like a browser.");
   function wrapAnnotation(annotation) {
     var annotationWrapper = doc.createElement("div"), annotationNote = doc.createElement("div"), connectorHorizontal = doc.createElement("div"), connectorAngular = doc.createElement("div"), removeButton;
     annotationWrapper.className = "annotationWrapper";
+    annotationWrapper.setAttribute("creator", odfUtils.getAnnotationCreator(annotation));
     annotation.parentNode.insertBefore(annotationWrapper, annotation);
     annotationNote.className = "annotationNote";
     annotationNote.appendChild(annotation);
@@ -6190,6 +7626,16 @@ gui.AnnotationViewManager = function AnnotationViewManager(canvas, odfFragment, 
       annotationWrapper.parentNode.removeChild(annotationWrapper)
     }
   }
+  function isNodeWithinAnnotationHighlight(node, annotationName) {
+    var iteratingNode = node.parentNode;
+    while(!(iteratingNode.namespaceURI === odf.Namespaces.officens && iteratingNode.localName === "body")) {
+      if(iteratingNode.namespaceURI === htmlns && ((iteratingNode).className === "webodf-annotationHighlight" && (iteratingNode).getAttribute("annotation") === annotationName)) {
+        return true
+      }
+      iteratingNode = iteratingNode.parentNode
+    }
+    return false
+  }
   function highlightAnnotation(annotation) {
     var annotationEnd = annotation.annotationEndElement, range = doc.createRange(), annotationName = annotation.getAttributeNS(odf.Namespaces.officens, "name"), textNodes;
     if(annotationEnd) {
@@ -6197,17 +7643,19 @@ gui.AnnotationViewManager = function AnnotationViewManager(canvas, odfFragment, 
       range.setEnd(annotationEnd, 0);
       textNodes = odfUtils.getTextNodes(range, false);
       textNodes.forEach(function(n) {
-        var container = doc.createElement("span");
-        container.className = "annotationHighlight";
-        container.setAttribute("annotation", annotationName);
-        n.parentNode.insertBefore(container, n);
-        container.appendChild(n)
+        if(!isNodeWithinAnnotationHighlight(n, annotationName)) {
+          var container = doc.createElement("span");
+          container.className = "webodf-annotationHighlight";
+          container.setAttribute("annotation", annotationName);
+          n.parentNode.replaceChild(container, n);
+          container.appendChild(n)
+        }
       })
     }
     range.detach()
   }
   function unhighlightAnnotation(annotation) {
-    var annotationName = annotation.getAttributeNS(odf.Namespaces.officens, "name"), highlightSpans = doc.querySelectorAll('span.annotationHighlight[annotation="' + annotationName + '"]'), i, container;
+    var annotationName = annotation.getAttributeNS(odf.Namespaces.officens, "name"), highlightSpans = doc.querySelectorAll('span.webodf-annotationHighlight[annotation="' + annotationName + '"]'), i, container;
     for(i = 0;i < highlightSpans.length;i += 1) {
       container = highlightSpans.item(i);
       while(container.firstChild) {
@@ -6271,6 +7719,12 @@ gui.AnnotationViewManager = function AnnotationViewManager(canvas, odfFragment, 
     }
   }
   this.rerenderAnnotations = rerenderAnnotations;
+  function rehighlightAnnotations() {
+    annotations.forEach(function(annotation) {
+      highlightAnnotation(annotation)
+    })
+  }
+  this.rehighlightAnnotations = rehighlightAnnotations;
   function getMinimumHeightForAnnotationPane() {
     if(annotationsPane.style.display !== "none" && annotations.length > 0) {
       return((annotations[annotations.length - 1].parentNode).getBoundingClientRect().bottom - annotationsPane.getBoundingClientRect().top) / canvas.getZoomLevel() + "px"
@@ -6307,45 +7761,54 @@ gui.AnnotationViewManager = function AnnotationViewManager(canvas, odfFragment, 
   }
   this.forgetAnnotations = forgetAnnotations
 };
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
+gui.Viewport = function Viewport() {
+};
+gui.Viewport.prototype.scrollIntoView = function(clientRect, alignWithTop) {
+};
+gui.SingleScrollViewport = function(scrollPane) {
+  var VIEW_PADDING_PX = 5;
+  function shrinkClientRectByMargin(clientRect, margin) {
+    return{left:clientRect.left + margin.left, top:clientRect.top + margin.top, right:clientRect.right - margin.right, bottom:clientRect.bottom - margin.bottom}
+  }
+  function height(clientRect) {
+    return clientRect.bottom - clientRect.top
+  }
+  function width(clientRect) {
+    return clientRect.right - clientRect.left
+  }
+  this.scrollIntoView = function(clientRect, alignWithTop) {
+    var verticalScrollbarHeight = scrollPane.offsetHeight - scrollPane.clientHeight, horizontalScrollbarWidth = scrollPane.offsetWidth - scrollPane.clientWidth, nonNullClientRect, scrollPaneRect = scrollPane.getBoundingClientRect(), paneRect;
+    if(!clientRect || !scrollPaneRect) {
+      return
+    }
+    nonNullClientRect = (clientRect);
+    paneRect = shrinkClientRectByMargin((scrollPaneRect), {top:VIEW_PADDING_PX, bottom:verticalScrollbarHeight + VIEW_PADDING_PX, left:VIEW_PADDING_PX, right:horizontalScrollbarWidth + VIEW_PADDING_PX});
+    if(alignWithTop || nonNullClientRect.top < paneRect.top) {
+      scrollPane.scrollTop -= paneRect.top - nonNullClientRect.top
+    }else {
+      if(nonNullClientRect.top > paneRect.bottom || nonNullClientRect.bottom > paneRect.bottom) {
+        if(height(nonNullClientRect) <= height(paneRect)) {
+          scrollPane.scrollTop += nonNullClientRect.bottom - paneRect.bottom
+        }else {
+          scrollPane.scrollTop += nonNullClientRect.top - paneRect.top
+        }
+      }
+    }
+    if(nonNullClientRect.left < paneRect.left) {
+      scrollPane.scrollLeft -= paneRect.left - nonNullClientRect.left
+    }else {
+      if(nonNullClientRect.right > paneRect.right) {
+        if(width(nonNullClientRect) <= width(paneRect)) {
+          scrollPane.scrollLeft += nonNullClientRect.right - paneRect.right
+        }else {
+          scrollPane.scrollLeft -= paneRect.left - nonNullClientRect.left
+        }
+      }
+    }
+  }
+};
 (function() {
-  var xpath = xmldom.XPath, base64 = new core.Base64;
+  var xpath = xmldom.XPath, odfUtils = new odf.OdfUtils, base64 = new core.Base64;
   function getEmbeddedFontDeclarations(fontFaceDecls) {
     var decls = {}, fonts, i, font, name, uris, href, family;
     if(!fontFaceDecls) {
@@ -6355,7 +7818,7 @@ gui.AnnotationViewManager = function AnnotationViewManager(canvas, odfFragment, 
     for(i = 0;i < fonts.length;i += 1) {
       font = fonts[i];
       name = font.getAttributeNS(odf.Namespaces.stylens, "name");
-      family = font.getAttributeNS(odf.Namespaces.svgns, "font-family");
+      family = odfUtils.getNormalizedFontFamilyName(font.getAttributeNS(odf.Namespaces.svgns, "font-family"));
       uris = xpath.getODFElementsWithXPath(font, "svg:font-face-src/svg:font-face-uri", odf.Namespaces.lookupNamespaceURI);
       if(uris.length > 0) {
         href = uris[0].getAttributeNS(odf.Namespaces.xlinkns, "href");
@@ -6365,7 +7828,7 @@ gui.AnnotationViewManager = function AnnotationViewManager(canvas, odfFragment, 
     return decls
   }
   function addFontToCSS(name, font, fontdata, stylesheet) {
-    var cssFamily = font.family || name, rule = "@font-face { font-family: '" + cssFamily + "'; src: " + "url(data:application/x-font-ttf;charset=binary;base64," + base64.convertUTF8ArrayToBase64(fontdata) + ') format("truetype"); }';
+    var cssFamily = font.family || name, rule = "@font-face { font-family: " + cssFamily + "; src: " + "url(data:application/x-font-ttf;charset=binary;base64," + base64.convertUTF8ArrayToBase64(fontdata) + ') format("truetype"); }';
     try {
       stylesheet.insertRule(rule, stylesheet.cssRules.length)
     }catch(e) {
@@ -6416,48 +7879,11 @@ gui.AnnotationViewManager = function AnnotationViewManager(canvas, odfFragment, 
         loadFontsIntoCSS(embeddedFontDeclarations, odfContainer, stylesheet)
       }
     }
-  };
-  return odf.FontLoader
+  }
 })();
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 odf.Formatting = function Formatting() {
-  var odfContainer, styleInfo = new odf.StyleInfo, svgns = odf.Namespaces.svgns, stylens = odf.Namespaces.stylens, textns = odf.Namespaces.textns, numberns = odf.Namespaces.numberns, fons = odf.Namespaces.fons, odfUtils = new odf.OdfUtils, domUtils = new core.DomUtils, utils = new core.Utils, builtInDefaultStyleAttributesByFamily = {"paragraph":{"style:paragraph-properties":{"fo:text-align":"left"}}}, defaultPageFormatSettings = {width:21.001, height:29.7, margin:2, padding:0};
+  var odfContainer, styleInfo = new odf.StyleInfo, svgns = odf.Namespaces.svgns, stylens = odf.Namespaces.stylens, textns = odf.Namespaces.textns, numberns = odf.Namespaces.numberns, fons = odf.Namespaces.fons, odfUtils = new odf.OdfUtils, domUtils = new core.DomUtils, utils = new core.Utils, cssUnits = new core.CSSUnits, builtInDefaultStyleAttributesByFamily = {"paragraph":{"style:paragraph-properties":{"fo:text-align":"left"}}}, defaultPageFormatSettings = {width:"21.001cm", height:"29.7cm", margin:"2cm", 
+  padding:"0cm"};
   function getSystemDefaultStyleAttributes(styleFamily) {
     var result, builtInDefaultStyleAttributes = builtInDefaultStyleAttributesByFamily[styleFamily];
     if(builtInDefaultStyleAttributes) {
@@ -6593,9 +8019,11 @@ odf.Formatting = function Formatting() {
   this.getFirstCommonParentStyleNameOrSelf = function(styleName) {
     var automaticStyleElementList = odfContainer.rootElement.automaticStyles, styleElementList = odfContainer.rootElement.styles, styleElement;
     styleElement = getStyleElement(styleName, "paragraph", [automaticStyleElementList]);
-    while(styleElement) {
+    if(styleElement) {
       styleName = styleElement.getAttributeNS(stylens, "parent-style-name");
-      styleElement = getStyleElement(styleName, "paragraph", [automaticStyleElementList])
+      if(!styleName) {
+        return null
+      }
     }
     styleElement = getStyleElement(styleName, "paragraph", [styleElementList]);
     if(!styleElement) {
@@ -6637,15 +8065,15 @@ odf.Formatting = function Formatting() {
     return styleNode.parentNode === odfContainer.rootElement.styles
   }
   function calculateAppliedStyle(styleChain) {
-    var mergedChildStyle = {orderedStyles:[]};
+    var mergedChildStyle = {orderedStyles:[], styleProperties:{}};
     styleChain.forEach(function(elementStyleSet) {
       Object.keys((elementStyleSet)).forEach(function(styleFamily) {
         var styleName = Object.keys(elementStyleSet[styleFamily])[0], styleSummary = {name:styleName, family:styleFamily, displayName:undefined, isCommonStyle:false}, styleElement, parentStyle;
         styleElement = getStyleElement(styleName, styleFamily);
         if(styleElement) {
           parentStyle = getInheritedStyleAttributes((styleElement));
-          mergedChildStyle = utils.mergeObjects(parentStyle, mergedChildStyle);
-          styleSummary.displayName = styleElement.getAttributeNS(stylens, "display-name");
+          mergedChildStyle.styleProperties = utils.mergeObjects(parentStyle, mergedChildStyle.styleProperties);
+          styleSummary.displayName = styleElement.getAttributeNS(stylens, "display-name") || undefined;
           styleSummary.isCommonStyle = isCommonStyleElement(styleElement)
         }else {
           runtime.log("No style element found for '" + styleName + "' of family '" + styleFamily + "'")
@@ -6676,9 +8104,10 @@ odf.Formatting = function Formatting() {
     return getAppliedStyles([node], calculatedStylesCache)[0]
   };
   this.updateStyle = function(styleNode, properties) {
-    var fontName, fontFaceNode;
+    var fontName, fontFaceNode, textProperties;
     domUtils.mapObjOntoNode(styleNode, properties, odf.Namespaces.lookupNamespaceURI);
-    fontName = properties["style:text-properties"] && properties["style:text-properties"]["style:font-name"];
+    textProperties = (properties["style:text-properties"]);
+    fontName = (textProperties && textProperties["style:font-name"]);
     if(fontName && !getFontMap().hasOwnProperty(fontName)) {
       fontFaceNode = styleNode.ownerDocument.createElementNS(stylens, "style:font-face");
       fontFaceNode.setAttributeNS(stylens, "style:name", fontName);
@@ -6711,229 +8140,612 @@ odf.Formatting = function Formatting() {
     }
     return odfUtils.parseNonNegativeLength(tabStopDistance)
   };
+  function getMasterPageElement(pageName) {
+    var node = odfContainer.rootElement.masterStyles.firstElementChild;
+    while(node) {
+      if(node.namespaceURI === stylens && (node.localName === "master-page" && node.getAttributeNS(stylens, "name") === pageName)) {
+        break
+      }
+      node = node.nextElementSibling
+    }
+    return node
+  }
+  this.getMasterPageElement = getMasterPageElement;
   function getPageLayoutStyleElement(styleName, styleFamily) {
     var masterPageName, layoutName, pageLayoutElements, node, i, styleElement = getStyleElement(styleName, styleFamily);
-    runtime.assert(styleFamily === "paragraph" || styleFamily === "table", "styleFamily has to be either paragraph or table");
+    runtime.assert(styleFamily === "paragraph" || styleFamily === "table", "styleFamily must be either paragraph or table");
     if(styleElement) {
-      masterPageName = styleElement.getAttributeNS(stylens, "master-page-name") || "Standard";
-      node = odfContainer.rootElement.masterStyles.lastElementChild;
-      while(node) {
-        if(node.getAttributeNS(stylens, "name") === masterPageName) {
-          break
+      masterPageName = styleElement.getAttributeNS(stylens, "master-page-name");
+      if(masterPageName) {
+        node = getMasterPageElement(masterPageName);
+        if(!node) {
+          runtime.log("WARN: No master page definition found for " + masterPageName)
         }
-        node = node.previousElementSibling
       }
-      layoutName = node.getAttributeNS(stylens, "page-layout-name");
-      pageLayoutElements = domUtils.getElementsByTagNameNS(odfContainer.rootElement.automaticStyles, stylens, "page-layout");
-      for(i = 0;i < pageLayoutElements.length;i += 1) {
-        node = pageLayoutElements[i];
-        if(node.getAttributeNS(stylens, "name") === layoutName) {
-          return(node)
+      if(!node) {
+        node = getMasterPageElement("Standard")
+      }
+      if(!node) {
+        node = (odfContainer.rootElement.masterStyles.getElementsByTagNameNS(stylens, "master-page")[0]);
+        if(!node) {
+          runtime.log("WARN: Document has no master pages defined")
+        }
+      }
+      if(node) {
+        layoutName = node.getAttributeNS(stylens, "page-layout-name");
+        pageLayoutElements = domUtils.getElementsByTagNameNS(odfContainer.rootElement.automaticStyles, stylens, "page-layout");
+        for(i = 0;i < pageLayoutElements.length;i += 1) {
+          node = pageLayoutElements[i];
+          if(node.getAttributeNS(stylens, "name") === layoutName) {
+            return(node)
+          }
         }
       }
     }
     return null
   }
-  function lengthInCm(length, defaultValue) {
-    var result = odfUtils.parseLength(length), value = defaultValue;
-    if(result) {
-      switch(result.unit) {
-        case "cm":
-          value = result.value;
-          break;
-        case "mm":
-          value = result.value * 0.1;
-          break;
-        case "in":
-          value = result.value * 2.54;
-          break;
-        case "pt":
-          value = result.value * 0.035277778;
-          break;
-        case "pc":
-        ;
-        case "px":
-        ;
-        case "em":
-          break;
-        default:
-          runtime.log("Unit identifier: " + result.unit + " is not supported.");
-          break
-      }
+  function lengthInPx(length, defaultValue) {
+    var measure;
+    if(length) {
+      measure = cssUnits.convertMeasure(length, "px")
     }
-    return value
+    if(measure === undefined && defaultValue) {
+      measure = cssUnits.convertMeasure(defaultValue, "px")
+    }
+    return measure
   }
   this.getContentSize = function(styleName, styleFamily) {
-    var pageLayoutElement, props, printOrientation, defaultOrientedPageWidth, defaultOrientedPageHeight, pageWidth, pageHeight, margin, marginLeft, marginRight, marginTop, marginBottom, padding, paddingLeft, paddingRight, paddingTop, paddingBottom;
+    var pageLayoutElement, props, defaultOrientedPageWidth, defaultOrientedPageHeight, pageWidth, pageHeight, margin, marginLeft, marginRight, marginTop, marginBottom, padding, paddingLeft, paddingRight, paddingTop, paddingBottom;
     pageLayoutElement = getPageLayoutStyleElement(styleName, styleFamily);
     if(!pageLayoutElement) {
       pageLayoutElement = domUtils.getDirectChild(odfContainer.rootElement.styles, stylens, "default-page-layout")
     }
     props = domUtils.getDirectChild(pageLayoutElement, stylens, "page-layout-properties");
     if(props) {
-      printOrientation = props.getAttributeNS(stylens, "print-orientation") || "portrait";
-      if(printOrientation === "portrait") {
-        defaultOrientedPageWidth = defaultPageFormatSettings.width;
-        defaultOrientedPageHeight = defaultPageFormatSettings.height
-      }else {
+      if(props.getAttributeNS(stylens, "print-orientation") === "landscape") {
         defaultOrientedPageWidth = defaultPageFormatSettings.height;
         defaultOrientedPageHeight = defaultPageFormatSettings.width
+      }else {
+        defaultOrientedPageWidth = defaultPageFormatSettings.width;
+        defaultOrientedPageHeight = defaultPageFormatSettings.height
       }
-      pageWidth = lengthInCm(props.getAttributeNS(fons, "page-width"), defaultOrientedPageWidth);
-      pageHeight = lengthInCm(props.getAttributeNS(fons, "page-height"), defaultOrientedPageHeight);
-      margin = lengthInCm(props.getAttributeNS(fons, "margin"), null);
-      if(margin === null) {
-        marginLeft = lengthInCm(props.getAttributeNS(fons, "margin-left"), defaultPageFormatSettings.margin);
-        marginRight = lengthInCm(props.getAttributeNS(fons, "margin-right"), defaultPageFormatSettings.margin);
-        marginTop = lengthInCm(props.getAttributeNS(fons, "margin-top"), defaultPageFormatSettings.margin);
-        marginBottom = lengthInCm(props.getAttributeNS(fons, "margin-bottom"), defaultPageFormatSettings.margin)
+      pageWidth = lengthInPx(props.getAttributeNS(fons, "page-width"), defaultOrientedPageWidth);
+      pageHeight = lengthInPx(props.getAttributeNS(fons, "page-height"), defaultOrientedPageHeight);
+      margin = lengthInPx(props.getAttributeNS(fons, "margin"));
+      if(margin === undefined) {
+        marginLeft = lengthInPx(props.getAttributeNS(fons, "margin-left"), defaultPageFormatSettings.margin);
+        marginRight = lengthInPx(props.getAttributeNS(fons, "margin-right"), defaultPageFormatSettings.margin);
+        marginTop = lengthInPx(props.getAttributeNS(fons, "margin-top"), defaultPageFormatSettings.margin);
+        marginBottom = lengthInPx(props.getAttributeNS(fons, "margin-bottom"), defaultPageFormatSettings.margin)
       }else {
         marginLeft = marginRight = marginTop = marginBottom = margin
       }
-      padding = lengthInCm(props.getAttributeNS(fons, "padding"), null);
-      if(padding === null) {
-        paddingLeft = lengthInCm(props.getAttributeNS(fons, "padding-left"), defaultPageFormatSettings.padding);
-        paddingRight = lengthInCm(props.getAttributeNS(fons, "padding-right"), defaultPageFormatSettings.padding);
-        paddingTop = lengthInCm(props.getAttributeNS(fons, "padding-top"), defaultPageFormatSettings.padding);
-        paddingBottom = lengthInCm(props.getAttributeNS(fons, "padding-bottom"), defaultPageFormatSettings.padding)
+      padding = lengthInPx(props.getAttributeNS(fons, "padding"));
+      if(padding === undefined) {
+        paddingLeft = lengthInPx(props.getAttributeNS(fons, "padding-left"), defaultPageFormatSettings.padding);
+        paddingRight = lengthInPx(props.getAttributeNS(fons, "padding-right"), defaultPageFormatSettings.padding);
+        paddingTop = lengthInPx(props.getAttributeNS(fons, "padding-top"), defaultPageFormatSettings.padding);
+        paddingBottom = lengthInPx(props.getAttributeNS(fons, "padding-bottom"), defaultPageFormatSettings.padding)
       }else {
         paddingLeft = paddingRight = paddingTop = paddingBottom = padding
       }
+    }else {
+      pageWidth = lengthInPx(defaultPageFormatSettings.width);
+      pageHeight = lengthInPx(defaultPageFormatSettings.height);
+      margin = lengthInPx(defaultPageFormatSettings.margin);
+      marginLeft = marginRight = marginTop = marginBottom = margin;
+      padding = lengthInPx(defaultPageFormatSettings.padding);
+      paddingLeft = paddingRight = paddingTop = paddingBottom = padding
     }
     return{width:pageWidth - marginLeft - marginRight - paddingLeft - paddingRight, height:pageHeight - marginTop - marginBottom - paddingTop - paddingBottom}
   }
 };
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
-odf.StyleTreeNode = function StyleTreeNode(element) {
-  this.derivedStyles = {};
-  this.element = element
-};
-odf.Style2CSS = function Style2CSS() {
-  var drawns = odf.Namespaces.drawns, fons = odf.Namespaces.fons, officens = odf.Namespaces.officens, stylens = odf.Namespaces.stylens, svgns = odf.Namespaces.svgns, tablens = odf.Namespaces.tablens, textns = odf.Namespaces.textns, xlinkns = odf.Namespaces.xlinkns, presentationns = odf.Namespaces.presentationns, domUtils = new core.DomUtils, familynamespaceprefixes = {"graphic":"draw", "drawing-page":"draw", "paragraph":"text", "presentation":"presentation", "ruby":"text", "section":"text", "table":"table", 
-  "table-cell":"table", "table-column":"table", "table-row":"table", "text":"text", "list":"text", "page":"office"}, familytagnames = {"graphic":["circle", "connected", "control", "custom-shape", "ellipse", "frame", "g", "line", "measure", "page", "page-thumbnail", "path", "polygon", "polyline", "rect", "regular-polygon"], "paragraph":["alphabetical-index-entry-template", "h", "illustration-index-entry-template", "index-source-style", "object-index-entry-template", "p", "table-index-entry-template", 
-  "table-of-content-entry-template", "user-index-entry-template"], "presentation":["caption", "circle", "connector", "control", "custom-shape", "ellipse", "frame", "g", "line", "measure", "page-thumbnail", "path", "polygon", "polyline", "rect", "regular-polygon"], "drawing-page":["caption", "circle", "connector", "control", "page", "custom-shape", "ellipse", "frame", "g", "line", "measure", "page-thumbnail", "path", "polygon", "polyline", "rect", "regular-polygon"], "ruby":["ruby", "ruby-text"], 
-  "section":["alphabetical-index", "bibliography", "illustration-index", "index-title", "object-index", "section", "table-of-content", "table-index", "user-index"], "table":["background", "table"], "table-cell":["body", "covered-table-cell", "even-columns", "even-rows", "first-column", "first-row", "last-column", "last-row", "odd-columns", "odd-rows", "table-cell"], "table-column":["table-column"], "table-row":["table-row"], "text":["a", "index-entry-chapter", "index-entry-link-end", "index-entry-link-start", 
-  "index-entry-page-number", "index-entry-span", "index-entry-tab-stop", "index-entry-text", "index-title-template", "linenumbering-configuration", "list-level-style-number", "list-level-style-bullet", "outline-level-style", "span"], "list":["list-item"]}, textPropertySimpleMapping = [[fons, "color", "color"], [fons, "background-color", "background-color"], [fons, "font-weight", "font-weight"], [fons, "font-style", "font-style"]], bgImageSimpleMapping = [[stylens, "repeat", "background-repeat"]], 
-  paragraphPropertySimpleMapping = [[fons, "background-color", "background-color"], [fons, "text-align", "text-align"], [fons, "text-indent", "text-indent"], [fons, "padding", "padding"], [fons, "padding-left", "padding-left"], [fons, "padding-right", "padding-right"], [fons, "padding-top", "padding-top"], [fons, "padding-bottom", "padding-bottom"], [fons, "border-left", "border-left"], [fons, "border-right", "border-right"], [fons, "border-top", "border-top"], [fons, "border-bottom", "border-bottom"], 
-  [fons, "margin", "margin"], [fons, "margin-left", "margin-left"], [fons, "margin-right", "margin-right"], [fons, "margin-top", "margin-top"], [fons, "margin-bottom", "margin-bottom"], [fons, "border", "border"]], graphicPropertySimpleMapping = [[fons, "background-color", "background-color"], [fons, "min-height", "min-height"], [drawns, "stroke", "border"], [svgns, "stroke-color", "border-color"], [svgns, "stroke-width", "border-width"], [fons, "border", "border"], [fons, "border-left", "border-left"], 
-  [fons, "border-right", "border-right"], [fons, "border-top", "border-top"], [fons, "border-bottom", "border-bottom"]], tablecellPropertySimpleMapping = [[fons, "background-color", "background-color"], [fons, "border-left", "border-left"], [fons, "border-right", "border-right"], [fons, "border-top", "border-top"], [fons, "border-bottom", "border-bottom"], [fons, "border", "border"]], tablecolumnPropertySimpleMapping = [[stylens, "column-width", "width"]], tablerowPropertySimpleMapping = [[stylens, 
-  "row-height", "height"], [fons, "keep-together", null]], tablePropertySimpleMapping = [[stylens, "width", "width"], [fons, "margin-left", "margin-left"], [fons, "margin-right", "margin-right"], [fons, "margin-top", "margin-top"], [fons, "margin-bottom", "margin-bottom"]], pageContentPropertySimpleMapping = [[fons, "background-color", "background-color"], [fons, "padding", "padding"], [fons, "padding-left", "padding-left"], [fons, "padding-right", "padding-right"], [fons, "padding-top", "padding-top"], 
-  [fons, "padding-bottom", "padding-bottom"], [fons, "border", "border"], [fons, "border-left", "border-left"], [fons, "border-right", "border-right"], [fons, "border-top", "border-top"], [fons, "border-bottom", "border-bottom"], [fons, "margin", "margin"], [fons, "margin-left", "margin-left"], [fons, "margin-right", "margin-right"], [fons, "margin-top", "margin-top"], [fons, "margin-bottom", "margin-bottom"]], pageSizePropertySimpleMapping = [[fons, "page-width", "width"], [fons, "page-height", 
-  "height"]], borderPropertyMap = {"border":true, "border-left":true, "border-right":true, "border-top":true, "border-bottom":true, "stroke-width":true}, fontFaceDeclsMap = {}, utils = new odf.OdfUtils, documentType, odfRoot, defaultFontSize, xpath = xmldom.XPath, cssUnits = new core.CSSUnits;
-  function getStyleMap(stylesnode) {
-    var node, name, family, style, stylemap = {};
-    if(!stylesnode) {
-      return stylemap
-    }
-    node = stylesnode.firstElementChild;
-    while(node) {
-      if(node.namespaceURI === stylens && (node.localName === "style" || node.localName === "default-style")) {
-        family = node.getAttributeNS(stylens, "family")
-      }else {
-        if(node.namespaceURI === textns && node.localName === "list-style") {
-          family = "list"
+odf.Formatting.StyleMetadata;
+odf.Formatting.StyleData;
+odf.Formatting.AppliedStyle;
+(function() {
+  var stylens = odf.Namespaces.stylens, textns = odf.Namespaces.textns, familyNamespacePrefixes = {"graphic":"draw", "drawing-page":"draw", "paragraph":"text", "presentation":"presentation", "ruby":"text", "section":"text", "table":"table", "table-cell":"table", "table-column":"table", "table-row":"table", "text":"text", "list":"text", "page":"office"};
+  odf.StyleTreeNode = function StyleTreeNode(element) {
+    this.derivedStyles = {};
+    this.element = element
+  };
+  odf.StyleTree = function StyleTree(styles, autoStyles) {
+    var tree = {};
+    function getStyleMap(stylesNode) {
+      var node, name, family, style, styleMap = {};
+      if(!stylesNode) {
+        return styleMap
+      }
+      node = stylesNode.firstElementChild;
+      while(node) {
+        if(node.namespaceURI === stylens && (node.localName === "style" || node.localName === "default-style")) {
+          family = node.getAttributeNS(stylens, "family")
         }else {
-          if(node.namespaceURI === stylens && (node.localName === "page-layout" || node.localName === "default-page-layout")) {
-            family = "page"
+          if(node.namespaceURI === textns && node.localName === "list-style") {
+            family = "list"
           }else {
-            family = undefined
+            if(node.namespaceURI === stylens && (node.localName === "page-layout" || node.localName === "default-page-layout")) {
+              family = "page"
+            }else {
+              family = undefined
+            }
           }
         }
-      }
-      if(family) {
-        name = node.getAttributeNS(stylens, "name");
-        if(!name) {
-          name = ""
+        if(family) {
+          name = node.getAttributeNS(stylens, "name");
+          if(!name) {
+            name = ""
+          }
+          if(styleMap.hasOwnProperty(family)) {
+            style = styleMap[family]
+          }else {
+            styleMap[family] = style = {}
+          }
+          style[name] = node
         }
-        if(stylemap.hasOwnProperty(family)) {
-          style = stylemap[family]
-        }else {
-          stylemap[family] = style = {}
-        }
-        style[name] = node
+        node = node.nextElementSibling
       }
-      node = node.nextElementSibling
+      return styleMap
     }
-    return stylemap
-  }
-  function findStyle(stylestree, name) {
-    if(stylestree.hasOwnProperty(name)) {
-      return stylestree[name]
-    }
-    var n, style = null;
-    for(n in stylestree) {
-      if(stylestree.hasOwnProperty(n)) {
-        style = findStyle(stylestree[n].derivedStyles, name);
+    function findStyleTreeNode(stylesTree, name) {
+      if(stylesTree.hasOwnProperty(name)) {
+        return stylesTree[name]
+      }
+      var style = null, styleNames = Object.keys(stylesTree), i;
+      for(i = 0;i < styleNames.length;i += 1) {
+        style = findStyleTreeNode(stylesTree[styleNames[i]].derivedStyles, name);
         if(style) {
           break
         }
       }
+      return style
     }
-    return style
-  }
-  function addStyleToStyleTree(stylename, stylesmap, stylestree) {
-    var style, parentname, parentstyle;
-    if(!stylesmap.hasOwnProperty(stylename)) {
-      return null
+    function createStyleTreeNode(styleName, stylesMap, stylesTree) {
+      var style, parentname, parentstyle;
+      if(!stylesMap.hasOwnProperty(styleName)) {
+        return null
+      }
+      style = new odf.StyleTreeNode(stylesMap[styleName]);
+      parentname = style.element.getAttributeNS(stylens, "parent-style-name");
+      parentstyle = null;
+      if(parentname) {
+        parentstyle = findStyleTreeNode(stylesTree, parentname) || createStyleTreeNode(parentname, stylesMap, stylesTree)
+      }
+      if(parentstyle) {
+        parentstyle.derivedStyles[styleName] = style
+      }else {
+        stylesTree[styleName] = style
+      }
+      delete stylesMap[styleName];
+      return style
     }
-    style = new odf.StyleTreeNode(stylesmap[stylename]);
-    parentname = style.element.getAttributeNS(stylens, "parent-style-name");
-    parentstyle = null;
-    if(parentname) {
-      parentstyle = findStyle(stylestree, parentname) || addStyleToStyleTree(parentname, stylesmap, stylestree)
-    }
-    if(parentstyle) {
-      parentstyle.derivedStyles[stylename] = style
-    }else {
-      stylestree[stylename] = style
-    }
-    delete stylesmap[stylename];
-    return style
-  }
-  function addStyleMapToStyleTree(stylesmap, stylestree) {
-    var name;
-    for(name in stylesmap) {
-      if(stylesmap.hasOwnProperty(name)) {
-        addStyleToStyleTree(name, stylesmap, stylestree)
+    function addStyleMapToStyleTree(stylesMap, stylesTree) {
+      if(stylesMap) {
+        Object.keys(stylesMap).forEach(function(styleName) {
+          createStyleTreeNode(styleName, stylesMap, stylesTree)
+        })
       }
     }
+    this.getStyleTree = function() {
+      return tree
+    };
+    function init() {
+      var subTree, styleNodes, autoStyleNodes;
+      styleNodes = getStyleMap(styles);
+      autoStyleNodes = getStyleMap(autoStyles);
+      Object.keys(familyNamespacePrefixes).forEach(function(family) {
+        subTree = tree[family] = {};
+        addStyleMapToStyleTree(styleNodes[family], subTree);
+        addStyleMapToStyleTree(autoStyleNodes[family], subTree)
+      })
+    }
+    init()
   }
+})();
+odf.StyleTree.Tree;
+(function() {
+  var fons = odf.Namespaces.fons, stylens = odf.Namespaces.stylens, textns = odf.Namespaces.textns, xmlns = odf.Namespaces.xmlns, helperns = "urn:webodf:names:helper", listCounterIdSuffix = "webodf-listLevel", stylemap = {1:"decimal", "a":"lower-latin", "A":"upper-latin", "i":"lower-roman", "I":"upper-roman"};
+  function appendRule(styleSheet, rule) {
+    try {
+      styleSheet.insertRule(rule, styleSheet.cssRules.length)
+    }catch(e) {
+      runtime.log("cannot load rule: " + rule + " - " + e)
+    }
+  }
+  function ParseState(contentRules, continuedCounterIdStack) {
+    this.listCounterCount = 0;
+    this.contentRules = contentRules;
+    this.counterIdStack = [];
+    this.continuedCounterIdStack = continuedCounterIdStack
+  }
+  function UniqueListCounter(styleSheet) {
+    var customListIdIndex = 0, globalCounterResetRule = "", counterIdStacks = {};
+    function getCounterIdStack(list) {
+      var counterId, stack = [];
+      if(list) {
+        counterId = list.getAttributeNS(helperns, "counter-id");
+        stack = counterIdStacks[counterId].slice(0)
+      }
+      return stack
+    }
+    function createCssRulesForList(topLevelListId, listElement, listLevel, parseState) {
+      var newListSelectorId, newListCounterId, newRule, contentRule, i;
+      parseState.listCounterCount += 1;
+      newListSelectorId = topLevelListId + "-level" + listLevel + "-" + parseState.listCounterCount;
+      listElement.setAttributeNS(helperns, "counter-id", newListSelectorId);
+      newListCounterId = parseState.continuedCounterIdStack.shift();
+      if(!newListCounterId) {
+        newListCounterId = newListSelectorId;
+        globalCounterResetRule += newListSelectorId + " 1 ";
+        newRule = 'text|list[webodfhelper|counter-id="' + newListSelectorId + '"]';
+        newRule += " > text|list-item:first-child > :not(text|list):first-child:before";
+        newRule += "{";
+        newRule += "counter-increment: " + newListCounterId + " 0;";
+        newRule += "}";
+        appendRule(styleSheet, newRule)
+      }
+      while(parseState.counterIdStack.length >= listLevel) {
+        parseState.counterIdStack.pop()
+      }
+      parseState.counterIdStack.push(newListCounterId);
+      contentRule = parseState.contentRules[listLevel.toString()] || "";
+      for(i = 1;i <= listLevel;i += 1) {
+        contentRule = contentRule.replace(i + listCounterIdSuffix, parseState.counterIdStack[i - 1])
+      }
+      newRule = 'text|list[webodfhelper|counter-id="' + newListSelectorId + '"]';
+      newRule += " > text|list-item > :not(text|list):first-child:before";
+      newRule += "{";
+      newRule += contentRule;
+      newRule += "counter-increment: " + newListCounterId + ";";
+      newRule += "}";
+      appendRule(styleSheet, newRule)
+    }
+    function iterateOverChildListElements(topLevelListId, element, listLevel, parseState) {
+      var isListElement = element.namespaceURI === textns && element.localName === "list", isListItemElement = element.namespaceURI === textns && element.localName === "list-item", childElement;
+      if(!isListElement && !isListItemElement) {
+        parseState.continuedCounterIdStack = [];
+        return
+      }
+      if(isListElement) {
+        listLevel += 1;
+        createCssRulesForList(topLevelListId, element, listLevel, parseState)
+      }
+      childElement = element.firstElementChild;
+      while(childElement) {
+        iterateOverChildListElements(topLevelListId, childElement, listLevel, parseState);
+        childElement = childElement.nextElementSibling
+      }
+    }
+    this.createCounterRules = function(contentRules, list, continuedList) {
+      var listId = list.getAttributeNS(xmlns, "id"), currentParseState = new ParseState(contentRules, getCounterIdStack(continuedList));
+      if(!listId) {
+        customListIdIndex += 1;
+        listId = "X" + customListIdIndex
+      }else {
+        listId = "Y" + listId
+      }
+      iterateOverChildListElements(listId, list, 0, currentParseState);
+      counterIdStacks[listId + "-level1-1"] = currentParseState.counterIdStack
+    };
+    this.initialiseCreatedCounters = function() {
+      var newRule;
+      newRule = "office|document";
+      newRule += "{";
+      newRule += "counter-reset: " + globalCounterResetRule + ";";
+      newRule += "}";
+      appendRule(styleSheet, newRule)
+    }
+  }
+  odf.ListStyleToCss = function ListStyleToCss() {
+    var cssUnits = new core.CSSUnits, odfUtils = new odf.OdfUtils;
+    function convertToPxValue(value) {
+      var parsedLength = odfUtils.parseLength(value);
+      if(!parsedLength) {
+        runtime.log("Could not parse value '" + value + "'.");
+        return 0
+      }
+      return cssUnits.convert(parsedLength.value, parsedLength.unit, "px")
+    }
+    function escapeCSSString(value) {
+      return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
+    }
+    function isMatchingListStyle(list, matchingStyleName) {
+      var styleName;
+      if(list) {
+        styleName = list.getAttributeNS(textns, "style-name")
+      }
+      return styleName === matchingStyleName
+    }
+    function getNumberRule(node) {
+      var style = node.getAttributeNS(stylens, "num-format"), suffix = node.getAttributeNS(stylens, "num-suffix") || "", prefix = node.getAttributeNS(stylens, "num-prefix") || "", content = "", textLevel = node.getAttributeNS(textns, "level"), displayLevels = node.getAttributeNS(textns, "display-levels");
+      if(prefix) {
+        content += '"' + escapeCSSString(prefix) + '"\n'
+      }
+      if(stylemap.hasOwnProperty(style)) {
+        textLevel = textLevel ? parseInt(textLevel, 10) : 1;
+        displayLevels = displayLevels ? parseInt(displayLevels, 10) : 1;
+        while(displayLevels > 0) {
+          content += " counter(" + (textLevel - displayLevels + 1) + listCounterIdSuffix + "," + stylemap[style] + ")";
+          if(displayLevels > 1) {
+            content += '"."'
+          }
+          displayLevels -= 1
+        }
+      }else {
+        if(style) {
+          content += ' "' + style + '"'
+        }else {
+          content += ' ""'
+        }
+      }
+      return"content:" + content + ' "' + escapeCSSString(suffix) + '"'
+    }
+    function getImageRule() {
+      return"content: none"
+    }
+    function getBulletRule(node) {
+      var bulletChar = node.getAttributeNS(textns, "bullet-char");
+      return'content: "' + escapeCSSString(bulletChar) + '"'
+    }
+    function getContentRule(node) {
+      var contentRule = "", listLevelProps, listLevelPositionSpaceMode, listLevelLabelAlign, followedBy;
+      if(node.localName === "list-level-style-number") {
+        contentRule = getNumberRule(node)
+      }else {
+        if(node.localName === "list-level-style-image") {
+          contentRule = getImageRule()
+        }else {
+          if(node.localName === "list-level-style-bullet") {
+            contentRule = getBulletRule(node)
+          }
+        }
+      }
+      listLevelProps = (node.getElementsByTagNameNS(stylens, "list-level-properties")[0]);
+      if(listLevelProps) {
+        listLevelPositionSpaceMode = listLevelProps.getAttributeNS(textns, "list-level-position-and-space-mode");
+        if(listLevelPositionSpaceMode === "label-alignment") {
+          listLevelLabelAlign = (listLevelProps.getElementsByTagNameNS(stylens, "list-level-label-alignment")[0]);
+          if(listLevelLabelAlign) {
+            followedBy = listLevelLabelAlign.getAttributeNS(textns, "label-followed-by")
+          }
+          if(followedBy === "space") {
+            contentRule += ' "\\a0"'
+          }
+        }
+      }
+      return"\n" + contentRule + ";\n"
+    }
+    function getAllContentRules(listStyleNode) {
+      var childNode = listStyleNode.firstElementChild, level, rules = {};
+      while(childNode) {
+        level = childNode.getAttributeNS(textns, "level");
+        level = level && parseInt(level, 10);
+        rules[level] = getContentRule(childNode);
+        childNode = childNode.nextElementSibling
+      }
+      return rules
+    }
+    function addListStyleRule(styleSheet, name, node) {
+      var selector = 'text|list[text|style-name="' + name + '"]', level = node.getAttributeNS(textns, "level"), selectorLevel, listItemRule, listLevelProps, listLevelPositionSpaceMode, listLevelLabelAlign, listIndent, textAlign, bulletWidth, labelDistance, bulletIndent, followedBy, leftOffset;
+      listLevelProps = (node.getElementsByTagNameNS(stylens, "list-level-properties")[0]);
+      listLevelPositionSpaceMode = listLevelProps && listLevelProps.getAttributeNS(textns, "list-level-position-and-space-mode");
+      listLevelLabelAlign = (listLevelProps) && (listLevelProps.getElementsByTagNameNS(stylens, "list-level-label-alignment")[0]);
+      level = level && parseInt(level, 10);
+      selectorLevel = level;
+      while(selectorLevel > 1) {
+        selector += " > text|list-item > text|list";
+        selectorLevel -= 1
+      }
+      textAlign = listLevelProps && listLevelProps.getAttributeNS(fons, "text-align") || "left";
+      switch(textAlign) {
+        case "end":
+          textAlign = "right";
+          break;
+        case "start":
+          textAlign = "left";
+          break
+      }
+      if(listLevelPositionSpaceMode === "label-alignment") {
+        listIndent = listLevelLabelAlign && listLevelLabelAlign.getAttributeNS(fons, "margin-left") || "0px";
+        bulletIndent = listLevelLabelAlign && listLevelLabelAlign.getAttributeNS(fons, "text-indent") || "0px";
+        followedBy = listLevelLabelAlign && listLevelLabelAlign.getAttributeNS(textns, "label-followed-by");
+        leftOffset = convertToPxValue(listIndent)
+      }else {
+        listIndent = listLevelProps && listLevelProps.getAttributeNS(textns, "space-before") || "0px";
+        bulletWidth = listLevelProps && listLevelProps.getAttributeNS(textns, "min-label-width") || "0px";
+        labelDistance = listLevelProps && listLevelProps.getAttributeNS(textns, "min-label-distance") || "0px";
+        leftOffset = convertToPxValue(listIndent) + convertToPxValue(bulletWidth)
+      }
+      listItemRule = selector + " > text|list-item";
+      listItemRule += "{";
+      listItemRule += "margin-left: " + leftOffset + "px;";
+      listItemRule += "}";
+      appendRule(styleSheet, listItemRule);
+      listItemRule = selector + " > text|list-item > text|list";
+      listItemRule += "{";
+      listItemRule += "margin-left: " + -leftOffset + "px;";
+      listItemRule += "}";
+      appendRule(styleSheet, listItemRule);
+      listItemRule = selector + " > text|list-item > :not(text|list):first-child:before";
+      listItemRule += "{";
+      listItemRule += "text-align: " + textAlign + ";";
+      listItemRule += "display: inline-block;";
+      if(listLevelPositionSpaceMode === "label-alignment") {
+        listItemRule += "margin-left: " + bulletIndent + ";";
+        if(followedBy === "listtab") {
+          listItemRule += "padding-right: 0.2cm;"
+        }
+      }else {
+        listItemRule += "min-width: " + bulletWidth + ";";
+        listItemRule += "margin-left: " + (parseFloat(bulletWidth) === 0 ? "" : "-") + bulletWidth + ";";
+        listItemRule += "padding-right: " + labelDistance + ";"
+      }
+      listItemRule += "}";
+      appendRule(styleSheet, listItemRule)
+    }
+    function addRule(styleSheet, name, node) {
+      var n = node.firstElementChild;
+      while(n) {
+        if(n.namespaceURI === textns) {
+          addListStyleRule(styleSheet, name, n)
+        }
+        n = n.nextElementSibling
+      }
+    }
+    function applyContentBasedStyles(styleSheet, odfBody, listStyles) {
+      var lists = odfBody.getElementsByTagNameNS(textns, "list"), listCounter = new UniqueListCounter(styleSheet), list, previousList, continueNumbering, continueListXmlId, xmlId, styleName, contentRules, listsWithXmlId = {}, i;
+      for(i = 0;i < lists.length;i += 1) {
+        list = (lists.item(i));
+        styleName = list.getAttributeNS(textns, "style-name");
+        if(styleName) {
+          continueNumbering = list.getAttributeNS(textns, "continue-numbering");
+          continueListXmlId = list.getAttributeNS(textns, "continue-list");
+          xmlId = list.getAttributeNS(xmlns, "id");
+          if(xmlId) {
+            listsWithXmlId[xmlId] = list
+          }
+          contentRules = getAllContentRules(listStyles[styleName].element);
+          if(continueNumbering && (!continueListXmlId && isMatchingListStyle(previousList, styleName))) {
+            listCounter.createCounterRules(contentRules, list, previousList)
+          }else {
+            if(continueListXmlId && isMatchingListStyle(listsWithXmlId[continueListXmlId], styleName)) {
+              listCounter.createCounterRules(contentRules, list, listsWithXmlId[continueListXmlId])
+            }else {
+              listCounter.createCounterRules(contentRules, list)
+            }
+          }
+          previousList = list
+        }
+      }
+      listCounter.initialiseCreatedCounters()
+    }
+    this.applyListStyles = function(styleSheet, styleTree, odfBody) {
+      var styleFamilyTree, node;
+      styleFamilyTree = styleTree["list"];
+      if(styleFamilyTree) {
+        Object.keys(styleFamilyTree).forEach(function(styleName) {
+          node = (styleFamilyTree[styleName]);
+          addRule(styleSheet, styleName, node.element)
+        })
+      }
+      applyContentBasedStyles(styleSheet, odfBody, styleFamilyTree)
+    }
+  }
+})();
+odf.LazyStyleProperties = function(parent, getters) {
+  var data = {};
+  this.value = function(name) {
+    var v;
+    if(data.hasOwnProperty(name)) {
+      v = data[name]
+    }else {
+      v = getters[name]();
+      if(v === undefined && parent) {
+        v = parent.value(name)
+      }
+      data[name] = v
+    }
+    return v
+  };
+  this.reset = function(p) {
+    parent = p;
+    data = {}
+  }
+};
+odf.StyleParseUtils = function() {
+  var stylens = odf.Namespaces.stylens;
+  function splitLength(length) {
+    var re = /(-?[0-9]*[0-9][0-9]*(\.[0-9]*)?|0+\.[0-9]*[1-9][0-9]*|\.[0-9]*[1-9][0-9]*)((cm)|(mm)|(in)|(pt)|(pc)|(px))/, m = re.exec(length);
+    if(!m) {
+      return null
+    }
+    return{value:parseFloat(m[1]), unit:m[3]}
+  }
+  function parseLength(val) {
+    var n, length, unit;
+    length = splitLength(val);
+    unit = length && length.unit;
+    if(unit === "px") {
+      n = length.value
+    }else {
+      if(unit === "cm") {
+        n = length.value / 2.54 * 96
+      }else {
+        if(unit === "mm") {
+          n = length.value / 25.4 * 96
+        }else {
+          if(unit === "in") {
+            n = length.value * 96
+          }else {
+            if(unit === "pt") {
+              n = length.value / 0.75
+            }else {
+              if(unit === "pc") {
+                n = length.value * 16
+              }
+            }
+          }
+        }
+      }
+    }
+    return n
+  }
+  this.parseLength = parseLength;
+  function parsePercent(value) {
+    var v;
+    if(value) {
+      v = parseFloat(value.substr(0, value.indexOf("%")));
+      if(isNaN(v)) {
+        v = undefined
+      }
+    }
+    return v
+  }
+  function parsePositiveLengthOrPercent(value, name, parent) {
+    var v = parsePercent(value), parentValue;
+    if(v !== undefined) {
+      if(parent) {
+        parentValue = parent.value(name)
+      }
+      if(parentValue === undefined) {
+        v = undefined
+      }else {
+        v *= (parentValue) / 100
+      }
+    }else {
+      v = parseLength(value)
+    }
+    return v
+  }
+  this.parsePositiveLengthOrPercent = parsePositiveLengthOrPercent;
+  function getPropertiesElement(name, styleElement, previousPropertyElement) {
+    var e = previousPropertyElement ? previousPropertyElement.nextElementSibling : styleElement.firstElementChild;
+    while(e !== null && (e.localName !== name || e.namespaceURI !== stylens)) {
+      e = e.nextElementSibling
+    }
+    return e
+  }
+  this.getPropertiesElement = getPropertiesElement;
+  function parseAttributeList(text) {
+    if(text) {
+      text = text.replace(/^\s*(.*?)\s*$/g, "$1")
+    }
+    return text && text.length > 0 ? text.split(/\s+/) : []
+  }
+  this.parseAttributeList = parseAttributeList
+};
+odf.Style2CSS = function Style2CSS() {
+  var drawns = odf.Namespaces.drawns, fons = odf.Namespaces.fons, officens = odf.Namespaces.officens, stylens = odf.Namespaces.stylens, svgns = odf.Namespaces.svgns, tablens = odf.Namespaces.tablens, xlinkns = odf.Namespaces.xlinkns, presentationns = odf.Namespaces.presentationns, webodfhelperns = "urn:webodf:names:helper", domUtils = new core.DomUtils, styleParseUtils = new odf.StyleParseUtils, familynamespaceprefixes = {"graphic":"draw", "drawing-page":"draw", "paragraph":"text", "presentation":"presentation", 
+  "ruby":"text", "section":"text", "table":"table", "table-cell":"table", "table-column":"table", "table-row":"table", "text":"text", "list":"text", "page":"office"}, familytagnames = {"graphic":["circle", "connected", "control", "custom-shape", "ellipse", "frame", "g", "line", "measure", "page", "page-thumbnail", "path", "polygon", "polyline", "rect", "regular-polygon"], "paragraph":["alphabetical-index-entry-template", "h", "illustration-index-entry-template", "index-source-style", "object-index-entry-template", 
+  "p", "table-index-entry-template", "table-of-content-entry-template", "user-index-entry-template"], "presentation":["caption", "circle", "connector", "control", "custom-shape", "ellipse", "frame", "g", "line", "measure", "page-thumbnail", "path", "polygon", "polyline", "rect", "regular-polygon"], "drawing-page":["caption", "circle", "connector", "control", "page", "custom-shape", "ellipse", "frame", "g", "line", "measure", "page-thumbnail", "path", "polygon", "polyline", "rect", "regular-polygon"], 
+  "ruby":["ruby", "ruby-text"], "section":["alphabetical-index", "bibliography", "illustration-index", "index-title", "object-index", "section", "table-of-content", "table-index", "user-index"], "table":["background", "table"], "table-cell":["body", "covered-table-cell", "even-columns", "even-rows", "first-column", "first-row", "last-column", "last-row", "odd-columns", "odd-rows", "table-cell"], "table-column":["table-column"], "table-row":["table-row"], "text":["a", "index-entry-chapter", "index-entry-link-end", 
+  "index-entry-link-start", "index-entry-page-number", "index-entry-span", "index-entry-tab-stop", "index-entry-text", "index-title-template", "linenumbering-configuration", "list-level-style-number", "list-level-style-bullet", "outline-level-style", "span"], "list":["list-item"]}, textPropertySimpleMapping = [[fons, "color", "color"], [fons, "background-color", "background-color"], [fons, "font-weight", "font-weight"], [fons, "font-style", "font-style"]], bgImageSimpleMapping = [[stylens, "repeat", 
+  "background-repeat"]], paragraphPropertySimpleMapping = [[fons, "background-color", "background-color"], [fons, "text-align", "text-align"], [fons, "text-indent", "text-indent"], [fons, "padding", "padding"], [fons, "padding-left", "padding-left"], [fons, "padding-right", "padding-right"], [fons, "padding-top", "padding-top"], [fons, "padding-bottom", "padding-bottom"], [fons, "border-left", "border-left"], [fons, "border-right", "border-right"], [fons, "border-top", "border-top"], [fons, "border-bottom", 
+  "border-bottom"], [fons, "margin", "margin"], [fons, "margin-left", "margin-left"], [fons, "margin-right", "margin-right"], [fons, "margin-top", "margin-top"], [fons, "margin-bottom", "margin-bottom"], [fons, "border", "border"]], graphicPropertySimpleMapping = [[fons, "background-color", "background-color"], [fons, "min-height", "min-height"], [drawns, "stroke", "border"], [svgns, "stroke-color", "border-color"], [svgns, "stroke-width", "border-width"], [fons, "border", "border"], [fons, "border-left", 
+  "border-left"], [fons, "border-right", "border-right"], [fons, "border-top", "border-top"], [fons, "border-bottom", "border-bottom"]], tablecellPropertySimpleMapping = [[fons, "background-color", "background-color"], [fons, "border-left", "border-left"], [fons, "border-right", "border-right"], [fons, "border-top", "border-top"], [fons, "border-bottom", "border-bottom"], [fons, "border", "border"]], tablecolumnPropertySimpleMapping = [[stylens, "column-width", "width"]], tablerowPropertySimpleMapping = 
+  [[stylens, "row-height", "height"], [fons, "keep-together", null]], tablePropertySimpleMapping = [[stylens, "width", "width"], [fons, "margin-left", "margin-left"], [fons, "margin-right", "margin-right"], [fons, "margin-top", "margin-top"], [fons, "margin-bottom", "margin-bottom"]], pageContentPropertySimpleMapping = [[fons, "background-color", "background-color"], [fons, "padding", "padding"], [fons, "padding-left", "padding-left"], [fons, "padding-right", "padding-right"], [fons, "padding-top", 
+  "padding-top"], [fons, "padding-bottom", "padding-bottom"], [fons, "border", "border"], [fons, "border-left", "border-left"], [fons, "border-right", "border-right"], [fons, "border-top", "border-top"], [fons, "border-bottom", "border-bottom"], [fons, "margin", "margin"], [fons, "margin-left", "margin-left"], [fons, "margin-right", "margin-right"], [fons, "margin-top", "margin-top"], [fons, "margin-bottom", "margin-bottom"]], pageSizePropertySimpleMapping = [[fons, "page-width", "width"], [fons, 
+  "page-height", "height"]], borderPropertyMap = {"border":true, "border-left":true, "border-right":true, "border-top":true, "border-bottom":true, "stroke-width":true}, fontFaceDeclsMap = {}, utils = new odf.OdfUtils, documentType, odfRoot, defaultFontSize, xpath = xmldom.XPath, cssUnits = new core.CSSUnits;
   function createSelector(family, name) {
     var prefix = familynamespaceprefixes[family], namepart, selector;
     if(prefix === undefined) {
@@ -7023,44 +8835,68 @@ odf.Style2CSS = function Style2CSS() {
     parentStyleNode = xpath.getODFElementsWithXPath((odfRoot), xp, odf.Namespaces.lookupNamespaceURI)[0];
     return parentStyleNode
   }
+  function parseTextPosition(position) {
+    var parts = styleParseUtils.parseAttributeList(position);
+    return{verticalTextPosition:parts[0], fontHeight:parts[1]}
+  }
   function getTextProperties(props) {
-    var rule = "", fontName, fontSize, value, textDecoration = "", fontSizeRule = "", sizeMultiplier = 1, parentStyle;
+    var rule = "", fontName, fontSize, value, textDecorationLine = "", textDecorationStyle = "", textPosition, fontSizeRule = "", sizeMultiplier = 1, textFamilyStyleNode;
     rule += applySimpleMapping(props, textPropertySimpleMapping);
     value = props.getAttributeNS(stylens, "text-underline-style");
     if(value === "solid") {
-      textDecoration += " underline"
+      textDecorationLine += " underline"
     }
     value = props.getAttributeNS(stylens, "text-line-through-style");
     if(value === "solid") {
-      textDecoration += " line-through"
+      textDecorationLine += " line-through"
     }
-    if(textDecoration.length) {
-      textDecoration = "text-decoration:" + textDecoration + ";";
-      rule += textDecoration
+    if(textDecorationLine.length) {
+      rule += "text-decoration:" + textDecorationLine + ";\n";
+      rule += "text-decoration-line:" + textDecorationLine + ";\n";
+      rule += "-moz-text-decoration-line:" + textDecorationLine + ";\n"
+    }
+    value = props.getAttributeNS(stylens, "text-line-through-type");
+    switch(value) {
+      case "double":
+        textDecorationStyle += " double";
+        break;
+      case "single":
+        textDecorationStyle += " single";
+        break
+    }
+    if(textDecorationStyle) {
+      rule += "text-decoration-style:" + textDecorationStyle + ";\n";
+      rule += "-moz-text-decoration-style:" + textDecorationStyle + ";\n"
     }
     fontName = props.getAttributeNS(stylens, "font-name") || props.getAttributeNS(fons, "font-family");
     if(fontName) {
       value = fontFaceDeclsMap[fontName];
       rule += "font-family: " + (value || fontName) + ";"
     }
-    parentStyle = (props.parentNode);
-    fontSize = getFontSize(parentStyle);
-    if(!fontSize) {
-      return rule
-    }
-    while(parentStyle) {
-      fontSize = getFontSize(parentStyle);
-      if(fontSize) {
-        if(fontSize.unit !== "%") {
-          fontSizeRule = "font-size: " + fontSize.value * sizeMultiplier + fontSize.unit + ";";
-          break
-        }
-        sizeMultiplier *= fontSize.value / 100
+    value = props.getAttributeNS(stylens, "text-position");
+    if(value) {
+      textPosition = parseTextPosition(value);
+      rule += "vertical-align: " + textPosition.verticalTextPosition + "\n; ";
+      if(textPosition.fontHeight) {
+        sizeMultiplier = parseFloat(textPosition.fontHeight) / 100
       }
-      parentStyle = getParentStyleNode(parentStyle)
     }
-    if(!fontSizeRule) {
-      fontSizeRule = "font-size: " + parseFloat(defaultFontSize) * sizeMultiplier + cssUnits.getUnits(defaultFontSize) + ";"
+    if(props.hasAttributeNS(fons, "font-size") || sizeMultiplier !== 1) {
+      textFamilyStyleNode = (props.parentNode);
+      while(textFamilyStyleNode) {
+        fontSize = getFontSize(textFamilyStyleNode);
+        if(fontSize) {
+          if(fontSize.unit !== "%") {
+            fontSizeRule = "font-size: " + fontSize.value * sizeMultiplier + fontSize.unit + ";";
+            break
+          }
+          sizeMultiplier *= fontSize.value / 100
+        }
+        textFamilyStyleNode = getParentStyleNode(textFamilyStyleNode)
+      }
+      if(!fontSizeRule) {
+        fontSizeRule = "font-size: " + parseFloat(defaultFontSize) * sizeMultiplier + cssUnits.getUnits(defaultFontSize) + ";"
+      }
     }
     rule += fontSizeRule;
     return rule
@@ -7158,6 +8994,42 @@ odf.Style2CSS = function Style2CSS() {
     }
     return rule
   }
+  function getDerivedStyleNames(styleName, node) {
+    var styleNames = [styleName], derivedStyles = node.derivedStyles;
+    Object.keys(derivedStyles).forEach(function(styleName) {
+      var dsn = getDerivedStyleNames(styleName, derivedStyles[styleName]);
+      styleNames = styleNames.concat(dsn)
+    });
+    return styleNames
+  }
+  function addDrawPageFrameDisplayRules(sheet, styleName, properties, node) {
+    var frameClasses = ["page-number", "date-time", "header", "footer"], styleNames = getDerivedStyleNames(styleName, node), visibleFrameClasses = [], invisibleFrameClasses = [];
+    function insertFrameVisibilityRule(controlledFrameClasses, visibility) {
+      var selectors = [], rule;
+      controlledFrameClasses.forEach(function(frameClass) {
+        styleNames.forEach(function(styleName) {
+          selectors.push("draw|page[webodfhelper|page-style-name='" + styleName + "'] draw|frame[presentation|class='" + frameClass + "']")
+        })
+      });
+      if(selectors.length > 0) {
+        rule = selectors.join(",") + "{visibility:" + visibility + ";}";
+        sheet.insertRule(rule, sheet.cssRules.length)
+      }
+    }
+    frameClasses.forEach(function(frameClass) {
+      var displayValue;
+      displayValue = properties.getAttributeNS(presentationns, "display-" + frameClass);
+      if(displayValue === "true") {
+        visibleFrameClasses.push(frameClass)
+      }else {
+        if(displayValue === "false") {
+          invisibleFrameClasses.push(frameClass)
+        }
+      }
+    });
+    insertFrameVisibilityRule(visibleFrameClasses, "visible");
+    insertFrameVisibilityRule(invisibleFrameClasses, "hidden")
+  }
   function addStyleRule(sheet, family, name, node) {
     var selectors = getSelectors(family, name, node), selector = selectors.join(","), rule = "", properties;
     properties = domUtils.getDirectChild(node.element, stylens, "text-properties");
@@ -7174,7 +9046,8 @@ odf.Style2CSS = function Style2CSS() {
     }
     properties = domUtils.getDirectChild(node.element, stylens, "drawing-page-properties");
     if(properties) {
-      rule += getDrawingPageProperties(properties)
+      rule += getDrawingPageProperties(properties);
+      addDrawPageFrameDisplayRules(sheet, name, (properties), node)
     }
     properties = domUtils.getDirectChild(node.element, stylens, "table-cell-properties");
     if(properties) {
@@ -7196,77 +9069,7 @@ odf.Style2CSS = function Style2CSS() {
       return
     }
     rule = selector + "{" + rule + "}";
-    try {
-      sheet.insertRule(rule, sheet.cssRules.length)
-    }catch(e) {
-      throw e;
-    }
-  }
-  function getNumberRule(node) {
-    var style = node.getAttributeNS(stylens, "num-format"), suffix = node.getAttributeNS(stylens, "num-suffix") || "", prefix = node.getAttributeNS(stylens, "num-prefix") || "", stylemap = {1:"decimal", "a":"lower-latin", "A":"upper-latin", "i":"lower-roman", "I":"upper-roman"}, content = "";
-    if(prefix) {
-      content += ' "' + prefix + '"'
-    }
-    if(stylemap.hasOwnProperty(style)) {
-      content += " counter(list, " + stylemap[style] + ")"
-    }else {
-      if(style) {
-        content += ' "' + style + '"'
-      }else {
-        content += " ''"
-      }
-    }
-    return"content:" + content + ' "' + suffix + '"'
-  }
-  function getImageRule() {
-    return"content: none;"
-  }
-  function getBulletRule(node) {
-    var bulletChar = node.getAttributeNS(textns, "bullet-char");
-    return"content: '" + bulletChar + "';"
-  }
-  function addListStyleRule(sheet, name, node, itemrule) {
-    var selector = 'text|list[text|style-name="' + name + '"]', level = node.getAttributeNS(textns, "level"), itemSelector, listItemRule, listLevelProps = domUtils.getDirectChild(node, stylens, "list-level-properties"), listLevelLabelAlign = domUtils.getDirectChild(listLevelProps, stylens, "list-level-label-alignment"), bulletIndent, listIndent, bulletWidth, rule;
-    if(listLevelLabelAlign) {
-      bulletIndent = listLevelLabelAlign.getAttributeNS(fons, "text-indent");
-      listIndent = listLevelLabelAlign.getAttributeNS(fons, "margin-left")
-    }
-    if(!bulletIndent) {
-      bulletIndent = "-0.6cm"
-    }
-    if(bulletIndent.charAt(0) === "-") {
-      bulletWidth = bulletIndent.substring(1)
-    }else {
-      bulletWidth = "-" + bulletIndent
-    }
-    level = level && parseInt(level, 10);
-    while(level > 1) {
-      selector += " > text|list-item > text|list";
-      level -= 1
-    }
-    if(listIndent) {
-      itemSelector = selector;
-      itemSelector += " > text|list-item > *:not(text|list):first-child";
-      listItemRule = itemSelector + "{";
-      listItemRule += "margin-left:" + listIndent + ";";
-      listItemRule += "}";
-      try {
-        sheet.insertRule(listItemRule, sheet.cssRules.length)
-      }catch(e1) {
-        runtime.log("cannot load rule: " + listItemRule)
-      }
-    }
-    selector += " > text|list-item > *:not(text|list):first-child:before";
-    rule = selector + "{" + itemrule + ";";
-    rule += "counter-increment:list;";
-    rule += "margin-left:" + bulletIndent + ";";
-    rule += "width:" + bulletWidth + ";";
-    rule += "display:inline-block}";
-    try {
-      sheet.insertRule(rule, sheet.cssRules.length)
-    }catch(e2) {
-      runtime.log("cannot load rule: " + rule)
-    }
+    sheet.insertRule(rule, sheet.cssRules.length)
   }
   function addPageStyleRules(sheet, node) {
     var rule = "", imageProps, url, contentLayoutRule = "", pageSizeRule = "", props = domUtils.getDirectChild(node, stylens, "page-layout-properties"), stylename, masterStyles, e, masterStyleName;
@@ -7291,12 +9094,8 @@ odf.Style2CSS = function Style2CSS() {
           masterStyleName = e.getAttributeNS(stylens, "name");
           contentLayoutRule = "draw|page[draw|master-page-name=" + masterStyleName + "] {" + rule + "}";
           pageSizeRule = "office|body, draw|page[draw|master-page-name=" + masterStyleName + "] {" + applySimpleMapping(props, pageSizePropertySimpleMapping) + " }";
-          try {
-            sheet.insertRule(contentLayoutRule, sheet.cssRules.length);
-            sheet.insertRule(pageSizeRule, sheet.cssRules.length)
-          }catch(e1) {
-            throw e1;
-          }
+          sheet.insertRule(contentLayoutRule, sheet.cssRules.length);
+          sheet.insertRule(pageSizeRule, sheet.cssRules.length)
         }
         e = e.nextElementSibling
       }
@@ -7305,47 +9104,16 @@ odf.Style2CSS = function Style2CSS() {
         contentLayoutRule = "office|text {" + rule + "}";
         rule = "";
         pageSizeRule = "office|body {" + "width: " + props.getAttributeNS(fons, "page-width") + ";" + "}";
-        try {
-          sheet.insertRule(contentLayoutRule, sheet.cssRules.length);
-          sheet.insertRule(pageSizeRule, sheet.cssRules.length)
-        }catch(e2) {
-          throw e2;
-        }
+        sheet.insertRule(contentLayoutRule, sheet.cssRules.length);
+        sheet.insertRule(pageSizeRule, sheet.cssRules.length)
       }
-    }
-  }
-  function addListStyleRules(sheet, name, node) {
-    var n = node.firstChild, e, itemrule;
-    while(n) {
-      if(n.namespaceURI === textns) {
-        e = (n);
-        if(n.localName === "list-level-style-number") {
-          itemrule = getNumberRule(e);
-          addListStyleRule(sheet, name, e, itemrule)
-        }else {
-          if(n.localName === "list-level-style-image") {
-            itemrule = getImageRule();
-            addListStyleRule(sheet, name, e, itemrule)
-          }else {
-            if(n.localName === "list-level-style-bullet") {
-              itemrule = getBulletRule(e);
-              addListStyleRule(sheet, name, e, itemrule)
-            }
-          }
-        }
-      }
-      n = n.nextSibling
     }
   }
   function addRule(sheet, family, name, node) {
-    if(family === "list") {
-      addListStyleRules(sheet, name, node.element)
+    if(family === "page") {
+      addPageStyleRules(sheet, node.element)
     }else {
-      if(family === "page") {
-        addPageStyleRules(sheet, node.element)
-      }else {
-        addStyleRule(sheet, family, name, node)
-      }
+      addStyleRule(sheet, family, name, node)
     }
   }
   function addRules(sheet, family, name, node) {
@@ -7357,41 +9125,27 @@ odf.Style2CSS = function Style2CSS() {
       }
     }
   }
-  this.style2css = function(doctype, stylesheet, fontFaceMap, styles, autostyles) {
-    var doc, styletree, tree, rule, name, family, stylenodes, styleautonodes;
-    while(stylesheet.cssRules.length) {
-      stylesheet.deleteRule(stylesheet.cssRules.length - 1)
-    }
-    doc = null;
-    if(styles) {
-      doc = styles.ownerDocument;
-      odfRoot = styles.parentNode
-    }
-    if(autostyles) {
-      doc = autostyles.ownerDocument;
-      odfRoot = autostyles.parentNode
-    }
-    if(!doc) {
-      return
-    }
-    odf.Namespaces.forEachPrefix(function(prefix, ns) {
+  this.style2css = function(doctype, rootNode, stylesheet, fontFaceMap, styleTree) {
+    var tree, rule, name, family;
+    function insertCSSNamespace(prefix, ns) {
       rule = "@namespace " + prefix + " url(" + ns + ");";
       try {
         stylesheet.insertRule(rule, stylesheet.cssRules.length)
       }catch(ignore) {
       }
-    });
+    }
+    odfRoot = rootNode;
+    while(stylesheet.cssRules.length) {
+      stylesheet.deleteRule(stylesheet.cssRules.length - 1)
+    }
+    odf.Namespaces.forEachPrefix(insertCSSNamespace);
+    insertCSSNamespace("webodfhelper", webodfhelperns);
     fontFaceDeclsMap = fontFaceMap;
     documentType = doctype;
     defaultFontSize = runtime.getWindow().getComputedStyle(document.body, null).getPropertyValue("font-size") || "12pt";
-    stylenodes = getStyleMap(styles);
-    styleautonodes = getStyleMap(autostyles);
-    styletree = {};
     for(family in familynamespaceprefixes) {
       if(familynamespaceprefixes.hasOwnProperty(family)) {
-        tree = styletree[family] = {};
-        addStyleMapToStyleTree(stylenodes[family], tree);
-        addStyleMapToStyleTree(styleautonodes[family], tree);
+        tree = styleTree[family];
         for(name in tree) {
           if(tree.hasOwnProperty(name)) {
             addRules(stylesheet, family, name, tree[name])
@@ -7401,30 +9155,6 @@ odf.Style2CSS = function Style2CSS() {
     }
   }
 };
-/*
-
- Copyright (C) 2014 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- This file is part of WebODF.
-
- WebODF is free software: you can redistribute it and/or modify it
- under the terms of the GNU Affero General Public License (GNU AGPL)
- as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.
-
- WebODF is distributed in the hope that it will be useful, but
- WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU Affero General Public License for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with WebODF.  If not, see <http://www.gnu.org/licenses/>.
- @licend
-
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 (function() {
   function Point(x, y) {
     var self = this;
@@ -7444,7 +9174,7 @@ odf.Style2CSS = function Style2CSS() {
     init()
   }
   gui.ZoomHelper = function() {
-    var zoomableElement, panPoint, previousPanPoint, firstPinchDistance, zoom, previousZoom, maxZoom = 4, offsetParent, events = new core.EventNotifier([gui.ZoomHelper.signalZoomChanged]), gestures = {NONE:0, SCROLL:1, PINCH:2}, currentGesture = gestures.NONE, requiresCustomScrollBars = runtime.getWindow().hasOwnProperty("ontouchstart");
+    var zoomableElement, panPoint, previousPanPoint, firstPinchDistance, zoom, previousZoom, maxZoom = 4, offsetParent, parentElement, events = new core.EventNotifier([gui.ZoomHelper.signalZoomChanged]), gestures = {NONE:0, SCROLL:1, PINCH:2}, currentGesture = gestures.NONE, requiresCustomScrollBars = runtime.getWindow().hasOwnProperty("ontouchstart"), parentOverflow = "";
     function applyCSSTransform(x, y, scale, is3D) {
       var transformCommand;
       if(is3D) {
@@ -7476,30 +9206,33 @@ odf.Style2CSS = function Style2CSS() {
       if(!offsetParent || !requiresCustomScrollBars) {
         return
       }
-      var initialOverflow = offsetParent.style.overflow, enabled = offsetParent.classList.contains("customScrollbars");
+      var initialOverflow = offsetParent.style.overflow, enabled = offsetParent.classList.contains("webodf-customScrollbars");
       if(enable && enabled || !enable && !enabled) {
         return
       }
       if(enable) {
-        offsetParent.classList.add("customScrollbars");
+        offsetParent.classList.add("webodf-customScrollbars");
         offsetParent.style.overflow = "hidden";
         runtime.requestAnimationFrame(function() {
           offsetParent.style.overflow = initialOverflow
         })
       }else {
-        offsetParent.classList.remove("customScrollbars")
+        offsetParent.classList.remove("webodf-customScrollbars")
       }
     }
     function removeScroll() {
       applyCSSTransform(-panPoint.x, -panPoint.y, zoom, true);
       offsetParent.scrollLeft = 0;
       offsetParent.scrollTop = 0;
+      parentOverflow = parentElement.style.overflow;
+      parentElement.style.overflow = "visible";
       enableScrollBars(false)
     }
     function restoreScroll() {
       applyCSSTransform(0, 0, zoom, true);
       offsetParent.scrollLeft = panPoint.x;
       offsetParent.scrollTop = panPoint.y;
+      parentElement.style.overflow = parentOverflow || "";
       enableScrollBars(true)
     }
     function getPoint(touch) {
@@ -7614,6 +9347,7 @@ odf.Style2CSS = function Style2CSS() {
       unregisterGestureListeners();
       zoomableElement = element;
       offsetParent = (zoomableElement.offsetParent);
+      parentElement = (zoomableElement.parentNode);
       applyDetailedTransform();
       registerGestureListeners();
       enableScrollBars(true)
@@ -7627,88 +9361,16 @@ odf.Style2CSS = function Style2CSS() {
   };
   gui.ZoomHelper.signalZoomChanged = "zoomChanged"
 })();
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.Canvas = function Canvas() {
 };
 ops.Canvas.prototype.getZoomLevel = function() {
 };
 ops.Canvas.prototype.getElement = function() {
 };
+ops.Canvas.prototype.getSizer = function() {
+};
 ops.Canvas.prototype.getZoomHelper = function() {
 };
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 (function() {
   function LoadingQueue() {
     var queue = [], taskRunning = false;
@@ -7718,7 +9380,7 @@ ops.Canvas.prototype.getZoomHelper = function() {
         try {
           task()
         }catch(e) {
-          runtime.log(String(e))
+          runtime.log(String(e) + "\n" + e.stack)
         }
         taskRunning = false;
         if(queue.length > 0) {
@@ -7785,7 +9447,7 @@ ops.Canvas.prototype.getZoomHelper = function() {
       }
     }
   }
-  var drawns = odf.Namespaces.drawns, fons = odf.Namespaces.fons, officens = odf.Namespaces.officens, stylens = odf.Namespaces.stylens, svgns = odf.Namespaces.svgns, tablens = odf.Namespaces.tablens, textns = odf.Namespaces.textns, xlinkns = odf.Namespaces.xlinkns, xmlns = odf.Namespaces.xmlns, presentationns = odf.Namespaces.presentationns, webodfhelperns = "urn:webodf:names:helper", window = runtime.getWindow(), xpath = xmldom.XPath, odfUtils = new odf.OdfUtils, domUtils = new core.DomUtils;
+  var drawns = odf.Namespaces.drawns, fons = odf.Namespaces.fons, officens = odf.Namespaces.officens, stylens = odf.Namespaces.stylens, svgns = odf.Namespaces.svgns, tablens = odf.Namespaces.tablens, textns = odf.Namespaces.textns, xlinkns = odf.Namespaces.xlinkns, presentationns = odf.Namespaces.presentationns, webodfhelperns = "urn:webodf:names:helper", xpath = xmldom.XPath, domUtils = new core.DomUtils;
   function clear(element) {
     while(element.firstChild) {
       element.removeChild(element.firstChild)
@@ -7798,28 +9460,16 @@ ops.Canvas.prototype.getZoomHelper = function() {
     }
   }
   function handleStyles(odfcontainer, formatting, stylesxmlcss) {
-    var style2css = new odf.Style2CSS;
-    style2css.style2css(odfcontainer.getDocumentType(), (stylesxmlcss.sheet), formatting.getFontMap(), odfcontainer.rootElement.styles, odfcontainer.rootElement.automaticStyles)
+    var style2css = new odf.Style2CSS, list2css = new odf.ListStyleToCss, styleSheet = (stylesxmlcss.sheet), styleTree = (new odf.StyleTree(odfcontainer.rootElement.styles, odfcontainer.rootElement.automaticStyles)).getStyleTree();
+    style2css.style2css(odfcontainer.getDocumentType(), odfcontainer.rootElement, styleSheet, formatting.getFontMap(), styleTree);
+    list2css.applyListStyles(styleSheet, styleTree, odfcontainer.rootElement.body)
   }
   function handleFonts(odfContainer, fontcss) {
     var fontLoader = new odf.FontLoader;
     fontLoader.loadFonts(odfContainer, (fontcss.sheet))
   }
-  function getMasterPageElement(odfContainer, masterPageName) {
-    if(!masterPageName) {
-      return null
-    }
-    var masterStyles = odfContainer.rootElement.masterStyles, masterStylesChild = masterStyles.firstElementChild;
-    while(masterStylesChild) {
-      if(masterStylesChild.getAttributeNS(stylens, "name") === masterPageName && (masterStylesChild.localName === "master-page" && masterStylesChild.namespaceURI === stylens)) {
-        break
-      }
-      masterStylesChild = masterStylesChild.nextElementSibling
-    }
-    return masterStylesChild
-  }
   function dropTemplateDrawFrames(clonedNode) {
-    var i, element, presentationClass, clonedDrawFrameElements = clonedNode.getElementsByTagNameNS(drawns, "frame");
+    var i, element, presentationClass, clonedDrawFrameElements = domUtils.getElementsByTagNameNS(clonedNode, drawns, "frame");
     for(i = 0;i < clonedDrawFrameElements.length;i += 1) {
       element = (clonedDrawFrameElements[i]);
       presentationClass = element.getAttributeNS(presentationns, "class");
@@ -8009,8 +9659,8 @@ ops.Canvas.prototype.getZoomHelper = function() {
     }
     formatParagraphAnchors(odfbody)
   }
-  function cloneMasterPages(odfContainer, shadowContent, odfbody, stylesheet) {
-    var masterPageName, masterPageElement, styleId, clonedPageElement, clonedElement, pageNumber = 0, i, element, elementToClone, document = odfContainer.rootElement.ownerDocument;
+  function cloneMasterPages(formatting, odfContainer, shadowContent, odfbody, stylesheet) {
+    var masterPageName, masterPageElement, styleId, clonedPageElement, clonedElement, clonedDrawElements, pageNumber = 0, i, element, elementToClone, document = odfContainer.rootElement.ownerDocument;
     element = odfbody.firstElementChild;
     if(!(element && (element.namespaceURI === officens && (element.localName === "presentation" || element.localName === "drawing")))) {
       return
@@ -8018,7 +9668,7 @@ ops.Canvas.prototype.getZoomHelper = function() {
     element = element.firstElementChild;
     while(element) {
       masterPageName = element.getAttributeNS(drawns, "master-page-name");
-      masterPageElement = getMasterPageElement(odfContainer, masterPageName);
+      masterPageElement = masterPageName ? formatting.getMasterPageElement(masterPageName) : null;
       if(masterPageElement) {
         styleId = element.getAttributeNS(webodfhelperns, "styleid");
         clonedPageElement = document.createElementNS(drawns, "draw:page");
@@ -8027,19 +9677,23 @@ ops.Canvas.prototype.getZoomHelper = function() {
         while(elementToClone) {
           if(elementToClone.getAttributeNS(presentationns, "placeholder") !== "true") {
             clonedElement = (elementToClone.cloneNode(true));
-            clonedPageElement.appendChild(clonedElement);
-            setDrawElementPosition(styleId + "_" + i, clonedElement, stylesheet)
+            clonedPageElement.appendChild(clonedElement)
           }
           elementToClone = elementToClone.nextElementSibling;
           i += 1
         }
         dropTemplateDrawFrames(clonedPageElement);
+        clonedDrawElements = clonedPageElement.getElementsByTagNameNS(drawns, "*");
+        for(i = 0;i < clonedDrawElements.length;i += 1) {
+          setDrawElementPosition(styleId + "_" + i, clonedDrawElements[i], stylesheet)
+        }
         shadowContent.appendChild(clonedPageElement);
         pageNumber = String(shadowContent.getElementsByTagNameNS(drawns, "page").length);
         setContainerValue(clonedPageElement, textns, "page-number", pageNumber);
         setContainerValue(clonedPageElement, presentationns, "header", getHeaderFooter(odfContainer, (element), "header"));
         setContainerValue(clonedPageElement, presentationns, "footer", getHeaderFooter(odfContainer, (element), "footer"));
         setDrawElementPosition(styleId, clonedPageElement, stylesheet);
+        clonedPageElement.setAttributeNS(webodfhelperns, "page-style-name", element.getAttributeNS(drawns, "style-name"));
         clonedPageElement.setAttributeNS(drawns, "draw:master-page-name", masterPageElement.getAttributeNS(stylens, "name"))
       }
       element = element.nextElementSibling
@@ -8079,103 +9733,6 @@ ops.Canvas.prototype.getZoomHelper = function() {
       runtime.log("using MP4 data fallback");
       url = getUrlFromBinaryDataElement(plugin);
       callback(url, "video/mp4")
-    }
-  }
-  function getNumberRule(node) {
-    var style = node.getAttributeNS(stylens, "num-format"), suffix = node.getAttributeNS(stylens, "num-suffix") || "", prefix = node.getAttributeNS(stylens, "num-prefix") || "", rule = "", stylemap = {1:"decimal", "a":"lower-latin", "A":"upper-latin", "i":"lower-roman", "I":"upper-roman"}, content;
-    content = prefix;
-    if(stylemap.hasOwnProperty(style)) {
-      content += " counter(list, " + stylemap[style] + ")"
-    }else {
-      if(style) {
-        content += "'" + style + "';"
-      }else {
-        content += " ''"
-      }
-    }
-    if(suffix) {
-      content += " '" + suffix + "'"
-    }
-    rule = "content: " + content + ";";
-    return rule
-  }
-  function getImageRule() {
-    var rule = "content: none;";
-    return rule
-  }
-  function getBulletRule(node) {
-    var bulletChar = node.getAttributeNS(textns, "bullet-char");
-    return"content: '" + bulletChar + "';"
-  }
-  function getBulletsRule(node) {
-    var itemrule;
-    if(node) {
-      if(node.localName === "list-level-style-number") {
-        itemrule = getNumberRule(node)
-      }else {
-        if(node.localName === "list-level-style-image") {
-          itemrule = getImageRule()
-        }else {
-          if(node.localName === "list-level-style-bullet") {
-            itemrule = getBulletRule(node)
-          }
-        }
-      }
-    }
-    return itemrule
-  }
-  function loadLists(odffragment, stylesheet, documentns) {
-    var i, lists, node, id, continueList, styleName, rule, listMap = {}, parentList, listStyles, listStyleMap = {}, bulletRule;
-    listStyles = window.document.getElementsByTagNameNS(textns, "list-style");
-    for(i = 0;i < listStyles.length;i += 1) {
-      node = (listStyles.item(i));
-      styleName = node.getAttributeNS(stylens, "name");
-      if(styleName) {
-        listStyleMap[styleName] = node
-      }
-    }
-    lists = odffragment.getElementsByTagNameNS(textns, "list");
-    for(i = 0;i < lists.length;i += 1) {
-      node = (lists.item(i));
-      id = node.getAttributeNS(xmlns, "id");
-      if(id) {
-        continueList = node.getAttributeNS(textns, "continue-list");
-        node.setAttributeNS(documentns, "id", id);
-        rule = "text|list#" + id + " > text|list-item > *:first-child:before {";
-        styleName = node.getAttributeNS(textns, "style-name");
-        if(styleName) {
-          node = listStyleMap[styleName];
-          bulletRule = getBulletsRule((odfUtils.getFirstNonWhitespaceChild(node)))
-        }
-        if(continueList) {
-          parentList = listMap[continueList];
-          while(parentList) {
-            parentList = listMap[parentList]
-          }
-          rule += "counter-increment:" + continueList + ";";
-          if(bulletRule) {
-            bulletRule = bulletRule.replace("list", continueList);
-            rule += bulletRule
-          }else {
-            rule += "content:counter(" + continueList + ");"
-          }
-        }else {
-          continueList = "";
-          if(bulletRule) {
-            bulletRule = bulletRule.replace("list", id);
-            rule += bulletRule
-          }else {
-            rule += "content: counter(" + id + ");"
-          }
-          rule += "counter-increment:" + id + ";";
-          stylesheet.insertRule("text|list#" + id + " {counter-reset:" + id + "}", stylesheet.cssRules.length)
-        }
-        rule += "}";
-        listMap[id] = continueList;
-        if(rule) {
-          stylesheet.insertRule(rule, stylesheet.cssRules.length)
-        }
-      }
     }
   }
   function findWebODFStyleSheet(head) {
@@ -8234,11 +9791,11 @@ ops.Canvas.prototype.getZoomHelper = function() {
     head.appendChild(style);
     return(style)
   }
-  odf.OdfCanvas = function OdfCanvas(element) {
+  odf.OdfCanvas = function OdfCanvas(element, viewport) {
     runtime.assert(element !== null && element !== undefined, "odf.OdfCanvas constructor needs DOM element");
     runtime.assert(element.ownerDocument !== null && element.ownerDocument !== undefined, "odf.OdfCanvas constructor needs DOM");
-    var self = this, doc = (element.ownerDocument), async = new core.Async, odfcontainer, formatting = new odf.Formatting, pageSwitcher, sizer = null, annotationsPane = null, allowAnnotations = false, showAnnotationRemoveButton = false, annotationViewManager = null, webodfcss, fontcss, stylesxmlcss, positioncss, shadowContent, eventHandlers = {}, waitingForDoneTimeoutId, redrawContainerTask, shouldRefreshCss = false, shouldRerenderAnnotations = false, loadingQueue = new LoadingQueue, zoomHelper = 
-    new gui.ZoomHelper;
+    var self = this, doc = (element.ownerDocument), odfcontainer, formatting = new odf.Formatting, pageSwitcher, sizer = null, annotationsPane = null, allowAnnotations = false, showAnnotationRemoveButton = false, annotationViewManager = null, webodfcss, fontcss, stylesxmlcss, positioncss, shadowContent, eventHandlers = {}, waitingForDoneTimeoutId, redrawContainerTask, shouldRefreshCss = false, shouldRerenderAnnotations = false, loadingQueue = new LoadingQueue, zoomHelper = new gui.ZoomHelper, canvasViewport = 
+    viewport || new gui.SingleScrollViewport((element.parentNode));
     function loadImages(container, odffragment, stylesheet) {
       var i, images, node;
       function loadImage(name, container, node, stylesheet) {
@@ -8304,7 +9861,8 @@ ops.Canvas.prototype.getZoomHelper = function() {
         }
       }
       element.style.width = Math.round(zoomLevel * sizer.offsetWidth) + "px";
-      element.style.height = Math.round(zoomLevel * sizer.offsetHeight) + "px"
+      element.style.height = Math.round(zoomLevel * sizer.offsetHeight) + "px";
+      element.style.display = "inline-block"
     }
     function redrawContainer() {
       if(shouldRefreshCss) {
@@ -8337,14 +9895,13 @@ ops.Canvas.prototype.getZoomHelper = function() {
       shadowContent.style.left = 0;
       container.getContentElement().appendChild(shadowContent);
       modifyDrawElements(odfnode.body, css);
-      cloneMasterPages(container, shadowContent, odfnode.body, css);
+      cloneMasterPages(formatting, container, shadowContent, odfnode.body, css);
       modifyTables(odfnode.body, element.namespaceURI);
       modifyLineBreakElements(odfnode.body);
       expandSpaceElements(odfnode.body);
       expandTabElements(odfnode.body);
       loadImages(container, odfnode.body, css);
       loadVideos(container, odfnode.body);
-      loadLists(odfnode.body, css, element.namespaceURI);
       sizer.insertBefore(shadowContent, sizer.firstChild);
       zoomHelper.setZoomableElement(sizer)
     }
@@ -8387,7 +9944,9 @@ ops.Canvas.prototype.getZoomHelper = function() {
         handleContent(odfcontainer, odfnode);
         handleAnnotations(odfnode);
         if(!suppressEvent) {
-          fireEvent("statereadychange", [odfcontainer])
+          loadingQueue.addToQueue(function() {
+            fireEvent("statereadychange", [odfcontainer])
+          })
         }
       }
       if(odfcontainer.state === odf.OdfContainer.DONE) {
@@ -8534,6 +10093,9 @@ ops.Canvas.prototype.getZoomHelper = function() {
     this.getElement = function() {
       return element
     };
+    this.getViewport = function() {
+      return canvasViewport
+    };
     this.addCssForFrameWithImage = function(frame) {
       var frameName = frame.getAttributeNS(drawns, "name"), fc = frame.firstElementChild;
       setDrawElementPosition(frameName, frame, (positioncss.sheet));
@@ -8557,7 +10119,7 @@ ops.Canvas.prototype.getZoomHelper = function() {
       head.removeChild(fontcss);
       head.removeChild(stylesxmlcss);
       head.removeChild(positioncss);
-      async.destroyAll(cleanup, callback)
+      core.Async.destroyAll(cleanup, callback)
     };
     function init() {
       webodfcss = addWebODFStyleSheet(doc);
@@ -8565,36 +10127,36 @@ ops.Canvas.prototype.getZoomHelper = function() {
       fontcss = addStyleSheet(doc);
       stylesxmlcss = addStyleSheet(doc);
       positioncss = addStyleSheet(doc);
-      redrawContainerTask = new core.ScheduledTask(redrawContainer, 0);
+      redrawContainerTask = core.Task.createRedrawTask(redrawContainer);
       zoomHelper.subscribe(gui.ZoomHelper.signalZoomChanged, fixContainerSize)
     }
     init()
   }
 })();
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- This file is part of WebODF.
-
- WebODF is free software: you can redistribute it and/or modify it
- under the terms of the GNU Affero General Public License (GNU AGPL)
- as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.
-
- WebODF is distributed in the hope that it will be useful, but
- WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU Affero General Public License for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with WebODF.  If not, see <http://www.gnu.org/licenses/>.
- @licend
-
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
+odf.StepUtils = function StepUtils() {
+  function getContentBounds(stepIterator) {
+    var container = stepIterator.container(), offset, contentBounds;
+    runtime.assert(stepIterator.isStep(), "Step iterator must be on a step");
+    if(container.nodeType === Node.TEXT_NODE && stepIterator.offset() > 0) {
+      offset = stepIterator.offset()
+    }else {
+      container = stepIterator.leftNode();
+      if(container && container.nodeType === Node.TEXT_NODE) {
+        offset = (container).length
+      }
+    }
+    if(container) {
+      if(container.nodeType === Node.TEXT_NODE) {
+        runtime.assert(offset > 0, "Empty text node found");
+        contentBounds = {container:container, startOffset:(offset) - 1, endOffset:(offset)}
+      }else {
+        contentBounds = {container:container, startOffset:0, endOffset:container.childNodes.length}
+      }
+    }
+    return contentBounds
+  }
+  this.getContentBounds = getContentBounds
+};
 ops.MemberProperties = function() {
   this.fullName;
   this.color;
@@ -8639,268 +10201,6 @@ ops.Member = function Member(memberId, properties) {
   }
   init()
 };
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
-gui.StepCounter;
-gui.SelectionMover = function SelectionMover(cursor, rootNode) {
-  var odfUtils = new odf.OdfUtils, positionIterator, FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT;
-  function getIteratorAtCursor() {
-    positionIterator.setUnfilteredPosition(cursor.getNode(), 0);
-    return positionIterator
-  }
-  function getMaximumNodePosition(node) {
-    return node.nodeType === Node.TEXT_NODE ? node.textContent.length : node.childNodes.length
-  }
-  function getClientRect(clientRectangles, useRightEdge) {
-    var rectangle, simplifiedRectangle = null;
-    if(clientRectangles && clientRectangles.length > 0) {
-      rectangle = useRightEdge ? clientRectangles.item(clientRectangles.length - 1) : clientRectangles.item(0)
-    }
-    if(rectangle) {
-      simplifiedRectangle = {top:rectangle.top, left:useRightEdge ? rectangle.right : rectangle.left, bottom:rectangle.bottom}
-    }
-    return simplifiedRectangle
-  }
-  function getVisibleRect(container, offset, range, useRightEdge) {
-    var rectangle, nodeType = container.nodeType;
-    range.setStart(container, offset);
-    range.collapse(!useRightEdge);
-    rectangle = getClientRect(range.getClientRects(), useRightEdge === true);
-    if(!rectangle && offset > 0) {
-      range.setStart(container, offset - 1);
-      range.setEnd(container, offset);
-      rectangle = getClientRect(range.getClientRects(), true)
-    }
-    if(!rectangle) {
-      if(nodeType === Node.ELEMENT_NODE && (offset > 0 && (container).childNodes.length >= offset)) {
-        rectangle = getVisibleRect(container, offset - 1, range, true)
-      }else {
-        if(container.nodeType === Node.TEXT_NODE && offset > 0) {
-          rectangle = getVisibleRect(container, offset - 1, range, true)
-        }else {
-          if(container.previousSibling) {
-            rectangle = getVisibleRect(container.previousSibling, getMaximumNodePosition(container.previousSibling), range, true)
-          }else {
-            if(container.parentNode && container.parentNode !== rootNode) {
-              rectangle = getVisibleRect(container.parentNode, 0, range, false)
-            }else {
-              range.selectNode(rootNode);
-              rectangle = getClientRect(range.getClientRects(), false)
-            }
-          }
-        }
-      }
-    }
-    runtime.assert(Boolean(rectangle), "No visible rectangle found");
-    return(rectangle)
-  }
-  function convertForwardStepsBetweenFilters(stepsFilter1, filter1, filter2) {
-    var iterator = getIteratorAtCursor(), watch = new core.LoopWatchDog(1E4), pendingStepsFilter2 = 0, stepsFilter2 = 0;
-    while(stepsFilter1 > 0 && iterator.nextPosition()) {
-      watch.check();
-      if(filter2.acceptPosition(iterator) === FILTER_ACCEPT) {
-        pendingStepsFilter2 += 1;
-        if(filter1.acceptPosition(iterator) === FILTER_ACCEPT) {
-          stepsFilter2 += pendingStepsFilter2;
-          pendingStepsFilter2 = 0;
-          stepsFilter1 -= 1
-        }
-      }
-    }
-    return stepsFilter2
-  }
-  function convertBackwardStepsBetweenFilters(stepsFilter1, filter1, filter2) {
-    var iterator = getIteratorAtCursor(), watch = new core.LoopWatchDog(1E4), pendingStepsFilter2 = 0, stepsFilter2 = 0;
-    while(stepsFilter1 > 0 && iterator.previousPosition()) {
-      watch.check();
-      if(filter2.acceptPosition(iterator) === FILTER_ACCEPT) {
-        pendingStepsFilter2 += 1;
-        if(filter1.acceptPosition(iterator) === FILTER_ACCEPT) {
-          stepsFilter2 += pendingStepsFilter2;
-          pendingStepsFilter2 = 0;
-          stepsFilter1 -= 1
-        }
-      }
-    }
-    return stepsFilter2
-  }
-  function countLineSteps(filter, direction, iterator) {
-    var c = iterator.container(), steps = 0, bestContainer = null, bestOffset, bestXDiff = 10, xDiff, bestCount = 0, top, left, lastTop, rect, range = (rootNode.ownerDocument.createRange()), watch = new core.LoopWatchDog(1E4);
-    rect = getVisibleRect(c, iterator.unfilteredDomOffset(), range);
-    top = rect.top;
-    left = rect.left;
-    lastTop = top;
-    while((direction < 0 ? iterator.previousPosition() : iterator.nextPosition()) === true) {
-      watch.check();
-      if(filter.acceptPosition(iterator) === FILTER_ACCEPT) {
-        steps += 1;
-        c = iterator.container();
-        rect = getVisibleRect(c, iterator.unfilteredDomOffset(), range);
-        if(rect.top !== top) {
-          if(rect.top !== lastTop && lastTop !== top) {
-            break
-          }
-          lastTop = rect.top;
-          xDiff = Math.abs(left - rect.left);
-          if(bestContainer === null || xDiff < bestXDiff) {
-            bestContainer = c;
-            bestOffset = iterator.unfilteredDomOffset();
-            bestXDiff = xDiff;
-            bestCount = steps
-          }
-        }
-      }
-    }
-    if(bestContainer !== null) {
-      iterator.setUnfilteredPosition(bestContainer, (bestOffset));
-      steps = bestCount
-    }else {
-      steps = 0
-    }
-    range.detach();
-    return steps
-  }
-  function countLinesSteps(lines, filter) {
-    var iterator = getIteratorAtCursor(), stepCount = 0, steps = 0, direction = lines < 0 ? -1 : 1;
-    lines = Math.abs(lines);
-    while(lines > 0) {
-      stepCount += countLineSteps(filter, direction, iterator);
-      if(stepCount === 0) {
-        break
-      }
-      steps += stepCount;
-      lines -= 1
-    }
-    return steps * direction
-  }
-  function countStepsToLineBoundary(direction, filter) {
-    var fnNextPos, increment, lastRect, rect, onSameLine, iterator = getIteratorAtCursor(), paragraphNode = odfUtils.getParagraphElement(iterator.getCurrentNode()), steps = 0, range = (rootNode.ownerDocument.createRange());
-    if(direction < 0) {
-      fnNextPos = iterator.previousPosition;
-      increment = -1
-    }else {
-      fnNextPos = iterator.nextPosition;
-      increment = 1
-    }
-    lastRect = getVisibleRect(iterator.container(), iterator.unfilteredDomOffset(), range);
-    while(fnNextPos.call(iterator)) {
-      if(filter.acceptPosition(iterator) === FILTER_ACCEPT) {
-        if(odfUtils.getParagraphElement(iterator.getCurrentNode()) !== paragraphNode) {
-          break
-        }
-        rect = getVisibleRect(iterator.container(), iterator.unfilteredDomOffset(), range);
-        if(rect.bottom !== lastRect.bottom) {
-          onSameLine = rect.top >= lastRect.top && rect.bottom < lastRect.bottom || rect.top <= lastRect.top && rect.bottom > lastRect.bottom;
-          if(!onSameLine) {
-            break
-          }
-        }
-        steps += increment;
-        lastRect = rect
-      }
-    }
-    range.detach();
-    return steps
-  }
-  this.getStepCounter = function() {
-    return{convertForwardStepsBetweenFilters:convertForwardStepsBetweenFilters, convertBackwardStepsBetweenFilters:convertBackwardStepsBetweenFilters, countLinesSteps:countLinesSteps, countStepsToLineBoundary:countStepsToLineBoundary}
-  };
-  function init() {
-    positionIterator = gui.SelectionMover.createPositionIterator(rootNode);
-    var range = rootNode.ownerDocument.createRange();
-    range.setStart(positionIterator.container(), positionIterator.unfilteredDomOffset());
-    range.collapse(true);
-    cursor.setSelectedRange(range)
-  }
-  init()
-};
-gui.SelectionMover.createPositionIterator = function(rootNode) {
-  function CursorFilter() {
-    this.acceptNode = function(node) {
-      if(!node || (node.namespaceURI === "urn:webodf:names:cursor" || node.namespaceURI === "urn:webodf:names:editinfo")) {
-        return NodeFilter.FILTER_REJECT
-      }
-      return NodeFilter.FILTER_ACCEPT
-    }
-  }
-  var filter = new CursorFilter;
-  return new core.PositionIterator(rootNode, 5, filter, false)
-};
-(function() {
-  return gui.SelectionMover
-})();
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.Document = function Document() {
 };
 ops.Document.prototype.getMemberIds = function() {
@@ -8925,6 +10225,8 @@ ops.Document.prototype.getCanvas = function() {
 };
 ops.Document.prototype.createRootFilter = function(inputMemberId) {
 };
+ops.Document.prototype.createPositionIterator = function(rootNode) {
+};
 ops.Document.signalCursorAdded = "cursor/added";
 ops.Document.signalCursorRemoved = "cursor/removed";
 ops.Document.signalCursorMoved = "cursor/moved";
@@ -8932,7 +10234,7 @@ ops.Document.signalMemberAdded = "member/added";
 ops.Document.signalMemberUpdated = "member/updated";
 ops.Document.signalMemberRemoved = "member/removed";
 ops.OdtCursor = function OdtCursor(memberId, document) {
-  var self = this, validSelectionTypes = {}, selectionType, selectionMover, cursor, events = new core.EventNotifier([ops.OdtCursor.signalCursorUpdated]);
+  var self = this, validSelectionTypes = {}, selectionType, cursor, events = new core.EventNotifier([ops.OdtCursor.signalCursorUpdated]);
   this.removeFromDocument = function() {
     cursor.remove()
   };
@@ -8941,9 +10243,6 @@ ops.OdtCursor = function OdtCursor(memberId, document) {
   };
   this.unsubscribe = function(eventid, cb) {
     events.unsubscribe(eventid, cb)
-  };
-  this.getStepCounter = function() {
-    return selectionMover.getStepCounter()
   };
   this.getMemberId = function() {
     return memberId
@@ -8982,7 +10281,6 @@ ops.OdtCursor = function OdtCursor(memberId, document) {
   };
   function init() {
     cursor = new core.Cursor(document.getDOMDocument(), memberId);
-    selectionMover = new gui.SelectionMover(cursor, document.getRootNode());
     validSelectionTypes[ops.OdtCursor.RangeSelection] = true;
     validSelectionTypes[ops.OdtCursor.RegionSelection] = true;
     self.resetSelectionType()
@@ -8993,99 +10291,23 @@ ops.OdtCursor.RangeSelection = "Range";
 ops.OdtCursor.RegionSelection = "Region";
 ops.OdtCursor.signalCursorUpdated = "cursorUpdated";
 (function() {
-  return ops.OdtCursor
-})();
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
-ops.Operation = function Operation() {
-};
-ops.Operation.prototype.init = function(data) {
-};
-ops.Operation.prototype.isEdit;
-ops.Operation.prototype.group;
-ops.Operation.prototype.execute = function(document) {
-};
-ops.Operation.prototype.spec = function() {
-};
-/*
-
- Copyright (C) 2010-2014 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- This file is part of WebODF.
-
- WebODF is free software: you can redistribute it and/or modify it
- under the terms of the GNU Affero General Public License (GNU AGPL)
- as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.
-
- WebODF is distributed in the hope that it will be useful, but
- WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU Affero General Public License for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with WebODF.  If not, see <http://www.gnu.org/licenses/>.
- @licend
-
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
-(function() {
   var nextNodeId = 0;
-  ops.StepsCache = function StepsCache(rootElement, filter, bucketSize) {
-    var coordinatens = "urn:webodf:names:steps", stepToDomPoint = {}, nodeToBookmark = {}, odfUtils = new odf.OdfUtils, domUtils = new core.DomUtils, basePoint, lastUndamagedCacheStep, FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT, verifyCache;
-    function ParagraphBookmark(nodeId, steps, paragraphNode) {
+  ops.StepsCache = function StepsCache(rootElement, bucketSize, restoreBookmarkPosition) {
+    var coordinatens = "urn:webodf:names:steps", stepToDomPoint = {}, nodeToBookmark = {}, domUtils = new core.DomUtils, basePoint, lastUndamagedCacheStep, DOCUMENT_POSITION_FOLLOWING = Node.DOCUMENT_POSITION_FOLLOWING, DOCUMENT_POSITION_PRECEDING = Node.DOCUMENT_POSITION_PRECEDING, verifyCache;
+    function NodeBookmark(nodeId, bookmarkNode) {
+      var self = this;
       this.nodeId = nodeId;
-      this.steps = steps;
-      this.node = paragraphNode;
+      this.steps = -1;
+      this.node = bookmarkNode;
       this.nextBookmark = null;
       this.previousBookmark = null;
       this.setIteratorPosition = function(iterator) {
-        iterator.setPositionBeforeElement(paragraphNode);
-        do {
-          if(filter.acceptPosition(iterator) === FILTER_ACCEPT) {
-            break
-          }
-        }while(iterator.nextPosition())
+        iterator.setPositionBeforeElement(bookmarkNode);
+        restoreBookmarkPosition(self.steps, iterator)
       }
     }
     function RootBookmark(nodeId, steps, rootNode) {
+      var self = this;
       this.nodeId = nodeId;
       this.steps = steps;
       this.node = rootNode;
@@ -9093,11 +10315,7 @@ ops.Operation.prototype.spec = function() {
       this.previousBookmark = null;
       this.setIteratorPosition = function(iterator) {
         iterator.setUnfilteredPosition(rootNode, 0);
-        do {
-          if(filter.acceptPosition(iterator) === FILTER_ACCEPT) {
-            break
-          }
-        }while(iterator.nextPosition())
+        restoreBookmarkPosition(self.steps, iterator)
       }
     }
     function inspectBookmarks(bookmark1, bookmark2) {
@@ -9108,10 +10326,10 @@ ops.Operation.prototype.spec = function() {
       return parts + "]"
     }
     function isUndamagedBookmark(bookmark) {
-      return lastUndamagedCacheStep === undefined || bookmark.steps <= lastUndamagedCacheStep
+      return lastUndamagedCacheStep === undefined || (bookmark === basePoint || bookmark.steps <= lastUndamagedCacheStep)
     }
     function verifyCacheImpl() {
-      var bookmark = basePoint, previousBookmark, nextBookmark, documentPosition, loopCheck = new core.LoopWatchDog(0, 1E5);
+      var bookmark = basePoint, previousBookmark, nextBookmark, documentPosition, loopCheck = new core.LoopWatchDog(0, 1E5), stepToDomPointNodeIds = {};
       while(bookmark) {
         loopCheck.check();
         previousBookmark = bookmark.previousBookmark;
@@ -9129,17 +10347,25 @@ ops.Operation.prototype.spec = function() {
           runtime.assert(domUtils.containsNode(rootElement, bookmark.node), "Disconnected node is being reported as undamaged @" + inspectBookmarks(bookmark));
           if(previousBookmark) {
             documentPosition = bookmark.node.compareDocumentPosition(previousBookmark.node);
-            runtime.assert(documentPosition === 0 || (documentPosition & Node.DOCUMENT_POSITION_PRECEDING) !== 0, "Bookmark order with previous does not reflect DOM order @" + inspectBookmarks(previousBookmark, bookmark))
+            runtime.assert(documentPosition === 0 || (documentPosition & DOCUMENT_POSITION_PRECEDING) !== 0, "Bookmark order with previous does not reflect DOM order @" + inspectBookmarks(previousBookmark, bookmark))
           }
           if(nextBookmark) {
             if(domUtils.containsNode(rootElement, nextBookmark.node)) {
               documentPosition = bookmark.node.compareDocumentPosition(nextBookmark.node);
-              runtime.assert(documentPosition === 0 || (documentPosition & Node.DOCUMENT_POSITION_FOLLOWING) !== 0, "Bookmark order with next does not reflect DOM order @" + inspectBookmarks(bookmark, nextBookmark))
+              runtime.assert(documentPosition === 0 || (documentPosition & DOCUMENT_POSITION_FOLLOWING) !== 0, "Bookmark order with next does not reflect DOM order @" + inspectBookmarks(bookmark, nextBookmark))
             }
           }
         }
         bookmark = bookmark.nextBookmark
       }
+      Object.keys(stepToDomPoint).forEach(function(step) {
+        var domPointBookmark = stepToDomPoint[step];
+        if(lastUndamagedCacheStep === undefined || step <= lastUndamagedCacheStep) {
+          runtime.assert(domPointBookmark.steps <= step, "Bookmark step of " + domPointBookmark.steps + " exceeds cached step lookup for " + step + " @" + inspectBookmarks(domPointBookmark))
+        }
+        runtime.assert(stepToDomPointNodeIds.hasOwnProperty(domPointBookmark.nodeId) === false, "Bookmark " + inspectBookmarks(domPointBookmark) + " appears twice in cached step lookup at steps " + stepToDomPointNodeIds[domPointBookmark.nodeId] + " and " + step);
+        stepToDomPointNodeIds[domPointBookmark.nodeId] = step
+      })
     }
     function getBucket(steps) {
       return Math.floor(steps / bucketSize) * bucketSize
@@ -9153,7 +10379,7 @@ ops.Operation.prototype.spec = function() {
     function getNodeId(node) {
       var id = "";
       if(node.nodeType === Node.ELEMENT_NODE) {
-        id = (node).getAttributeNS(coordinatens, "nodeId")
+        id = (node).getAttributeNS(coordinatens, "nodeId") || ""
       }
       return id
     }
@@ -9166,18 +10392,16 @@ ops.Operation.prototype.spec = function() {
     function isValidBookmarkForNode(node, bookmark) {
       return bookmark.node === node
     }
-    function getNodeBookmark(node, steps) {
+    function getNodeBookmark(node) {
       var nodeId = getNodeId(node) || setNodeId(node), existingBookmark;
       existingBookmark = nodeToBookmark[nodeId];
       if(!existingBookmark) {
-        existingBookmark = nodeToBookmark[nodeId] = new ParagraphBookmark(nodeId, steps, node)
+        existingBookmark = nodeToBookmark[nodeId] = new NodeBookmark(nodeId, node)
       }else {
         if(!isValidBookmarkForNode(node, existingBookmark)) {
           runtime.log("Cloned node detected. Creating new bookmark");
           nodeId = setNodeId(node);
-          existingBookmark = nodeToBookmark[nodeId] = new ParagraphBookmark(nodeId, steps, node)
-        }else {
-          existingBookmark.steps = steps
+          existingBookmark = nodeToBookmark[nodeId] = new NodeBookmark(nodeId, node)
         }
       }
       return existingBookmark
@@ -9188,7 +10412,7 @@ ops.Operation.prototype.spec = function() {
         steps = lastUndamagedCacheStep
       }
       cacheBucket = getBucket(steps);
-      while(!cachePoint && cacheBucket !== 0) {
+      while(!cachePoint && cacheBucket >= 0) {
         cachePoint = stepToDomPoint[cacheBucket];
         cacheBucket -= bucketSize
       }
@@ -9197,6 +10421,7 @@ ops.Operation.prototype.spec = function() {
         loopGuard.check();
         cachePoint = cachePoint.nextBookmark
       }
+      runtime.assert(steps === -1 || cachePoint.steps <= steps, "Bookmark @" + inspectBookmarks(cachePoint) + " at step " + cachePoint.steps + " exceeds requested step of " + steps);
       return cachePoint
     }
     function getUndamagedBookmark(bookmark) {
@@ -9213,16 +10438,26 @@ ops.Operation.prototype.spec = function() {
         currentBookmark.nextBookmark.previousBookmark = currentBookmark.previousBookmark
       }
     }
+    function isAlreadyInOrder(previousBookmark, newBookmark) {
+      return previousBookmark === newBookmark || previousBookmark.nextBookmark === newBookmark
+    }
     function insertBookmark(previousBookmark, newBookmark) {
       var nextBookmark;
-      if(previousBookmark !== newBookmark && previousBookmark.nextBookmark !== newBookmark) {
-        removeBookmark(newBookmark);
-        nextBookmark = previousBookmark.nextBookmark;
-        newBookmark.nextBookmark = previousBookmark.nextBookmark;
-        newBookmark.previousBookmark = previousBookmark;
-        previousBookmark.nextBookmark = newBookmark;
-        if(nextBookmark) {
-          nextBookmark.previousBookmark = newBookmark
+      if(!isAlreadyInOrder(previousBookmark, newBookmark)) {
+        if(previousBookmark.steps === newBookmark.steps) {
+          while((newBookmark.node.compareDocumentPosition(previousBookmark.node) & DOCUMENT_POSITION_FOLLOWING) !== 0 && previousBookmark !== basePoint) {
+            previousBookmark = (previousBookmark.previousBookmark)
+          }
+        }
+        if(!isAlreadyInOrder(previousBookmark, newBookmark)) {
+          removeBookmark(newBookmark);
+          nextBookmark = previousBookmark.nextBookmark;
+          newBookmark.nextBookmark = previousBookmark.nextBookmark;
+          newBookmark.previousBookmark = previousBookmark;
+          previousBookmark.nextBookmark = newBookmark;
+          if(nextBookmark) {
+            nextBookmark.previousBookmark = newBookmark
+          }
         }
       }
     }
@@ -9251,22 +10486,23 @@ ops.Operation.prototype.spec = function() {
       }
       return undamagedBookmark
     }
-    this.updateCache = function(steps, iterator, isStep) {
-      var cacheBucket, existingCachePoint, bookmark, closestPriorBookmark, node = iterator.getCurrentNode();
-      if(iterator.isBeforeNode() && odfUtils.isParagraph(node)) {
-        if(!isStep) {
-          steps += 1
+    this.updateBookmark = function(steps, node) {
+      var previousCacheBucket, newCacheBucket = getDestinationBucket(steps), existingCachePoint, bookmark, closestPriorBookmark;
+      closestPriorBookmark = repairCacheUpToStep(steps);
+      bookmark = getNodeBookmark((node));
+      if(bookmark.steps !== steps) {
+        previousCacheBucket = getDestinationBucket(bookmark.steps);
+        if(previousCacheBucket !== newCacheBucket && stepToDomPoint[previousCacheBucket] === bookmark) {
+          delete stepToDomPoint[previousCacheBucket]
         }
-        closestPriorBookmark = repairCacheUpToStep(steps);
-        bookmark = getNodeBookmark((node), steps);
-        insertBookmark(closestPriorBookmark, bookmark);
-        cacheBucket = getDestinationBucket(bookmark.steps);
-        existingCachePoint = stepToDomPoint[cacheBucket];
-        if(!existingCachePoint || bookmark.steps > existingCachePoint.steps) {
-          stepToDomPoint[cacheBucket] = bookmark
-        }
-        verifyCache()
+        bookmark.steps = steps
       }
+      insertBookmark(closestPriorBookmark, bookmark);
+      existingCachePoint = stepToDomPoint[newCacheBucket];
+      if(!existingCachePoint || bookmark.steps > existingCachePoint.steps) {
+        stepToDomPoint[newCacheBucket] = bookmark
+      }
+      verifyCache()
     };
     this.setToClosestStep = function(steps, iterator) {
       var cachePoint;
@@ -9323,7 +10559,7 @@ ops.Operation.prototype.spec = function() {
     };
     this.damageCacheAfterStep = function(inflectionStep) {
       if(inflectionStep < 0) {
-        inflectionStep = 0
+        inflectionStep = -1
       }
       if(lastUndamagedCacheStep === undefined) {
         lastUndamagedCacheStep = inflectionStep
@@ -9353,53 +10589,35 @@ ops.Operation.prototype.spec = function() {
   ops.StepsCache.Bookmark.prototype.setIteratorPosition = function(iterator) {
   }
 })();
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 (function() {
-  var PREVIOUS_STEP = 0, NEXT_STEP = 1;
-  ops.StepsTranslator = function StepsTranslator(getRootNode, newIterator, filter, bucketSize) {
-    var rootNode = getRootNode(), stepsCache = new ops.StepsCache(rootNode, filter, bucketSize), domUtils = new core.DomUtils, iterator = newIterator(getRootNode()), FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT;
+  ops.OdtStepsTranslator = function OdtStepsTranslator(getRootNode, newIterator, filter, bucketSize) {
+    var rootNode, stepsCache, odfUtils = new odf.OdfUtils, domUtils = new core.DomUtils, iterator, FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT, PREVIOUS = core.StepDirection.PREVIOUS, NEXT = core.StepDirection.NEXT;
+    function updateCache(steps, iterator, isStep) {
+      var node = iterator.getCurrentNode();
+      if(iterator.isBeforeNode() && odfUtils.isParagraph(node)) {
+        if(!isStep) {
+          steps += 1
+        }
+        stepsCache.updateBookmark(steps, node)
+      }
+    }
+    function roundUpToStep(steps, iterator) {
+      do {
+        if(filter.acceptPosition(iterator) === FILTER_ACCEPT) {
+          updateCache(steps, iterator, true);
+          break
+        }
+        updateCache(steps - 1, iterator, false)
+      }while(iterator.nextPosition())
+    }
     function verifyRootNode() {
       var currentRootNode = getRootNode();
       if(currentRootNode !== rootNode) {
-        runtime.log("Undo detected. Resetting steps cache");
+        if(rootNode) {
+          runtime.log("Undo detected. Resetting steps cache")
+        }
         rootNode = currentRootNode;
-        stepsCache = new ops.StepsCache(rootNode, filter, bucketSize);
+        stepsCache = new ops.StepsCache(rootNode, bucketSize, roundUpToStep);
         iterator = newIterator(rootNode)
       }
     }
@@ -9418,7 +10636,7 @@ ops.Operation.prototype.spec = function() {
         if(isStep) {
           stepsFromRoot += 1
         }
-        stepsCache.updateCache(stepsFromRoot, iterator, isStep)
+        updateCache(stepsFromRoot, iterator, isStep)
       }
       if(stepsFromRoot !== steps) {
         throw new RangeError("Requested steps (" + steps + ") exceeds available steps (" + stepsFromRoot + ")");
@@ -9431,7 +10649,7 @@ ops.Operation.prototype.spec = function() {
       }
       while(iterator.previousPosition()) {
         if(filter.acceptPosition(iterator) === FILTER_ACCEPT) {
-          if(roundDirection(PREVIOUS_STEP, iterator.container(), iterator.unfilteredDomOffset())) {
+          if(roundDirection(PREVIOUS, iterator.container(), iterator.unfilteredDomOffset())) {
             return true
           }
           break
@@ -9439,7 +10657,7 @@ ops.Operation.prototype.spec = function() {
       }
       while(iterator.nextPosition()) {
         if(filter.acceptPosition(iterator) === FILTER_ACCEPT) {
-          if(roundDirection(NEXT_STEP, iterator.container(), iterator.unfilteredDomOffset())) {
+          if(roundDirection(NEXT, iterator.container(), iterator.unfilteredDomOffset())) {
             return true
           }
           break
@@ -9470,7 +10688,7 @@ ops.Operation.prototype.spec = function() {
         if(isStep) {
           stepsFromRoot += 1
         }
-        stepsCache.updateCache(stepsFromRoot, iterator, isStep)
+        updateCache(stepsFromRoot, iterator, isStep)
       }
       return stepsFromRoot + rounding
     };
@@ -9483,7 +10701,7 @@ ops.Operation.prototype.spec = function() {
         if(isStep) {
           stepsFromRoot += 1
         }
-        stepsCache.updateCache(stepsFromRoot, iterator, isStep)
+        updateCache(stepsFromRoot, iterator, isStep)
       }
     };
     this.handleStepsInserted = function(eventArgs) {
@@ -9493,49 +10711,23 @@ ops.Operation.prototype.spec = function() {
     this.handleStepsRemoved = function(eventArgs) {
       verifyRootNode();
       stepsCache.damageCacheAfterStep(eventArgs.position - 1)
+    };
+    function init() {
+      verifyRootNode()
     }
-  };
-  ops.StepsTranslator.PREVIOUS_STEP = PREVIOUS_STEP;
-  ops.StepsTranslator.NEXT_STEP = NEXT_STEP;
-  return ops.StepsTranslator
+    init()
+  }
 })();
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
+ops.Operation = function Operation() {
+};
+ops.Operation.prototype.init = function(data) {
+};
+ops.Operation.prototype.isEdit;
+ops.Operation.prototype.group;
+ops.Operation.prototype.execute = function(document) {
+};
+ops.Operation.prototype.spec = function() {
+};
 ops.TextPositionFilter = function TextPositionFilter(getRootNode) {
   var odfUtils = new odf.OdfUtils, ELEMENT_NODE = Node.ELEMENT_NODE, TEXT_NODE = Node.TEXT_NODE, FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT, FILTER_REJECT = core.PositionFilter.FilterResult.FILTER_REJECT;
   function checkLeftRight(container, leftNode, rightNode) {
@@ -9549,6 +10741,10 @@ ops.TextPositionFilter = function TextPositionFilter(getRootNode) {
         return FILTER_ACCEPT
       }
       if(r === 2 && (odfUtils.scanRightForAnyCharacter(rightNode) || odfUtils.scanRightForAnyCharacter(odfUtils.nextNode(container)))) {
+        return FILTER_ACCEPT
+      }
+    }else {
+      if(odfUtils.isInlineRoot(container.previousSibling) && odfUtils.isGroupingElement(container)) {
         return FILTER_ACCEPT
       }
     }
@@ -9623,46 +10819,14 @@ ops.TextPositionFilter = function TextPositionFilter(getRootNode) {
     return r
   }
 };
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OdtDocument = function OdtDocument(odfCanvas) {
-  var self = this, odfUtils, domUtils, cursors = {}, members = {}, eventNotifier = new core.EventNotifier([ops.Document.signalMemberAdded, ops.Document.signalMemberUpdated, ops.Document.signalMemberRemoved, ops.Document.signalCursorAdded, ops.Document.signalCursorRemoved, ops.Document.signalCursorMoved, ops.OdtDocument.signalParagraphChanged, ops.OdtDocument.signalParagraphStyleModified, ops.OdtDocument.signalCommonStyleCreated, ops.OdtDocument.signalCommonStyleDeleted, ops.OdtDocument.signalTableAdded, 
-  ops.OdtDocument.signalOperationStart, ops.OdtDocument.signalOperationEnd, ops.OdtDocument.signalProcessingBatchStart, ops.OdtDocument.signalProcessingBatchEnd, ops.OdtDocument.signalUndoStackChanged, ops.OdtDocument.signalStepsInserted, ops.OdtDocument.signalStepsRemoved]), FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT, FILTER_REJECT = core.PositionFilter.FilterResult.FILTER_REJECT, filter, stepsTranslator, lastEditingOp, unsupportedMetadataRemoved = false;
+  var self = this, stepUtils, odfUtils, domUtils, cursors = {}, members = {}, eventNotifier = new core.EventNotifier([ops.Document.signalMemberAdded, ops.Document.signalMemberUpdated, ops.Document.signalMemberRemoved, ops.Document.signalCursorAdded, ops.Document.signalCursorRemoved, ops.Document.signalCursorMoved, ops.OdtDocument.signalParagraphChanged, ops.OdtDocument.signalParagraphStyleModified, ops.OdtDocument.signalCommonStyleCreated, ops.OdtDocument.signalCommonStyleDeleted, ops.OdtDocument.signalTableAdded, 
+  ops.OdtDocument.signalOperationStart, ops.OdtDocument.signalOperationEnd, ops.OdtDocument.signalProcessingBatchStart, ops.OdtDocument.signalProcessingBatchEnd, ops.OdtDocument.signalUndoStackChanged, ops.OdtDocument.signalStepsInserted, ops.OdtDocument.signalStepsRemoved, ops.OdtDocument.signalMetadataUpdated, ops.OdtDocument.signalAnnotationAdded]), FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT, FILTER_REJECT = core.PositionFilter.FilterResult.FILTER_REJECT, NEXT = core.StepDirection.NEXT, 
+  filter, stepsTranslator, lastEditingOp, unsupportedMetadataRemoved = false, SHOW_ALL = NodeFilter.SHOW_ALL, defaultNodeFilter = new gui.BlacklistNamespaceNodeFilter(["urn:webodf:names:cursor", "urn:webodf:names:editinfo"]);
+  function createPositionIterator(rootNode) {
+    return new core.PositionIterator(rootNode, SHOW_ALL, defaultNodeFilter, false)
+  }
+  this.createPositionIterator = createPositionIterator;
   function getRootNode() {
     var element = odfCanvas.odfContainer().getContentElement(), localName = element && element.localName;
     runtime.assert(localName === "text", "Unsupported content element type '" + localName + "' for OdtDocument");
@@ -9721,7 +10885,7 @@ ops.OdtDocument = function OdtDocument(odfCanvas) {
     }
   }
   function createStepIterator(container, offset, filters, subTree) {
-    var positionIterator = gui.SelectionMover.createPositionIterator(subTree), filterOrChain, stepIterator;
+    var positionIterator = createPositionIterator(subTree), filterOrChain, stepIterator;
     if(filters.length === 1) {
       filterOrChain = filters[0]
     }else {
@@ -9734,22 +10898,31 @@ ops.OdtDocument = function OdtDocument(odfCanvas) {
   }
   this.createStepIterator = createStepIterator;
   function getIteratorAtPosition(position) {
-    var iterator = gui.SelectionMover.createPositionIterator(getRootNode()), point = stepsTranslator.convertStepsToDomPoint(position);
+    var iterator = createPositionIterator(getRootNode()), point = stepsTranslator.convertStepsToDomPoint(position);
     iterator.setUnfilteredPosition(point.node, point.offset);
     return iterator
   }
   this.getIteratorAtPosition = getIteratorAtPosition;
-  this.convertDomPointToCursorStep = function(node, offset, roundDirection) {
-    return stepsTranslator.convertDomPointToSteps(node, offset, roundDirection)
+  this.convertCursorStepToDomPoint = function(step) {
+    return stepsTranslator.convertStepsToDomPoint(step)
   };
-  this.convertDomToCursorRange = function(selection, constraint) {
-    var point1, point2, anchorConstraint = constraint && constraint(selection.anchorNode, selection.anchorOffset), focusConstraint;
-    point1 = stepsTranslator.convertDomPointToSteps(selection.anchorNode, selection.anchorOffset, anchorConstraint);
-    if(!constraint && (selection.anchorNode === selection.focusNode && selection.anchorOffset === selection.focusOffset)) {
+  function roundUp(step) {
+    return step === NEXT
+  }
+  this.convertDomPointToCursorStep = function(node, offset, roundDirection) {
+    var roundingFunc;
+    if(roundDirection === NEXT) {
+      roundingFunc = roundUp
+    }
+    return stepsTranslator.convertDomPointToSteps(node, offset, roundingFunc)
+  };
+  this.convertDomToCursorRange = function(selection) {
+    var point1, point2;
+    point1 = stepsTranslator.convertDomPointToSteps(selection.anchorNode, selection.anchorOffset);
+    if(selection.anchorNode === selection.focusNode && selection.anchorOffset === selection.focusOffset) {
       point2 = point1
     }else {
-      focusConstraint = constraint && constraint(selection.focusNode, selection.focusOffset);
-      point2 = stepsTranslator.convertDomPointToSteps(selection.focusNode, selection.focusOffset, focusConstraint)
+      point2 = stepsTranslator.convertDomPointToSteps(selection.focusNode, selection.focusOffset)
     }
     return{position:point1, length:point2 - point1}
   };
@@ -9819,35 +10992,27 @@ ops.OdtDocument = function OdtDocument(odfCanvas) {
     }
     return{textNode:lastTextNode, offset:nodeOffset}
   }
-  function getParagraphElement(node) {
-    return odfUtils.getParagraphElement(node)
-  }
-  function getStyleElement(styleName, styleFamily) {
-    return odfCanvas.getFormatting().getStyleElement(styleName, styleFamily)
-  }
-  this.getStyleElement = getStyleElement;
-  function getParagraphStyleElement(styleName) {
-    return getStyleElement(styleName, "paragraph")
-  }
-  function getParagraphStyleAttributes(styleName) {
-    var node = getParagraphStyleElement(styleName);
-    if(node) {
-      return odfCanvas.getFormatting().getInheritedStyleAttributes(node, false)
-    }
-    return null
-  }
   function handleOperationExecuted(op) {
-    var spec = op.spec(), memberId = spec.memberid, date = (new Date(spec.timestamp)).toISOString(), odfContainer = odfCanvas.odfContainer(), fullName;
+    var opspec = op.spec(), memberId = opspec.memberid, date = (new Date(opspec.timestamp)).toISOString(), odfContainer = odfCanvas.odfContainer(), changedMetadata = {setProperties:{}, removedProperties:[]}, fullName;
     if(op.isEdit) {
+      if(opspec.optype === "UpdateMetadata") {
+        changedMetadata.setProperties = (JSON.parse(JSON.stringify((opspec).setProperties)));
+        if((opspec).removedProperties) {
+          changedMetadata.removedProperties = (opspec).removedProperties.attributes.split(",")
+        }
+      }
       fullName = self.getMember(memberId).getProperties().fullName;
       odfContainer.setMetadata({"dc:creator":fullName, "dc:date":date}, null);
+      changedMetadata.setProperties["dc:creator"] = fullName;
+      changedMetadata.setProperties["dc:date"] = date;
       if(!lastEditingOp) {
-        odfContainer.incrementEditingCycles();
+        changedMetadata.setProperties["meta:editing-cycles"] = odfContainer.incrementEditingCycles();
         if(!unsupportedMetadataRemoved) {
           odfContainer.setMetadata(null, ["meta:editing-duration", "meta:document-statistic"])
         }
       }
-      lastEditingOp = op
+      lastEditingOp = op;
+      self.emit(ops.OdtDocument.signalMetadataUpdated, changedMetadata)
     }
   }
   function upgradeWhitespaceToElement(textNode, offset) {
@@ -9868,48 +11033,57 @@ ops.OdtDocument = function OdtDocument(odfCanvas) {
     }
     return space
   }
-  function upgradeWhitespacesAtPosition(position) {
-    var iterator = getIteratorAtPosition(position), container, offset, i;
-    iterator.previousPosition();
-    iterator.previousPosition();
-    for(i = -1;i <= 1;i += 1) {
-      container = iterator.container();
-      offset = iterator.unfilteredDomOffset();
-      if(container.nodeType === Node.TEXT_NODE && (container.data[offset] === " " && odfUtils.isSignificantWhitespace((container), offset))) {
-        container = upgradeWhitespaceToElement((container), offset);
-        iterator.moveToEndOfNode(container)
+  function upgradeWhitespacesAtPosition(step) {
+    var positionIterator = getIteratorAtPosition(step), stepIterator = new core.StepIterator(filter, positionIterator), contentBounds, container, offset, stepsToUpgrade = 2;
+    runtime.assert(stepIterator.isStep(), "positionIterator is not at a step (requested step: " + step + ")");
+    do {
+      contentBounds = stepUtils.getContentBounds(stepIterator);
+      if(contentBounds) {
+        container = contentBounds.container;
+        offset = contentBounds.startOffset;
+        if(container.nodeType === Node.TEXT_NODE && odfUtils.isSignificantWhitespace((container), offset)) {
+          container = upgradeWhitespaceToElement((container), offset);
+          stepIterator.setPosition(container, container.childNodes.length);
+          stepIterator.roundToPreviousStep()
+        }
       }
-      iterator.nextPosition()
-    }
+      stepsToUpgrade -= 1
+    }while(stepsToUpgrade > 0 && stepIterator.nextStep())
   }
   this.upgradeWhitespacesAtPosition = upgradeWhitespacesAtPosition;
-  this.downgradeWhitespacesAtPosition = function(position) {
-    var iterator = getIteratorAtPosition(position), container, offset, firstSpaceElementChild, lastSpaceElementChild;
-    container = iterator.container();
-    offset = iterator.unfilteredDomOffset();
-    while(!odfUtils.isSpaceElement(container) && container.childNodes.item(offset)) {
-      container = (container.childNodes.item(offset));
-      offset = 0
-    }
-    if(container.nodeType === Node.TEXT_NODE) {
-      container = (container.parentNode)
-    }
-    if(odfUtils.isDowngradableSpaceElement(container)) {
-      firstSpaceElementChild = container.firstChild;
-      lastSpaceElementChild = container.lastChild;
-      domUtils.mergeIntoParent(container);
-      if(lastSpaceElementChild !== firstSpaceElementChild) {
-        domUtils.normalizeTextNodes(lastSpaceElementChild)
+  function maxOffset(node) {
+    return node.nodeType === Node.TEXT_NODE ? (node).length : node.childNodes.length
+  }
+  function downgradeWhitespaces(stepIterator) {
+    var contentBounds, container, modifiedNodes = [], lastChild, stepsToUpgrade = 2;
+    runtime.assert(stepIterator.isStep(), "positionIterator is not at a step");
+    do {
+      contentBounds = stepUtils.getContentBounds(stepIterator);
+      if(contentBounds) {
+        container = contentBounds.container;
+        if(odfUtils.isDowngradableSpaceElement(container)) {
+          lastChild = (container.lastChild);
+          while(container.firstChild) {
+            modifiedNodes.push(container.firstChild);
+            container.parentNode.insertBefore(container.firstChild, container)
+          }
+          container.parentNode.removeChild(container);
+          stepIterator.setPosition(lastChild, maxOffset(lastChild));
+          stepIterator.roundToPreviousStep()
+        }
       }
-      domUtils.normalizeTextNodes(firstSpaceElementChild)
-    }
+      stepsToUpgrade -= 1
+    }while(stepsToUpgrade > 0 && stepIterator.nextStep());
+    modifiedNodes.forEach(domUtils.normalizeTextNodes)
+  }
+  this.downgradeWhitespaces = downgradeWhitespaces;
+  this.downgradeWhitespacesAtPosition = function(step) {
+    var positionIterator = getIteratorAtPosition(step), stepIterator = new core.StepIterator(filter, positionIterator);
+    downgradeWhitespaces(stepIterator)
   };
-  this.getParagraphStyleElement = getParagraphStyleElement;
-  this.getParagraphElement = getParagraphElement;
-  this.getParagraphStyleAttributes = getParagraphStyleAttributes;
   this.getTextNodeAtStep = getTextNodeAtStep;
   function paragraphOrRoot(container, offset, root) {
-    var node = container.childNodes.item(offset) || container, paragraph = getParagraphElement(node);
+    var node = container.childNodes.item(offset) || container, paragraph = odfUtils.getParagraphElement(node);
     if(paragraph && domUtils.containsNode(root, paragraph)) {
       return(paragraph)
     }
@@ -10042,10 +11216,12 @@ ops.OdtDocument = function OdtDocument(odfCanvas) {
     filter = new ops.TextPositionFilter(getRootNode);
     odfUtils = new odf.OdfUtils;
     domUtils = new core.DomUtils;
-    stepsTranslator = new ops.StepsTranslator(getRootNode, gui.SelectionMover.createPositionIterator, filter, 500);
+    stepUtils = new odf.StepUtils;
+    stepsTranslator = new ops.OdtStepsTranslator(getRootNode, createPositionIterator, filter, 500);
     eventNotifier.subscribe(ops.OdtDocument.signalStepsInserted, stepsTranslator.handleStepsInserted);
     eventNotifier.subscribe(ops.OdtDocument.signalStepsRemoved, stepsTranslator.handleStepsRemoved);
-    eventNotifier.subscribe(ops.OdtDocument.signalOperationEnd, handleOperationExecuted)
+    eventNotifier.subscribe(ops.OdtDocument.signalOperationEnd, handleOperationExecuted);
+    eventNotifier.subscribe(ops.OdtDocument.signalProcessingBatchEnd, core.Task.processTasks)
   }
   init()
 };
@@ -10061,46 +11237,8 @@ ops.OdtDocument.signalProcessingBatchEnd = "router/batchend";
 ops.OdtDocument.signalUndoStackChanged = "undo/changed";
 ops.OdtDocument.signalStepsInserted = "steps/inserted";
 ops.OdtDocument.signalStepsRemoved = "steps/removed";
-(function() {
-  return ops.OdtDocument
-})();
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
+ops.OdtDocument.signalMetadataUpdated = "metadata/updated";
+ops.OdtDocument.signalAnnotationAdded = "annotation/added";
 ops.OpAddAnnotation = function OpAddAnnotation() {
   var memberid, timestamp, position, length, name, doc;
   this.init = function(data) {
@@ -10161,16 +11299,18 @@ ops.OpAddAnnotation = function OpAddAnnotation() {
       insertNodeAtPosition(odtDocument, annotationEnd, position + length)
     }
     insertNodeAtPosition(odtDocument, annotation, position);
-    odtDocument.emit(ops.OdtDocument.signalStepsInserted, {position:position, length:length});
+    odtDocument.emit(ops.OdtDocument.signalStepsInserted, {position:position});
     if(cursor) {
       selectedRange = doc.createRange();
       paragraphElement = domUtils.getElementsByTagNameNS(annotation, odf.Namespaces.textns, "p")[0];
       selectedRange.selectNodeContents(paragraphElement);
       cursor.setSelectedRange(selectedRange, false);
+      cursor.setSelectionType(ops.OdtCursor.RangeSelection);
       odtDocument.emit(ops.Document.signalCursorMoved, cursor)
     }
     odtDocument.getOdfCanvas().addAnnotation(annotation);
     odtDocument.fixCursorPositions();
+    odtDocument.emit(ops.OdtDocument.signalAnnotationAdded, {memberId:memberid, annotation:annotation});
     return true
   };
   this.spec = function() {
@@ -10179,43 +11319,6 @@ ops.OpAddAnnotation = function OpAddAnnotation() {
 };
 ops.OpAddAnnotation.Spec;
 ops.OpAddAnnotation.InitSpec;
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpAddCursor = function OpAddCursor() {
   var memberid, timestamp;
   this.init = function(data) {
@@ -10240,30 +11343,6 @@ ops.OpAddCursor = function OpAddCursor() {
 };
 ops.OpAddCursor.Spec;
 ops.OpAddCursor.InitSpec;
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- This file is part of WebODF.
-
- WebODF is free software: you can redistribute it and/or modify it
- under the terms of the GNU Affero General Public License (GNU AGPL)
- as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.
-
- WebODF is distributed in the hope that it will be useful, but
- WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU Affero General Public License for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with WebODF.  If not, see <http://www.gnu.org/licenses/>.
- @licend
-
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpAddMember = function OpAddMember() {
   var memberid, timestamp, setProperties;
   this.init = function(data) {
@@ -10289,43 +11368,6 @@ ops.OpAddMember = function OpAddMember() {
 };
 ops.OpAddMember.Spec;
 ops.OpAddMember.InitSpec;
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpAddStyle = function OpAddStyle() {
   var memberid, timestamp, styleName, styleFamily, isAutomaticStyle, setProperties, stylens = odf.Namespaces.stylens;
   this.init = function(data) {
@@ -10365,43 +11407,6 @@ ops.OpAddStyle = function OpAddStyle() {
 };
 ops.OpAddStyle.Spec;
 ops.OpAddStyle.InitSpec;
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 odf.ObjectNameGenerator = function ObjectNameGenerator(odfContainer, memberId) {
   var stylens = odf.Namespaces.stylens, drawns = odf.Namespaces.drawns, xlinkns = odf.Namespaces.xlinkns, domUtils = new core.DomUtils, utils = new core.Utils, memberIdHash = utils.hashString(memberId), styleNameGenerator = null, frameNameGenerator = null, imageNameGenerator = null, existingFrameNames = {}, existingImageNames = {};
   function NameGenerator(prefix, findExistingNames) {
@@ -10465,43 +11470,6 @@ odf.ObjectNameGenerator = function ObjectNameGenerator(odfContainer, memberId) {
     return imageNameGenerator.generateName()
   }
 };
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 odf.TextStyleApplicator = function TextStyleApplicator(objectNameGenerator, formatting, automaticStyles) {
   var domUtils = new core.DomUtils, textns = odf.Namespaces.textns, stylens = odf.Namespaces.stylens, textProperties = "style:text-properties", webodfns = "urn:webodf:names:scope";
   function StyleLookup(info) {
@@ -10515,7 +11483,7 @@ odf.TextStyleApplicator = function TextStyleApplicator(objectNameGenerator, form
       return expected === actual
     }
     this.isStyleApplied = function(textNode) {
-      var appliedStyle = formatting.getAppliedStylesForElement(textNode, cachedAppliedStyles);
+      var appliedStyle = formatting.getAppliedStylesForElement(textNode, cachedAppliedStyles).styleProperties;
       return compare(info, appliedStyle)
     }
   }
@@ -10547,14 +11515,21 @@ odf.TextStyleApplicator = function TextStyleApplicator(objectNameGenerator, form
   function isTextSpan(node) {
     return node.localName === "span" && node.namespaceURI === textns
   }
-  function moveToNewSpan(startNode, limits) {
+  function moveToNewSpan(startNode, range) {
     var document = startNode.ownerDocument, originalContainer = (startNode.parentNode), styledContainer, trailingContainer, moveTrailing, node, nextNode, loopGuard = new core.LoopWatchDog(1E4), styledNodes = [];
+    styledNodes.push(startNode);
+    node = startNode.nextSibling;
+    while(node && domUtils.rangeContainsNode(range, node)) {
+      loopGuard.check();
+      styledNodes.push(node);
+      node = node.nextSibling
+    }
     if(!isTextSpan(originalContainer)) {
       styledContainer = document.createElementNS(textns, "text:span");
       originalContainer.insertBefore(styledContainer, startNode);
       moveTrailing = false
     }else {
-      if(startNode.previousSibling && !domUtils.rangeContainsNode(limits, (originalContainer.firstChild))) {
+      if(startNode.previousSibling && !domUtils.rangeContainsNode(range, (originalContainer.firstChild))) {
         styledContainer = originalContainer.cloneNode(false);
         originalContainer.parentNode.insertBefore(styledContainer, originalContainer.nextSibling);
         moveTrailing = true
@@ -10562,13 +11537,6 @@ odf.TextStyleApplicator = function TextStyleApplicator(objectNameGenerator, form
         styledContainer = originalContainer;
         moveTrailing = true
       }
-    }
-    styledNodes.push(startNode);
-    node = startNode.nextSibling;
-    while(node && domUtils.rangeContainsNode(limits, node)) {
-      loopGuard.check();
-      styledNodes.push(node);
-      node = node.nextSibling
     }
     styledNodes.forEach(function(n) {
       if(n.parentNode !== styledContainer) {
@@ -10587,7 +11555,7 @@ odf.TextStyleApplicator = function TextStyleApplicator(objectNameGenerator, form
     }
     return(styledContainer)
   }
-  this.applyStyle = function(textNodes, limits, info) {
+  this.applyStyle = function(textNodes, range, info) {
     var textPropsOnly = {}, isStyled, container, styleCache, styleLookup;
     runtime.assert(info && info.hasOwnProperty(textProperties), "applyStyle without any text properties");
     textPropsOnly[textProperties] = info[textProperties];
@@ -10596,50 +11564,13 @@ odf.TextStyleApplicator = function TextStyleApplicator(objectNameGenerator, form
     function apply(n) {
       isStyled = styleLookup.isStyleApplied(n);
       if(isStyled === false) {
-        container = moveToNewSpan(n, limits);
+        container = moveToNewSpan(n, range);
         styleCache.applyStyleToContainer(container)
       }
     }
     textNodes.forEach(apply)
   }
 };
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpApplyDirectStyling = function OpApplyDirectStyling() {
   var memberid, timestamp, position, length, setProperties, odfUtils = new odf.OdfUtils, domUtils = new core.DomUtils;
   this.init = function(data) {
@@ -10652,10 +11583,9 @@ ops.OpApplyDirectStyling = function OpApplyDirectStyling() {
   this.isEdit = true;
   this.group = undefined;
   function applyStyle(odtDocument, range, info) {
-    var odfCanvas = odtDocument.getOdfCanvas(), odfContainer = odfCanvas.odfContainer(), nextTextNodes = domUtils.splitBoundaries(range), textNodes = odfUtils.getTextNodes(range, false), limits, textStyles;
-    limits = {startContainer:range.startContainer, startOffset:range.startOffset, endContainer:range.endContainer, endOffset:range.endOffset};
+    var odfCanvas = odtDocument.getOdfCanvas(), odfContainer = odfCanvas.odfContainer(), nextTextNodes = domUtils.splitBoundaries(range), textNodes = odfUtils.getTextNodes(range, false), textStyles;
     textStyles = new odf.TextStyleApplicator(new odf.ObjectNameGenerator((odfContainer), memberid), odtDocument.getFormatting(), odfContainer.rootElement.automaticStyles);
-    textStyles.applyStyle(textNodes, limits, info);
+    textStyles.applyStyle(textNodes, range, info);
     nextTextNodes.forEach(domUtils.normalizeTextNodes)
   }
   this.execute = function(document) {
@@ -10676,43 +11606,6 @@ ops.OpApplyDirectStyling = function OpApplyDirectStyling() {
 };
 ops.OpApplyDirectStyling.Spec;
 ops.OpApplyDirectStyling.InitSpec;
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpApplyHyperlink = function OpApplyHyperlink() {
   var memberid, timestamp, position, length, hyperlink, domUtils = new core.DomUtils, odfUtils = new odf.OdfUtils;
   this.init = function(data) {
@@ -10756,6 +11649,7 @@ ops.OpApplyHyperlink = function OpApplyHyperlink() {
     });
     boundaryNodes.forEach(domUtils.normalizeTextNodes);
     range.detach();
+    odtDocument.fixCursorPositions();
     odtDocument.getOdfCanvas().refreshSize();
     odtDocument.getOdfCanvas().rerenderAnnotations();
     modifiedParagraphs.forEach(function(paragraph) {
@@ -10769,45 +11663,8 @@ ops.OpApplyHyperlink = function OpApplyHyperlink() {
 };
 ops.OpApplyHyperlink.Spec;
 ops.OpApplyHyperlink.InitSpec;
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpInsertImage = function OpInsertImage() {
-  var memberid, timestamp, position, filename, frameWidth, frameHeight, frameStyleName, frameName, drawns = odf.Namespaces.drawns, svgns = odf.Namespaces.svgns, textns = odf.Namespaces.textns, xlinkns = odf.Namespaces.xlinkns;
+  var memberid, timestamp, position, filename, frameWidth, frameHeight, frameStyleName, frameName, drawns = odf.Namespaces.drawns, svgns = odf.Namespaces.svgns, textns = odf.Namespaces.textns, xlinkns = odf.Namespaces.xlinkns, odfUtils = new odf.OdfUtils;
   this.init = function(data) {
     memberid = data.memberid;
     timestamp = data.timestamp;
@@ -10840,11 +11697,11 @@ ops.OpInsertImage = function OpInsertImage() {
       return false
     }
     textNode = domPosition.textNode;
-    paragraphElement = odtDocument.getParagraphElement(textNode);
+    paragraphElement = odfUtils.getParagraphElement(textNode);
     refNode = domPosition.offset !== textNode.length ? textNode.splitText(domPosition.offset) : textNode.nextSibling;
     frameElement = createFrameElement(odtDocument.getDOMDocument());
     textNode.parentNode.insertBefore(frameElement, refNode);
-    odtDocument.emit(ops.OdtDocument.signalStepsInserted, {position:position, length:1});
+    odtDocument.emit(ops.OdtDocument.signalStepsInserted, {position:position});
     if(textNode.length === 0) {
       textNode.parentNode.removeChild(textNode)
     }
@@ -10860,45 +11717,8 @@ ops.OpInsertImage = function OpInsertImage() {
 };
 ops.OpInsertImage.Spec;
 ops.OpInsertImage.InitSpec;
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpInsertTable = function OpInsertTable() {
-  var memberid, timestamp, initialRows, initialColumns, position, tableName, tableStyleName, tableColumnStyleName, tableCellStyleMatrix, tablens = "urn:oasis:names:tc:opendocument:xmlns:table:1.0", textns = "urn:oasis:names:tc:opendocument:xmlns:text:1.0";
+  var memberid, timestamp, initialRows, initialColumns, position, tableName, tableStyleName, tableColumnStyleName, tableCellStyleMatrix, tablens = "urn:oasis:names:tc:opendocument:xmlns:table:1.0", textns = "urn:oasis:names:tc:opendocument:xmlns:text:1.0", odfUtils = new odf.OdfUtils;
   this.init = function(data) {
     memberid = data.memberid;
     timestamp = data.timestamp;
@@ -10981,9 +11801,9 @@ ops.OpInsertTable = function OpInsertTable() {
     var odtDocument = (document), domPosition = odtDocument.getTextNodeAtStep(position), rootNode = odtDocument.getRootNode(), previousSibling, tableNode;
     if(domPosition) {
       tableNode = createTableNode(odtDocument.getDOMDocument());
-      previousSibling = odtDocument.getParagraphElement(domPosition.textNode);
+      previousSibling = odfUtils.getParagraphElement(domPosition.textNode);
       rootNode.insertBefore(tableNode, previousSibling.nextSibling);
-      odtDocument.emit(ops.OdtDocument.signalStepsInserted, {position:position, length:initialColumns * initialRows + 1});
+      odtDocument.emit(ops.OdtDocument.signalStepsInserted, {position:position});
       odtDocument.getOdfCanvas().refreshSize();
       odtDocument.emit(ops.OdtDocument.signalTableAdded, {tableElement:tableNode, memberId:memberid, timeStamp:timestamp});
       odtDocument.getOdfCanvas().rerenderAnnotations();
@@ -10997,45 +11817,8 @@ ops.OpInsertTable = function OpInsertTable() {
 };
 ops.OpInsertTable.Spec;
 ops.OpInsertTable.InitSpec;
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpInsertText = function OpInsertText() {
-  var space = " ", tab = "\t", memberid, timestamp, position, moveCursor, text;
+  var tab = "\t", memberid, timestamp, position, moveCursor, text, odfUtils = new odf.OdfUtils;
   this.init = function(data) {
     memberid = data.memberid;
     timestamp = data.timestamp;
@@ -11050,11 +11833,14 @@ ops.OpInsertText = function OpInsertText() {
     parent.removeChild(textNode);
     parent.insertBefore(textNode, next)
   }
+  function isNonTabWhiteSpace(character) {
+    return character !== tab && odfUtils.isODFWhitespace(character)
+  }
   function requiresSpaceElement(text, index) {
-    return text[index] === space && (index === 0 || (index === text.length - 1 || text[index - 1] === space))
+    return isNonTabWhiteSpace(text[index]) && (index === 0 || (index === text.length - 1 || isNonTabWhiteSpace(text[index - 1])))
   }
   this.execute = function(document) {
-    var odtDocument = (document), domPosition, previousNode, parentElement, nextNode = null, ownerDocument = odtDocument.getDOMDocument(), paragraphElement, textns = "urn:oasis:names:tc:opendocument:xmlns:text:1.0", toInsertIndex = 0, spaceTag, spaceElement, cursor = odtDocument.getCursor(memberid), i;
+    var odtDocument = (document), domPosition, previousNode, parentElement, nextNode = null, ownerDocument = odtDocument.getDOMDocument(), paragraphElement, textns = "urn:oasis:names:tc:opendocument:xmlns:text:1.0", toInsertIndex = 0, spaceElement, cursor = odtDocument.getCursor(memberid), i;
     function insertTextNode(toInsertText) {
       parentElement.insertBefore(ownerDocument.createTextNode(toInsertText), nextNode)
     }
@@ -11064,9 +11850,9 @@ ops.OpInsertText = function OpInsertText() {
       previousNode = domPosition.textNode;
       nextNode = previousNode.nextSibling;
       parentElement = (previousNode.parentNode);
-      paragraphElement = odtDocument.getParagraphElement(previousNode);
+      paragraphElement = odfUtils.getParagraphElement(previousNode);
       for(i = 0;i < text.length;i += 1) {
-        if(requiresSpaceElement(text, i) || text[i] === tab) {
+        if(text[i] === tab || requiresSpaceElement(text, i)) {
           if(toInsertIndex === 0) {
             if(domPosition.offset !== previousNode.length) {
               nextNode = previousNode.splitText(domPosition.offset)
@@ -11080,9 +11866,16 @@ ops.OpInsertText = function OpInsertText() {
             }
           }
           toInsertIndex = i + 1;
-          spaceTag = text[i] === space ? "text:s" : "text:tab";
-          spaceElement = ownerDocument.createElementNS(textns, spaceTag);
-          spaceElement.appendChild(ownerDocument.createTextNode(text[i]));
+          if(text[i] === tab) {
+            spaceElement = ownerDocument.createElementNS(textns, "text:tab");
+            spaceElement.appendChild(ownerDocument.createTextNode("\t"))
+          }else {
+            if(text[i] !== " ") {
+              runtime.log("WARN: InsertText operation contains non-tab, non-space whitespace character (character code " + text.charCodeAt(i) + ")")
+            }
+            spaceElement = ownerDocument.createElementNS(textns, "text:s");
+            spaceElement.appendChild(ownerDocument.createTextNode(" "))
+          }
           parentElement.insertBefore(spaceElement, nextNode)
         }
       }
@@ -11097,19 +11890,12 @@ ops.OpInsertText = function OpInsertText() {
       if(previousNode.length === 0) {
         previousNode.parentNode.removeChild(previousNode)
       }
-      odtDocument.emit(ops.OdtDocument.signalStepsInserted, {position:position, length:text.length});
+      odtDocument.emit(ops.OdtDocument.signalStepsInserted, {position:position});
       if(cursor && moveCursor) {
         odtDocument.moveCursor(memberid, position + text.length, 0);
         odtDocument.emit(ops.Document.signalCursorMoved, cursor)
       }
-      if(position > 0) {
-        if(position > 1) {
-          odtDocument.downgradeWhitespacesAtPosition(position - 2)
-        }
-        odtDocument.downgradeWhitespacesAtPosition(position - 1)
-      }
       odtDocument.downgradeWhitespacesAtPosition(position);
-      odtDocument.downgradeWhitespacesAtPosition(position + text.length - 1);
       odtDocument.downgradeWhitespacesAtPosition(position + text.length);
       odtDocument.getOdfCanvas().refreshSize();
       odtDocument.emit(ops.OdtDocument.signalParagraphChanged, {paragraphElement:paragraphElement, memberId:memberid, timeStamp:timestamp});
@@ -11124,43 +11910,148 @@ ops.OpInsertText = function OpInsertText() {
 };
 ops.OpInsertText.Spec;
 ops.OpInsertText.InitSpec;
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
+odf.CollapsingRules = function CollapsingRules(rootNode) {
+  var odfUtils = new odf.OdfUtils, domUtils = new core.DomUtils;
+  function shouldRemove(node) {
+    return odfUtils.isODFNode(node) || (node.localName === "br" && odfUtils.isLineBreak(node.parentNode) || node.nodeType === Node.TEXT_NODE && odfUtils.isODFNode((node.parentNode)))
+  }
+  function isCollapsibleContainer(node) {
+    return!odfUtils.isParagraph(node) && (node !== rootNode && odfUtils.hasNoODFContent(node))
+  }
+  function mergeChildrenIntoParent(targetNode) {
+    var parent;
+    if(targetNode.nodeType === Node.TEXT_NODE) {
+      parent = targetNode.parentNode;
+      parent.removeChild(targetNode)
+    }else {
+      parent = domUtils.removeUnwantedNodes(targetNode, shouldRemove)
+    }
+    if(parent && isCollapsibleContainer(parent)) {
+      return mergeChildrenIntoParent(parent)
+    }
+    return parent
+  }
+  this.mergeChildrenIntoParent = mergeChildrenIntoParent
+};
+ops.OpMergeParagraph = function OpMergeParagraph() {
+  var memberid, timestamp, moveCursor, paragraphStyleName, sourceStartPosition, destinationStartPosition, odfUtils = new odf.OdfUtils, domUtils = new core.DomUtils, textns = odf.Namespaces.textns;
+  this.init = function(data) {
+    memberid = data.memberid;
+    timestamp = data.timestamp;
+    moveCursor = data.moveCursor;
+    paragraphStyleName = data.paragraphStyleName;
+    sourceStartPosition = parseInt(data.sourceStartPosition, 10);
+    destinationStartPosition = parseInt(data.destinationStartPosition, 10)
+  };
+  this.isEdit = true;
+  this.group = undefined;
+  function isEmptyGroupingElement(element) {
+    return odfUtils.isGroupingElement(element) && odfUtils.hasNoODFContent(element)
+  }
+  function mergeParagraphs(destination, source) {
+    var child;
+    child = source.firstChild;
+    while(child) {
+      if(child.localName === "editinfo") {
+        source.removeChild(child)
+      }else {
+        destination.appendChild(child);
+        domUtils.removeUnwantedNodes(child, isEmptyGroupingElement)
+      }
+      child = source.firstChild
+    }
+  }
+  function isInsignificantWhitespace(node) {
+    var textNode, badNodeDescription;
+    if(node.nodeType === Node.TEXT_NODE) {
+      textNode = (node);
+      if(textNode.length === 0) {
+        runtime.log("WARN: Empty text node found during merge operation");
+        return true
+      }
+      if(odfUtils.isODFWhitespace(textNode.data) && odfUtils.isSignificantWhitespace(textNode, 0) === false) {
+        return true
+      }
+      badNodeDescription = "#text"
+    }else {
+      badNodeDescription = (node.prefix ? node.prefix + ":" : "") + node.localName
+    }
+    runtime.log("WARN: Unexpected text element found near paragraph boundary [" + badNodeDescription + "]");
+    return false
+  }
+  function removeTextNodes(range) {
+    var emptyTextNodes;
+    if(range.collapsed) {
+      return
+    }
+    domUtils.splitBoundaries(range);
+    emptyTextNodes = odfUtils.getTextElements(range, false, true).filter(isInsignificantWhitespace);
+    emptyTextNodes.forEach(function(node) {
+      node.parentNode.removeChild(node)
+    })
+  }
+  function trimInsignificantWhitespace(stepIterator, paragraphElement) {
+    var range = paragraphElement.ownerDocument.createRange();
+    stepIterator.setPosition(paragraphElement, 0);
+    stepIterator.roundToNextStep();
+    range.setStart(paragraphElement, 0);
+    range.setEnd(stepIterator.container(), stepIterator.offset());
+    removeTextNodes(range);
+    stepIterator.setPosition(paragraphElement, paragraphElement.childNodes.length);
+    stepIterator.roundToPreviousStep();
+    range.setStart(stepIterator.container(), stepIterator.offset());
+    range.setEnd(paragraphElement, paragraphElement.childNodes.length);
+    removeTextNodes(range)
+  }
+  function getParagraphAtStep(odtDocument, steps, stepIterator) {
+    var domPoint = odtDocument.convertCursorStepToDomPoint(steps), paragraph = odfUtils.getParagraphElement(domPoint.node, domPoint.offset);
+    runtime.assert(Boolean(paragraph), "Paragraph not found at step " + steps);
+    if(stepIterator) {
+      stepIterator.setPosition(domPoint.node, domPoint.offset)
+    }
+    return(paragraph)
+  }
+  this.execute = function(document) {
+    var odtDocument = (document), sourceParagraph, destinationParagraph, cursor = odtDocument.getCursor(memberid), rootNode = odtDocument.getRootNode(), collapseRules = new odf.CollapsingRules(rootNode), stepIterator = odtDocument.createStepIterator(rootNode, 0, [odtDocument.getPositionFilter()], rootNode), downgradeOffset;
+    runtime.assert(destinationStartPosition < sourceStartPosition, "Destination paragraph (" + destinationStartPosition + ") must be " + "before source paragraph (" + sourceStartPosition + ")");
+    destinationParagraph = getParagraphAtStep(odtDocument, destinationStartPosition);
+    sourceParagraph = getParagraphAtStep(odtDocument, sourceStartPosition, stepIterator);
+    stepIterator.previousStep();
+    runtime.assert(domUtils.containsNode(destinationParagraph, stepIterator.container()), "Destination paragraph must be adjacent to the source paragraph");
+    trimInsignificantWhitespace(stepIterator, destinationParagraph);
+    downgradeOffset = destinationParagraph.childNodes.length;
+    trimInsignificantWhitespace(stepIterator, sourceParagraph);
+    mergeParagraphs(destinationParagraph, sourceParagraph);
+    runtime.assert(sourceParagraph.childNodes.length === 0, "Source paragraph should be empty before it is removed");
+    collapseRules.mergeChildrenIntoParent(sourceParagraph);
+    odtDocument.emit(ops.OdtDocument.signalStepsRemoved, {position:sourceStartPosition - 1});
+    stepIterator.setPosition(destinationParagraph, downgradeOffset);
+    stepIterator.roundToClosestStep();
+    if(!stepIterator.previousStep()) {
+      stepIterator.roundToNextStep()
+    }
+    odtDocument.downgradeWhitespaces(stepIterator);
+    if(paragraphStyleName) {
+      destinationParagraph.setAttributeNS(textns, "text:style-name", paragraphStyleName)
+    }else {
+      destinationParagraph.removeAttributeNS(textns, "style-name")
+    }
+    if(cursor && moveCursor) {
+      odtDocument.moveCursor(memberid, sourceStartPosition - 1, 0);
+      odtDocument.emit(ops.Document.signalCursorMoved, cursor)
+    }
+    odtDocument.fixCursorPositions();
+    odtDocument.getOdfCanvas().refreshSize();
+    odtDocument.emit(ops.OdtDocument.signalParagraphChanged, {paragraphElement:destinationParagraph, memberId:memberid, timeStamp:timestamp});
+    odtDocument.getOdfCanvas().rerenderAnnotations();
+    return true
+  };
+  this.spec = function() {
+    return{optype:"MergeParagraph", memberid:memberid, timestamp:timestamp, moveCursor:moveCursor, paragraphStyleName:paragraphStyleName, sourceStartPosition:sourceStartPosition, destinationStartPosition:destinationStartPosition}
+  }
+};
+ops.OpMergeParagraph.Spec;
+ops.OpMergeParagraph.InitSpec;
 ops.OpMoveCursor = function OpMoveCursor() {
   var memberid, timestamp, position, length, selectionType;
   this.init = function(data) {
@@ -11189,43 +12080,6 @@ ops.OpMoveCursor = function OpMoveCursor() {
 };
 ops.OpMoveCursor.Spec;
 ops.OpMoveCursor.InitSpec;
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpRemoveAnnotation = function OpRemoveAnnotation() {
   var memberid, timestamp, position, length, domUtils;
   this.init = function(data) {
@@ -11257,7 +12111,7 @@ ops.OpRemoveAnnotation = function OpRemoveAnnotation() {
     if(annotationEnd) {
       annotationEnd.parentNode.removeChild(annotationEnd)
     }
-    odtDocument.emit(ops.OdtDocument.signalStepsRemoved, {position:position > 0 ? position - 1 : position, length:length});
+    odtDocument.emit(ops.OdtDocument.signalStepsRemoved, {position:position > 0 ? position - 1 : position});
     odtDocument.fixCursorPositions();
     odtDocument.getOdfCanvas().refreshAnnotations();
     return true
@@ -11268,43 +12122,6 @@ ops.OpRemoveAnnotation = function OpRemoveAnnotation() {
 };
 ops.OpRemoveAnnotation.Spec;
 ops.OpRemoveAnnotation.InitSpec;
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpRemoveBlob = function OpRemoveBlob() {
   var memberid, timestamp, filename;
   this.init = function(data) {
@@ -11325,43 +12142,6 @@ ops.OpRemoveBlob = function OpRemoveBlob() {
 };
 ops.OpRemoveBlob.Spec;
 ops.OpRemoveBlob.InitSpec;
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpRemoveCursor = function OpRemoveCursor() {
   var memberid, timestamp;
   this.init = function(data) {
@@ -11383,43 +12163,6 @@ ops.OpRemoveCursor = function OpRemoveCursor() {
 };
 ops.OpRemoveCursor.Spec;
 ops.OpRemoveCursor.InitSpec;
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpRemoveHyperlink = function OpRemoveHyperlink() {
   var memberid, timestamp, position, length, domUtils = new core.DomUtils, odfUtils = new odf.OdfUtils;
   this.init = function(data) {
@@ -11435,9 +12178,10 @@ ops.OpRemoveHyperlink = function OpRemoveHyperlink() {
     runtime.assert(links.length === 1, "The given range should only contain a single link.");
     node = domUtils.mergeIntoParent((links[0]));
     range.detach();
+    odtDocument.fixCursorPositions();
     odtDocument.getOdfCanvas().refreshSize();
-    odtDocument.emit(ops.OdtDocument.signalParagraphChanged, {paragraphElement:odfUtils.getParagraphElement(node), memberId:memberid, timeStamp:timestamp});
     odtDocument.getOdfCanvas().rerenderAnnotations();
+    odtDocument.emit(ops.OdtDocument.signalParagraphChanged, {paragraphElement:odfUtils.getParagraphElement(node), memberId:memberid, timeStamp:timestamp});
     return true
   };
   this.spec = function() {
@@ -11446,30 +12190,6 @@ ops.OpRemoveHyperlink = function OpRemoveHyperlink() {
 };
 ops.OpRemoveHyperlink.Spec;
 ops.OpRemoveHyperlink.InitSpec;
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- This file is part of WebODF.
-
- WebODF is free software: you can redistribute it and/or modify it
- under the terms of the GNU Affero General Public License (GNU AGPL)
- as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.
-
- WebODF is distributed in the hope that it will be useful, but
- WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU Affero General Public License for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with WebODF.  If not, see <http://www.gnu.org/licenses/>.
- @licend
-
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpRemoveMember = function OpRemoveMember() {
   var memberid, timestamp;
   this.init = function(data) {
@@ -11493,43 +12213,6 @@ ops.OpRemoveMember = function OpRemoveMember() {
 };
 ops.OpRemoveMember.Spec;
 ops.OpRemoveMember.InitSpec;
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpRemoveStyle = function OpRemoveStyle() {
   var memberid, timestamp, styleName, styleFamily;
   this.init = function(data) {
@@ -11541,7 +12224,7 @@ ops.OpRemoveStyle = function OpRemoveStyle() {
   this.isEdit = true;
   this.group = undefined;
   this.execute = function(document) {
-    var odtDocument = (document), styleNode = odtDocument.getStyleElement(styleName, styleFamily);
+    var odtDocument = (document), styleNode = odtDocument.getFormatting().getStyleElement(styleName, styleFamily);
     if(!styleNode) {
       return false
     }
@@ -11556,45 +12239,8 @@ ops.OpRemoveStyle = function OpRemoveStyle() {
 };
 ops.OpRemoveStyle.Spec;
 ops.OpRemoveStyle.InitSpec;
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpRemoveText = function OpRemoveText() {
-  var memberid, timestamp, position, length, odfUtils, domUtils, editinfons = "urn:webodf:names:editinfo", odfNodeNamespaceMap = {};
+  var memberid, timestamp, position, length, odfUtils, domUtils;
   this.init = function(data) {
     runtime.assert(data.length >= 0, "OpRemoveText only supports positive lengths");
     memberid = data.memberid;
@@ -11602,116 +12248,33 @@ ops.OpRemoveText = function OpRemoveText() {
     position = parseInt(data.position, 10);
     length = parseInt(data.length, 10);
     odfUtils = new odf.OdfUtils;
-    domUtils = new core.DomUtils;
-    odfNodeNamespaceMap[odf.Namespaces.dbns] = true;
-    odfNodeNamespaceMap[odf.Namespaces.dcns] = true;
-    odfNodeNamespaceMap[odf.Namespaces.dr3dns] = true;
-    odfNodeNamespaceMap[odf.Namespaces.drawns] = true;
-    odfNodeNamespaceMap[odf.Namespaces.chartns] = true;
-    odfNodeNamespaceMap[odf.Namespaces.formns] = true;
-    odfNodeNamespaceMap[odf.Namespaces.numberns] = true;
-    odfNodeNamespaceMap[odf.Namespaces.officens] = true;
-    odfNodeNamespaceMap[odf.Namespaces.presentationns] = true;
-    odfNodeNamespaceMap[odf.Namespaces.stylens] = true;
-    odfNodeNamespaceMap[odf.Namespaces.svgns] = true;
-    odfNodeNamespaceMap[odf.Namespaces.tablens] = true;
-    odfNodeNamespaceMap[odf.Namespaces.textns] = true
+    domUtils = new core.DomUtils
   };
   this.isEdit = true;
   this.group = undefined;
-  function CollapsingRules(rootNode) {
-    function isOdfNode(node) {
-      return odfNodeNamespaceMap.hasOwnProperty(node.namespaceURI)
-    }
-    function shouldRemove(node) {
-      return isOdfNode(node) || (node.localName === "br" && odfUtils.isLineBreak(node.parentNode) || node.nodeType === Node.TEXT_NODE && isOdfNode((node.parentNode)))
-    }
-    function isEmpty(node) {
-      var childNode;
-      if(odfUtils.isCharacterElement(node)) {
-        return false
-      }
-      if(node.nodeType === Node.TEXT_NODE) {
-        return node.textContent.length === 0
-      }
-      childNode = node.firstChild;
-      while(childNode) {
-        if(isOdfNode(childNode) || !isEmpty(childNode)) {
-          return false
-        }
-        childNode = childNode.nextSibling
-      }
-      return true
-    }
-    this.isEmpty = isEmpty;
-    function isCollapsibleContainer(node) {
-      return!odfUtils.isParagraph(node) && (node !== rootNode && isEmpty(node))
-    }
-    function mergeChildrenIntoParent(targetNode) {
-      var parent;
-      if(targetNode.nodeType === Node.TEXT_NODE) {
-        parent = targetNode.parentNode;
-        parent.removeChild(targetNode)
-      }else {
-        parent = domUtils.removeUnwantedNodes(targetNode, shouldRemove)
-      }
-      if(parent && isCollapsibleContainer(parent)) {
-        return mergeChildrenIntoParent(parent)
-      }
-      return parent
-    }
-    this.mergeChildrenIntoParent = mergeChildrenIntoParent
-  }
-  function mergeParagraphs(first, second, collapseRules) {
-    var child, destination = first, source = second, secondParent, insertionPoint = null;
-    if(collapseRules.isEmpty(first)) {
-      if(second.parentNode !== first.parentNode) {
-        secondParent = second.parentNode;
-        first.parentNode.insertBefore(second, first.nextSibling)
-      }
-      source = first;
-      destination = second;
-      insertionPoint = destination.getElementsByTagNameNS(editinfons, "editinfo").item(0) || destination.firstChild
-    }
-    while(source.firstChild) {
-      child = source.firstChild;
-      source.removeChild(child);
-      if(child.localName !== "editinfo") {
-        destination.insertBefore(child, insertionPoint)
-      }
-    }
-    if(secondParent && collapseRules.isEmpty(secondParent)) {
-      collapseRules.mergeChildrenIntoParent(secondParent)
-    }
-    collapseRules.mergeChildrenIntoParent(source);
-    return destination
-  }
   this.execute = function(document) {
-    var odtDocument = (document), paragraphElement, destinationParagraph, range, textNodes, paragraphs, cursor = odtDocument.getCursor(memberid), collapseRules = new CollapsingRules(odtDocument.getRootNode());
+    var odtDocument = (document), range, textNodes, paragraph, cursor = odtDocument.getCursor(memberid), collapseRules = new odf.CollapsingRules(odtDocument.getRootNode());
     odtDocument.upgradeWhitespacesAtPosition(position);
     odtDocument.upgradeWhitespacesAtPosition(position + length);
     range = odtDocument.convertCursorToDomRange(position, length);
     domUtils.splitBoundaries(range);
-    paragraphElement = odtDocument.getParagraphElement(range.startContainer);
     textNodes = odfUtils.getTextElements(range, false, true);
-    paragraphs = odfUtils.getParagraphElements(range);
+    paragraph = (odfUtils.getParagraphElement(range.startContainer, range.startOffset));
+    runtime.assert(paragraph !== undefined, "Attempting to remove text outside a paragraph element");
     range.detach();
     textNodes.forEach(function(element) {
       if(element.parentNode) {
+        runtime.assert(domUtils.containsNode(paragraph, element), "RemoveText only supports removing elements within the same paragraph");
         collapseRules.mergeChildrenIntoParent(element)
       }else {
         runtime.log("WARN: text element has already been removed from it's container")
       }
     });
-    function merge(destination, paragraph) {
-      return mergeParagraphs(destination, paragraph, collapseRules)
-    }
-    destinationParagraph = paragraphs.reduce(merge);
-    odtDocument.emit(ops.OdtDocument.signalStepsRemoved, {position:position, length:length});
+    odtDocument.emit(ops.OdtDocument.signalStepsRemoved, {position:position});
     odtDocument.downgradeWhitespacesAtPosition(position);
     odtDocument.fixCursorPositions();
     odtDocument.getOdfCanvas().refreshSize();
-    odtDocument.emit(ops.OdtDocument.signalParagraphChanged, {paragraphElement:destinationParagraph || paragraphElement, memberId:memberid, timeStamp:timestamp});
+    odtDocument.emit(ops.OdtDocument.signalParagraphChanged, {paragraphElement:paragraph, memberId:memberid, timeStamp:timestamp});
     if(cursor) {
       cursor.resetSelectionType();
       odtDocument.emit(ops.Document.signalCursorMoved, cursor)
@@ -11725,43 +12288,6 @@ ops.OpRemoveText = function OpRemoveText() {
 };
 ops.OpRemoveText.Spec;
 ops.OpRemoveText.InitSpec;
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpSetBlob = function OpSetBlob() {
   var memberid, timestamp, filename, mimetype, content;
   this.init = function(data) {
@@ -11784,45 +12310,8 @@ ops.OpSetBlob = function OpSetBlob() {
 };
 ops.OpSetBlob.Spec;
 ops.OpSetBlob.InitSpec;
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpSetParagraphStyle = function OpSetParagraphStyle() {
-  var memberid, timestamp, position, styleName, textns = "urn:oasis:names:tc:opendocument:xmlns:text:1.0";
+  var memberid, timestamp, position, styleName, textns = "urn:oasis:names:tc:opendocument:xmlns:text:1.0", odfUtils = new odf.OdfUtils;
   this.init = function(data) {
     memberid = data.memberid;
     timestamp = data.timestamp;
@@ -11831,12 +12320,17 @@ ops.OpSetParagraphStyle = function OpSetParagraphStyle() {
   };
   this.isEdit = true;
   this.group = undefined;
+  function isFirstStep(odtDocument, paragraphNode, iterator) {
+    var filters = [odtDocument.getPositionFilter()], container = iterator.container(), offset = iterator.unfilteredDomOffset(), stepIterator = odtDocument.createStepIterator(container, offset, filters, paragraphNode);
+    return stepIterator.previousStep() === false
+  }
   this.execute = function(document) {
     var odtDocument = (document), iterator, paragraphNode;
     iterator = odtDocument.getIteratorAtPosition(position);
-    paragraphNode = odtDocument.getParagraphElement(iterator.container());
+    paragraphNode = odfUtils.getParagraphElement(iterator.container());
     if(paragraphNode) {
-      if(styleName !== "") {
+      runtime.assert(isFirstStep(odtDocument, paragraphNode, iterator), "SetParagraphStyle position should be the first position in the paragraph");
+      if(styleName) {
         paragraphNode.setAttributeNS(textns, "text:style-name", styleName)
       }else {
         paragraphNode.removeAttributeNS(textns, "style-name")
@@ -11854,49 +12348,14 @@ ops.OpSetParagraphStyle = function OpSetParagraphStyle() {
 };
 ops.OpSetParagraphStyle.Spec;
 ops.OpSetParagraphStyle.InitSpec;
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpSplitParagraph = function OpSplitParagraph() {
-  var memberid, timestamp, position, moveCursor, odfUtils;
+  var memberid, timestamp, sourceParagraphPosition, position, moveCursor, paragraphStyleName, odfUtils, textns = odf.Namespaces.textns;
   this.init = function(data) {
     memberid = data.memberid;
     timestamp = data.timestamp;
     position = data.position;
+    sourceParagraphPosition = data.sourceParagraphPosition;
+    paragraphStyleName = data.paragraphStyleName;
     moveCursor = data.moveCursor === "true" || data.moveCursor === true;
     odfUtils = new odf.OdfUtils
   };
@@ -11909,7 +12368,7 @@ ops.OpSplitParagraph = function OpSplitParagraph() {
     if(!domPosition) {
       return false
     }
-    paragraphNode = odtDocument.getParagraphElement(domPosition.textNode);
+    paragraphNode = odfUtils.getParagraphElement(domPosition.textNode);
     if(!paragraphNode) {
       return false
     }
@@ -11952,10 +12411,15 @@ ops.OpSplitParagraph = function OpSplitParagraph() {
     if(odfUtils.isListItem(splitChildNode)) {
       splitChildNode = splitChildNode.childNodes.item(0)
     }
+    if(paragraphStyleName) {
+      (splitChildNode).setAttributeNS(textns, "text:style-name", paragraphStyleName)
+    }else {
+      (splitChildNode).removeAttributeNS(textns, "style-name")
+    }
     if(domPosition.textNode.length === 0) {
       domPosition.textNode.parentNode.removeChild(domPosition.textNode)
     }
-    odtDocument.emit(ops.OdtDocument.signalStepsInserted, {position:position, length:1});
+    odtDocument.emit(ops.OdtDocument.signalStepsInserted, {position:position});
     if(cursor && moveCursor) {
       odtDocument.moveCursor(memberid, position + 1, 0);
       odtDocument.emit(ops.Document.signalCursorMoved, cursor)
@@ -11968,35 +12432,11 @@ ops.OpSplitParagraph = function OpSplitParagraph() {
     return true
   };
   this.spec = function() {
-    return{optype:"SplitParagraph", memberid:memberid, timestamp:timestamp, position:position, moveCursor:moveCursor}
+    return{optype:"SplitParagraph", memberid:memberid, timestamp:timestamp, position:position, sourceParagraphPosition:sourceParagraphPosition, paragraphStyleName:paragraphStyleName, moveCursor:moveCursor}
   }
 };
 ops.OpSplitParagraph.Spec;
 ops.OpSplitParagraph.InitSpec;
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- This file is part of WebODF.
-
- WebODF is free software: you can redistribute it and/or modify it
- under the terms of the GNU Affero General Public License (GNU AGPL)
- as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.
-
- WebODF is distributed in the hope that it will be useful, but
- WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU Affero General Public License for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with WebODF.  If not, see <http://www.gnu.org/licenses/>.
- @licend
-
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpUpdateMember = function OpUpdateMember() {
   var memberid, timestamp, setProperties, removedProperties;
   this.init = function(data) {
@@ -12041,30 +12481,6 @@ ops.OpUpdateMember = function OpUpdateMember() {
 };
 ops.OpUpdateMember.Spec;
 ops.OpUpdateMember.InitSpec;
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- This file is part of WebODF.
-
- WebODF is free software: you can redistribute it and/or modify it
- under the terms of the GNU Affero General Public License (GNU AGPL)
- as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.
-
- WebODF is distributed in the hope that it will be useful, but
- WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU Affero General Public License for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with WebODF.  If not, see <http://www.gnu.org/licenses/>.
- @licend
-
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpUpdateMetadata = function OpUpdateMetadata() {
   var memberid, timestamp, setProperties, removedProperties;
   this.init = function(data) {
@@ -12076,7 +12492,7 @@ ops.OpUpdateMetadata = function OpUpdateMetadata() {
   this.isEdit = true;
   this.group = undefined;
   this.execute = function(document) {
-    var odtDocument = (document), odfContainer = odtDocument.getOdfCanvas().odfContainer(), removedPropertiesArray = [];
+    var odtDocument = (document), odfContainer = odtDocument.getOdfCanvas().odfContainer(), removedPropertiesArray = null;
     if(removedProperties) {
       removedPropertiesArray = removedProperties.attributes.split(",")
     }
@@ -12089,43 +12505,6 @@ ops.OpUpdateMetadata = function OpUpdateMetadata() {
 };
 ops.OpUpdateMetadata.Spec;
 ops.OpUpdateMetadata.InitSpec;
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OpUpdateParagraphStyle = function OpUpdateParagraphStyle() {
   var memberid, timestamp, styleName, setProperties, removedProperties, paragraphPropertiesName = "style:paragraph-properties", textPropertiesName = "style:text-properties", stylens = odf.Namespaces.stylens;
   function removedAttributesFromStyleNode(node, removedAttributeNames) {
@@ -12147,7 +12526,7 @@ ops.OpUpdateParagraphStyle = function OpUpdateParagraphStyle() {
   this.execute = function(document) {
     var odtDocument = (document), formatting = odtDocument.getFormatting(), styleNode, object, paragraphPropertiesNode, textPropertiesNode;
     if(styleName !== "") {
-      styleNode = odtDocument.getParagraphStyleElement(styleName)
+      styleNode = formatting.getStyleElement(styleName, "paragraph")
     }else {
       styleNode = formatting.getDefaultStyleElement("paragraph")
     }
@@ -12187,99 +12566,32 @@ ops.OpUpdateParagraphStyle = function OpUpdateParagraphStyle() {
 };
 ops.OpUpdateParagraphStyle.Spec;
 ops.OpUpdateParagraphStyle.InitSpec;
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OperationFactory = function OperationFactory() {
   var specs;
+  function construct(Constructor) {
+    return function(spec) {
+      return new Constructor
+    }
+  }
   this.register = function(specName, specConstructor) {
     specs[specName] = specConstructor
   };
   this.create = function(spec) {
-    var op = null, Constructor = specs[spec.optype];
-    if(Constructor) {
-      op = new Constructor;
+    var op = null, constructor = specs[spec.optype];
+    if(constructor) {
+      op = constructor(spec);
       op.init(spec)
     }
     return op
   };
   function init() {
-    specs = {AddMember:ops.OpAddMember, UpdateMember:ops.OpUpdateMember, RemoveMember:ops.OpRemoveMember, AddCursor:ops.OpAddCursor, ApplyDirectStyling:ops.OpApplyDirectStyling, SetBlob:ops.OpSetBlob, RemoveBlob:ops.OpRemoveBlob, InsertImage:ops.OpInsertImage, InsertTable:ops.OpInsertTable, InsertText:ops.OpInsertText, RemoveText:ops.OpRemoveText, SplitParagraph:ops.OpSplitParagraph, SetParagraphStyle:ops.OpSetParagraphStyle, UpdateParagraphStyle:ops.OpUpdateParagraphStyle, AddStyle:ops.OpAddStyle, 
-    RemoveStyle:ops.OpRemoveStyle, MoveCursor:ops.OpMoveCursor, RemoveCursor:ops.OpRemoveCursor, AddAnnotation:ops.OpAddAnnotation, RemoveAnnotation:ops.OpRemoveAnnotation, UpdateMetadata:ops.OpUpdateMetadata, ApplyHyperlink:ops.OpApplyHyperlink, RemoveHyperlink:ops.OpRemoveHyperlink}
+    specs = {AddMember:construct(ops.OpAddMember), UpdateMember:construct(ops.OpUpdateMember), RemoveMember:construct(ops.OpRemoveMember), AddCursor:construct(ops.OpAddCursor), ApplyDirectStyling:construct(ops.OpApplyDirectStyling), SetBlob:construct(ops.OpSetBlob), RemoveBlob:construct(ops.OpRemoveBlob), InsertImage:construct(ops.OpInsertImage), InsertTable:construct(ops.OpInsertTable), InsertText:construct(ops.OpInsertText), RemoveText:construct(ops.OpRemoveText), MergeParagraph:construct(ops.OpMergeParagraph), 
+    SplitParagraph:construct(ops.OpSplitParagraph), SetParagraphStyle:construct(ops.OpSetParagraphStyle), UpdateParagraphStyle:construct(ops.OpUpdateParagraphStyle), AddStyle:construct(ops.OpAddStyle), RemoveStyle:construct(ops.OpRemoveStyle), MoveCursor:construct(ops.OpMoveCursor), RemoveCursor:construct(ops.OpRemoveCursor), AddAnnotation:construct(ops.OpAddAnnotation), RemoveAnnotation:construct(ops.OpRemoveAnnotation), UpdateMetadata:construct(ops.OpUpdateMetadata), ApplyHyperlink:construct(ops.OpApplyHyperlink), 
+    RemoveHyperlink:construct(ops.OpRemoveHyperlink)}
   }
   init()
 };
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
+ops.OperationFactory.SpecConstructor;
 ops.OperationRouter = function OperationRouter() {
 };
 ops.OperationRouter.prototype.setOperationFactory = function(f) {
@@ -12300,43 +12612,6 @@ ops.OperationRouter.prototype.hasSessionHostConnection = function() {
 };
 ops.OperationRouter.signalProcessingBatchStart = "router/batchstart";
 ops.OperationRouter.signalProcessingBatchEnd = "router/batchend";
-/*
-
- Copyright (C) 2012 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.TrivialOperationRouter = function TrivialOperationRouter() {
   var events = new core.EventNotifier([ops.OperationRouter.signalProcessingBatchStart, ops.OperationRouter.signalProcessingBatchEnd]), operationFactory, playbackFunction, groupIdentifier = 0;
   this.setOperationFactory = function(f) {
@@ -12350,7 +12625,7 @@ ops.TrivialOperationRouter = function TrivialOperationRouter() {
     events.emit(ops.OperationRouter.signalProcessingBatchStart, {});
     operations.forEach(function(op) {
       var timedOp, opspec = op.spec();
-      opspec.timestamp = (new Date).getTime();
+      opspec.timestamp = Date.now();
       timedOp = operationFactory.create(opspec);
       timedOp.group = "g" + groupIdentifier;
       playbackFunction(timedOp)
@@ -12373,43 +12648,6 @@ ops.TrivialOperationRouter = function TrivialOperationRouter() {
     return true
   }
 };
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.Session = function Session(odfCanvas) {
   var self = this, operationFactory = new ops.OperationFactory, odtDocument = new ops.OdtDocument(odfCanvas), operationRouter = null;
   function forwardBatchStart(args) {
@@ -12468,45 +12706,12 @@ ops.Session = function Session(odfCanvas) {
   }
   init()
 };
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- This file is part of WebODF.
-
- WebODF is free software: you can redistribute it and/or modify it
- under the terms of the GNU Affero General Public License (GNU AGPL)
- as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.
-
- WebODF is distributed in the hope that it will be useful, but
- WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU Affero General Public License for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with WebODF.  If not, see <http://www.gnu.org/licenses/>.
- @licend
-
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
-gui.AnnotationController = function AnnotationController(session, inputMemberId) {
-  var odtDocument = session.getOdtDocument(), isAnnotatable = false, eventNotifier = new core.EventNotifier([gui.AnnotationController.annotatableChanged]), officens = odf.Namespaces.officens;
-  function isWithinAnnotation(node, container) {
-    while(node && node !== container) {
-      if(node.namespaceURI === officens && node.localName === "annotation") {
-        return true
-      }
-      node = node.parentNode
-    }
-    return false
-  }
+gui.AnnotationController = function AnnotationController(session, sessionConstraints, inputMemberId) {
+  var odtDocument = session.getOdtDocument(), isAnnotatable = false, eventNotifier = new core.EventNotifier([gui.AnnotationController.annotatableChanged]), odfUtils = new odf.OdfUtils, NEXT = core.StepDirection.NEXT;
   function updatedCachedValues() {
     var cursor = odtDocument.getCursor(inputMemberId), cursorNode = cursor && cursor.getNode(), newIsAnnotatable = false;
     if(cursorNode) {
-      newIsAnnotatable = !isWithinAnnotation(cursorNode, odtDocument.getRootNode())
+      newIsAnnotatable = !odfUtils.isWithinAnnotation(cursorNode, odtDocument.getRootNode())
     }
     if(newIsAnnotatable !== isAnnotatable) {
       isAnnotatable = newIsAnnotatable;
@@ -12542,8 +12747,13 @@ gui.AnnotationController = function AnnotationController(session, inputMemberId)
     session.enqueue([op])
   };
   this.removeAnnotation = function(annotationNode) {
-    var startStep, endStep, op, moveCursor;
-    startStep = odtDocument.convertDomPointToCursorStep(annotationNode, 0) + 1;
+    var startStep, endStep, op, moveCursor, currentUserName = odtDocument.getMember(inputMemberId).getProperties().fullName;
+    if(sessionConstraints.getState(gui.CommonConstraints.EDIT.ANNOTATIONS.ONLY_DELETE_OWN) === true) {
+      if(currentUserName !== odfUtils.getAnnotationCreator(annotationNode)) {
+        return
+      }
+    }
+    startStep = odtDocument.convertDomPointToCursorStep(annotationNode, 0, NEXT);
     endStep = odtDocument.convertDomPointToCursorStep(annotationNode, annotationNode.childNodes.length);
     op = new ops.OpRemoveAnnotation;
     op.init({memberid:inputMemberId, position:startStep, length:endStep - startStep});
@@ -12564,6 +12774,7 @@ gui.AnnotationController = function AnnotationController(session, inputMemberId)
     callback()
   };
   function init() {
+    sessionConstraints.registerConstraint(gui.CommonConstraints.EDIT.ANNOTATIONS.ONLY_DELETE_OWN);
     odtDocument.subscribe(ops.Document.signalCursorAdded, onCursorAdded);
     odtDocument.subscribe(ops.Document.signalCursorRemoved, onCursorRemoved);
     odtDocument.subscribe(ops.Document.signalCursorMoved, onCursorMoved);
@@ -12572,9 +12783,6 @@ gui.AnnotationController = function AnnotationController(session, inputMemberId)
   init()
 };
 gui.AnnotationController.annotatableChanged = "annotatable/changed";
-(function() {
-  return gui.AnnotationController
-})();
 gui.Avatar = function Avatar(parentElement, avatarInitiallyVisible) {
   var self = this, handle, image, pendingImageUrl, displayShown = "block", displayHidden = "none";
   this.setColor = function(color) {
@@ -12612,114 +12820,164 @@ gui.Avatar = function Avatar(parentElement, avatarInitiallyVisible) {
     callback()
   };
   function init() {
-    var document = (parentElement.ownerDocument), htmlns = document.documentElement.namespaceURI;
-    handle = (document.createElementNS(htmlns, "div"));
-    image = (document.createElementNS(htmlns, "img"));
-    image.width = 64;
-    image.height = 64;
+    var document = (parentElement.ownerDocument);
+    handle = (document.createElement("div"));
+    image = (document.createElement("img"));
     handle.appendChild(image);
-    handle.style.width = "64px";
-    handle.style.height = "70px";
-    handle.style.position = "absolute";
-    handle.style.top = "-80px";
-    handle.style.left = "-34px";
     handle.style.display = avatarInitiallyVisible ? displayShown : displayHidden;
     handle.className = "handle";
     parentElement.appendChild(handle)
   }
   init()
 };
-gui.Caret = function Caret(cursor, avatarInitiallyVisible, blinkOnRangeSelect) {
-  var MIN_CARET_HEIGHT_PX = 8, DEFAULT_CARET_TOP = "5%", DEFAULT_CARET_HEIGHT = "1em", BLINK_PERIOD_MS = 500, span, avatar, cursorNode, overlayElement, domUtils = new core.DomUtils, async = new core.Async, redrawTask, blinkTask, shouldResetBlink = false, shouldCheckCaretVisibility = false, shouldUpdateCaretSize = false, state = {isFocused:false, isShown:true, visibility:"hidden"}, lastState = {isFocused:!state.isFocused, isShown:!state.isShown, visibility:"hidden"};
-  function blinkCaret() {
-    span.style.opacity = span.style.opacity === "0" ? "1" : "0";
-    blinkTask.trigger()
-  }
-  function getCaretClientRectWithMargin(caretElement, margin) {
-    var caretRect = caretElement.getBoundingClientRect();
-    return{left:caretRect.left - margin.left, top:caretRect.top - margin.top, right:caretRect.right + margin.right, bottom:caretRect.bottom + margin.bottom}
-  }
-  function length(node) {
-    return node.nodeType === Node.TEXT_NODE ? node.textContent.length : node.childNodes.length
-  }
-  function verticalOverlap(cursorNode, rangeRect) {
-    var cursorRect = cursorNode.getBoundingClientRect(), intersectTop = 0, intersectBottom = 0;
-    if(cursorRect && rangeRect) {
-      intersectTop = Math.max(cursorRect.top, rangeRect.top);
-      intersectBottom = Math.min(cursorRect.bottom, rangeRect.bottom)
-    }
-    return intersectBottom - intersectTop
-  }
-  function getSelectionRect() {
-    var range = cursor.getSelectedRange().cloneRange(), node = cursor.getNode(), nextRectangle, selectionRectangle = null, nodeLength;
-    if(node.previousSibling) {
-      nodeLength = length(node.previousSibling);
-      range.setStart(node.previousSibling, nodeLength > 0 ? nodeLength - 1 : 0);
-      range.setEnd(node.previousSibling, nodeLength);
-      nextRectangle = range.getBoundingClientRect();
-      if(nextRectangle && nextRectangle.height) {
-        selectionRectangle = nextRectangle
-      }
-    }
-    if(node.nextSibling) {
-      range.setStart(node.nextSibling, 0);
-      range.setEnd(node.nextSibling, length(node.nextSibling) > 0 ? 1 : 0);
-      nextRectangle = range.getBoundingClientRect();
-      if(nextRectangle && nextRectangle.height) {
-        if(!selectionRectangle || verticalOverlap(node, nextRectangle) > verticalOverlap(node, selectionRectangle)) {
-          selectionRectangle = nextRectangle
+gui.StepInfo = function() {
+};
+gui.StepInfo.VisualDirection = {LEFT_TO_RIGHT:0, RIGHT_TO_LEFT:1};
+gui.StepInfo.prototype.token;
+gui.StepInfo.prototype.container = function() {
+};
+gui.StepInfo.prototype.offset = function() {
+};
+gui.StepInfo.prototype.direction;
+gui.StepInfo.prototype.visualDirection;
+gui.VisualStepScanner = function() {
+};
+gui.VisualStepScanner.prototype.token;
+gui.VisualStepScanner.prototype.process = function(stepInfo, previousRect, nextRect) {
+};
+gui.GuiStepUtils = function GuiStepUtils() {
+  var odfUtils = new odf.OdfUtils, stepUtils = new odf.StepUtils, domUtils = new core.DomUtils, NEXT = core.StepDirection.NEXT, LEFT_TO_RIGHT = gui.StepInfo.VisualDirection.LEFT_TO_RIGHT, RIGHT_TO_LEFT = gui.StepInfo.VisualDirection.RIGHT_TO_LEFT;
+  function getContentRect(stepIterator) {
+    var bounds = stepUtils.getContentBounds(stepIterator), range, rect = null;
+    if(bounds) {
+      if(bounds.container.nodeType === Node.TEXT_NODE) {
+        range = bounds.container.ownerDocument.createRange();
+        range.setStart(bounds.container, bounds.startOffset);
+        range.setEnd(bounds.container, bounds.endOffset);
+        rect = range.getClientRects().length > 0 ? range.getBoundingClientRect() : null;
+        if(rect && ((bounds.container).data.substring(bounds.startOffset, bounds.endOffset) === " " && rect.width <= 1)) {
+          rect = null
+        }
+        range.detach()
+      }else {
+        if(odfUtils.isCharacterElement(bounds.container) || odfUtils.isCharacterFrame(bounds.container)) {
+          rect = domUtils.getBoundingClientRect(bounds.container)
         }
       }
     }
-    return selectionRectangle
+    return rect
   }
-  function updateCaretHeightAndPosition() {
-    var selectionRect = getSelectionRect(), canvas = (cursor.getDocument().getCanvas()), zoomLevel = canvas.getZoomLevel(), rootRect = domUtils.getBoundingClientRect(canvas.getSizer()), caretRect, caretStyle;
-    if(selectionRect) {
-      span.style.top = "0";
-      caretRect = domUtils.getBoundingClientRect(span);
-      if(selectionRect.height < MIN_CARET_HEIGHT_PX) {
-        selectionRect = {top:selectionRect.top - (MIN_CARET_HEIGHT_PX - selectionRect.height) / 2, height:MIN_CARET_HEIGHT_PX}
+  this.getContentRect = getContentRect;
+  function moveToFilteredStep(stepIterator, direction, scanners) {
+    var isForward = direction === NEXT, leftRect, rightRect, previousRect, nextRect, destinationToken, initialToken = stepIterator.snapshot(), wasTerminated = false, stepInfo;
+    function process(terminated, scanner) {
+      if(scanner.process(stepInfo, previousRect, nextRect)) {
+        terminated = true;
+        if(!destinationToken && scanner.token) {
+          destinationToken = scanner.token
+        }
       }
-      span.style.height = domUtils.adaptRangeDifferenceToZoomLevel(selectionRect.height, zoomLevel) + "px";
-      span.style.top = domUtils.adaptRangeDifferenceToZoomLevel(selectionRect.top - caretRect.top, zoomLevel) + "px"
-    }else {
-      span.style.height = DEFAULT_CARET_HEIGHT;
-      span.style.top = DEFAULT_CARET_TOP
+      return terminated
     }
-    if(overlayElement) {
-      caretStyle = runtime.getWindow().getComputedStyle(span, null);
-      caretRect = domUtils.getBoundingClientRect(span);
-      overlayElement.style.bottom = domUtils.adaptRangeDifferenceToZoomLevel(rootRect.bottom - caretRect.bottom, zoomLevel) + "px";
-      overlayElement.style.left = domUtils.adaptRangeDifferenceToZoomLevel(caretRect.right - rootRect.left, zoomLevel) + "px";
-      if(caretStyle.font) {
-        overlayElement.style.font = caretStyle.font
+    do {
+      leftRect = getContentRect(stepIterator);
+      stepInfo = ({token:stepIterator.snapshot(), container:stepIterator.container, offset:stepIterator.offset, direction:direction, visualDirection:direction === NEXT ? LEFT_TO_RIGHT : RIGHT_TO_LEFT});
+      if(stepIterator.nextStep()) {
+        rightRect = getContentRect(stepIterator)
       }else {
-        overlayElement.style.fontStyle = caretStyle.fontStyle;
-        overlayElement.style.fontVariant = caretStyle.fontVariant;
-        overlayElement.style.fontWeight = caretStyle.fontWeight;
-        overlayElement.style.fontSize = caretStyle.fontSize;
-        overlayElement.style.lineHeight = caretStyle.lineHeight;
-        overlayElement.style.fontFamily = caretStyle.fontFamily
+        rightRect = null
       }
+      stepIterator.restore(stepInfo.token);
+      if(isForward) {
+        previousRect = leftRect;
+        nextRect = rightRect
+      }else {
+        previousRect = rightRect;
+        nextRect = leftRect
+      }
+      wasTerminated = scanners.reduce(process, false)
+    }while(!wasTerminated && stepIterator.advanceStep(direction));
+    if(!wasTerminated) {
+      scanners.forEach(function(scanner) {
+        if(!destinationToken && scanner.token) {
+          destinationToken = scanner.token
+        }
+      })
     }
+    stepIterator.restore(destinationToken || initialToken);
+    return Boolean(destinationToken)
   }
-  function ensureVisible() {
-    var canvasElement = cursor.getDocument().getCanvas().getElement(), canvasContainerElement = (canvasElement.parentNode), caretRect, canvasContainerRect, horizontalMargin = canvasContainerElement.offsetWidth - canvasContainerElement.clientWidth + 5, verticalMargin = canvasContainerElement.offsetHeight - canvasContainerElement.clientHeight + 5;
-    caretRect = getCaretClientRectWithMargin(span, {top:verticalMargin, left:horizontalMargin, bottom:verticalMargin, right:horizontalMargin});
-    canvasContainerRect = canvasContainerElement.getBoundingClientRect();
-    if(caretRect.top < canvasContainerRect.top) {
-      canvasContainerElement.scrollTop -= canvasContainerRect.top - caretRect.top
+  this.moveToFilteredStep = moveToFilteredStep
+};
+gui.Caret = function Caret(cursor, viewport, avatarInitiallyVisible, blinkOnRangeSelect) {
+  var cursorns = "urn:webodf:names:cursor", MIN_OVERLAY_HEIGHT_PX = 8, BLINK_PERIOD_MS = 500, caretOverlay, caretElement, avatar, overlayElement, caretSizer, caretSizerRange, canvas = cursor.getDocument().getCanvas(), domUtils = new core.DomUtils, guiStepUtils = new gui.GuiStepUtils, stepIterator, redrawTask, blinkTask, shouldResetBlink = false, shouldCheckCaretVisibility = false, shouldUpdateCaretSize = false, state = {isFocused:false, isShown:true, visibility:"hidden"}, lastState = {isFocused:!state.isFocused, 
+  isShown:!state.isShown, visibility:"hidden"};
+  function blinkCaret() {
+    caretElement.style.opacity = caretElement.style.opacity === "0" ? "1" : "0";
+    blinkTask.trigger()
+  }
+  function getCaretSizeFromCursor() {
+    caretSizerRange.selectNodeContents(caretSizer);
+    return caretSizerRange.getBoundingClientRect()
+  }
+  function getSelectionRect() {
+    var node = cursor.getNode(), caretRectangle, nextRectangle, selectionRectangle, rootRect = (domUtils.getBoundingClientRect(canvas.getSizer())), useLeftEdge = false, width = 0;
+    node.removeAttributeNS(cursorns, "caret-sizer-active");
+    if(node.getClientRects().length > 0) {
+      selectionRectangle = getCaretSizeFromCursor();
+      width = selectionRectangle.left - domUtils.getBoundingClientRect(node).left;
+      useLeftEdge = true
     }else {
-      if(caretRect.bottom > canvasContainerRect.bottom) {
-        canvasContainerElement.scrollTop += caretRect.bottom - canvasContainerRect.bottom
+      stepIterator.setPosition(node, 0);
+      selectionRectangle = guiStepUtils.getContentRect(stepIterator);
+      if(!selectionRectangle && stepIterator.nextStep()) {
+        nextRectangle = guiStepUtils.getContentRect(stepIterator);
+        if(nextRectangle) {
+          selectionRectangle = nextRectangle;
+          useLeftEdge = true
+        }
+      }
+      if(!selectionRectangle) {
+        node.setAttributeNS(cursorns, "caret-sizer-active", "true");
+        selectionRectangle = getCaretSizeFromCursor();
+        useLeftEdge = true
+      }
+      if(!selectionRectangle) {
+        runtime.log("WARN: No suitable client rectangle found for visual caret for " + cursor.getMemberId());
+        while(node) {
+          if((node).getClientRects().length > 0) {
+            selectionRectangle = domUtils.getBoundingClientRect(node);
+            useLeftEdge = true;
+            break
+          }
+          node = node.parentNode
+        }
       }
     }
-    if(caretRect.left < canvasContainerRect.left) {
-      canvasContainerElement.scrollLeft -= canvasContainerRect.left - caretRect.left
-    }else {
-      if(caretRect.right > canvasContainerRect.right) {
-        canvasContainerElement.scrollLeft += caretRect.right - canvasContainerRect.right
+    selectionRectangle = domUtils.translateRect((selectionRectangle), rootRect, canvas.getZoomLevel());
+    caretRectangle = {top:selectionRectangle.top, height:selectionRectangle.height, right:useLeftEdge ? selectionRectangle.left : selectionRectangle.right, width:domUtils.adaptRangeDifferenceToZoomLevel(width, canvas.getZoomLevel())};
+    return caretRectangle
+  }
+  function updateOverlayHeightAndPosition() {
+    var selectionRect = getSelectionRect(), cursorStyle;
+    if(selectionRect.height < MIN_OVERLAY_HEIGHT_PX) {
+      selectionRect = {top:selectionRect.top - (MIN_OVERLAY_HEIGHT_PX - selectionRect.height) / 2, height:MIN_OVERLAY_HEIGHT_PX, right:selectionRect.right}
+    }
+    caretOverlay.style.height = selectionRect.height + "px";
+    caretOverlay.style.top = selectionRect.top + "px";
+    caretOverlay.style.left = selectionRect.right - selectionRect.width + "px";
+    caretOverlay.style.width = selectionRect.width ? selectionRect.width + "px" : "";
+    if(overlayElement) {
+      cursorStyle = runtime.getWindow().getComputedStyle(cursor.getNode(), null);
+      if(cursorStyle.font) {
+        overlayElement.style.font = cursorStyle.font
+      }else {
+        overlayElement.style.fontStyle = cursorStyle.fontStyle;
+        overlayElement.style.fontVariant = cursorStyle.fontVariant;
+        overlayElement.style.fontWeight = cursorStyle.fontWeight;
+        overlayElement.style.fontSize = cursorStyle.fontSize;
+        overlayElement.style.lineHeight = cursorStyle.lineHeight;
+        overlayElement.style.fontFamily = cursorStyle.fontFamily
       }
     }
   }
@@ -12734,27 +12992,27 @@ gui.Caret = function Caret(cursor, avatarInitiallyVisible, blinkOnRangeSelect) {
   function updateCaret() {
     if(state.isShown === false || (cursor.getSelectionType() !== ops.OdtCursor.RangeSelection || !blinkOnRangeSelect && !cursor.getSelectedRange().collapsed)) {
       state.visibility = "hidden";
-      span.style.visibility = "hidden";
+      caretElement.style.visibility = "hidden";
       blinkTask.cancel()
     }else {
       state.visibility = "visible";
-      span.style.visibility = "visible";
+      caretElement.style.visibility = "visible";
       if(state.isFocused === false) {
-        span.style.opacity = "1";
+        caretElement.style.opacity = "1";
         blinkTask.cancel()
       }else {
         if(shouldResetBlink || hasStateChanged("visibility")) {
-          span.style.opacity = "1";
+          caretElement.style.opacity = "1";
           blinkTask.cancel()
         }
         blinkTask.trigger()
       }
-      if(shouldUpdateCaretSize || (shouldCheckCaretVisibility || hasStateChanged("visibility"))) {
-        updateCaretHeightAndPosition()
-      }
-      if(shouldCheckCaretVisibility) {
-        ensureVisible()
-      }
+    }
+    if(shouldUpdateCaretSize || shouldCheckCaretVisibility) {
+      updateOverlayHeightAndPosition()
+    }
+    if(state.isShown && shouldCheckCaretVisibility) {
+      viewport.scrollIntoView(caretElement.getBoundingClientRect())
     }
     if(hasStateChanged("isFocused")) {
       avatar.markAsFocussed(state.isFocused)
@@ -12766,10 +13024,6 @@ gui.Caret = function Caret(cursor, avatarInitiallyVisible, blinkOnRangeSelect) {
   }
   this.handleUpdate = function() {
     shouldUpdateCaretSize = true;
-    if(state.visibility !== "hidden") {
-      state.visibility = "hidden";
-      span.style.visibility = "hidden"
-    }
     redrawTask.trigger()
   };
   this.refreshCursorBlinking = function() {
@@ -12796,14 +13050,14 @@ gui.Caret = function Caret(cursor, avatarInitiallyVisible, blinkOnRangeSelect) {
     avatar.setImageUrl(url)
   };
   this.setColor = function(newColor) {
-    span.style.borderColor = newColor;
+    caretElement.style.borderColor = newColor;
     avatar.setColor(newColor)
   };
   this.getCursor = function() {
     return cursor
   };
   this.getFocusElement = function() {
-    return span
+    return caretElement
   };
   this.toggleHandleVisibility = function() {
     if(avatar.isVisible()) {
@@ -12820,6 +13074,7 @@ gui.Caret = function Caret(cursor, avatarInitiallyVisible, blinkOnRangeSelect) {
   };
   this.setOverlayElement = function(element) {
     overlayElement = element;
+    caretOverlay.appendChild(element);
     shouldUpdateCaretSize = true;
     redrawTask.trigger()
   };
@@ -12827,65 +13082,40 @@ gui.Caret = function Caret(cursor, avatarInitiallyVisible, blinkOnRangeSelect) {
     shouldCheckCaretVisibility = true;
     redrawTask.trigger()
   };
+  this.getBoundingClientRect = function() {
+    return domUtils.getBoundingClientRect(caretOverlay)
+  };
   function destroy(callback) {
-    cursorNode.removeChild(span);
+    caretOverlay.parentNode.removeChild(caretOverlay);
+    caretSizer.parentNode.removeChild(caretSizer);
     callback()
   }
   this.destroy = function(callback) {
     var cleanup = [redrawTask.destroy, blinkTask.destroy, avatar.destroy, destroy];
-    async.destroyAll(cleanup, callback)
+    core.Async.destroyAll(cleanup, callback)
   };
   function init() {
-    var dom = cursor.getDocument().getDOMDocument(), htmlns = dom.documentElement.namespaceURI;
-    span = (dom.createElementNS(htmlns, "span"));
-    span.className = "caret";
-    span.style.top = DEFAULT_CARET_TOP;
-    cursorNode = cursor.getNode();
-    cursorNode.appendChild(span);
-    avatar = new gui.Avatar(cursorNode, avatarInitiallyVisible);
-    redrawTask = new core.ScheduledTask(updateCaret, 0);
-    blinkTask = new core.ScheduledTask(blinkCaret, BLINK_PERIOD_MS);
+    var odtDocument = (cursor.getDocument()), positionFilters = [odtDocument.createRootFilter(cursor.getMemberId()), odtDocument.getPositionFilter()], dom = odtDocument.getDOMDocument(), editinfons = "urn:webodf:names:editinfo";
+    caretSizerRange = (dom.createRange());
+    caretSizer = dom.createElement("span");
+    caretSizer.className = "webodf-caretSizer";
+    caretSizer.textContent = "|";
+    cursor.getNode().appendChild(caretSizer);
+    caretOverlay = (dom.createElement("div"));
+    caretOverlay.setAttributeNS(editinfons, "editinfo:memberid", cursor.getMemberId());
+    caretOverlay.className = "webodf-caretOverlay";
+    caretElement = (dom.createElement("div"));
+    caretElement.className = "caret";
+    caretOverlay.appendChild(caretElement);
+    avatar = new gui.Avatar(caretOverlay, avatarInitiallyVisible);
+    canvas.getSizer().appendChild(caretOverlay);
+    stepIterator = odtDocument.createStepIterator(cursor.getNode(), 0, positionFilters, odtDocument.getRootNode());
+    redrawTask = core.Task.createRedrawTask(updateCaret);
+    blinkTask = core.Task.createTimeoutTask(blinkCaret, BLINK_PERIOD_MS);
     redrawTask.triggerImmediate()
   }
   init()
 };
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 odf.TextSerializer = function TextSerializer() {
   var self = this, odfUtils = new odf.OdfUtils;
   function serializeNode(node) {
@@ -12921,32 +13151,8 @@ odf.TextSerializer = function TextSerializer() {
     return plainText
   }
 };
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- This file is part of WebODF.
-
- WebODF is free software: you can redistribute it and/or modify it
- under the terms of the GNU Affero General Public License (GNU AGPL)
- as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.
-
- WebODF is distributed in the hope that it will be useful, but
- WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU Affero General Public License for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with WebODF.  If not, see <http://www.gnu.org/licenses/>.
- @licend
-
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 gui.MimeDataExporter = function MimeDataExporter() {
-  var textSerializer, filter;
+  var textSerializer;
   this.exportRangeToDataTransfer = function(dataTransfer, range) {
     var document = range.startContainer.ownerDocument, serializedFragment, fragmentContainer;
     fragmentContainer = document.createElement("span");
@@ -12960,48 +13166,10 @@ gui.MimeDataExporter = function MimeDataExporter() {
   };
   function init() {
     textSerializer = new odf.TextSerializer;
-    filter = new odf.OdfNodeFilter;
-    textSerializer.filter = filter
+    textSerializer.filter = new odf.OdfNodeFilter
   }
   init()
 };
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 gui.Clipboard = function Clipboard(mimeDataExporter) {
   this.setDataFromRange = function(e, range) {
     var result, clipboard = e.clipboardData, window = runtime.getWindow();
@@ -13018,43 +13186,22 @@ gui.Clipboard = function Clipboard(mimeDataExporter) {
     return result
   }
 };
-/*
-
- Copyright (C) 2012-2014 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
+gui.SessionContext = function(session, inputMemberId) {
+  var odtDocument = session.getOdtDocument(), odfUtils = new odf.OdfUtils;
+  this.isLocalCursorWithinOwnAnnotation = function() {
+    var cursor = odtDocument.getCursor(inputMemberId), cursorNode, currentUserName, parentAnnotation;
+    if(!cursor) {
+      return false
+    }
+    cursorNode = cursor && cursor.getNode();
+    currentUserName = odtDocument.getMember(inputMemberId).getProperties().fullName;
+    parentAnnotation = odfUtils.getParentAnnotation(cursorNode, odtDocument.getRootNode());
+    if(parentAnnotation && odfUtils.getAnnotationCreator(parentAnnotation) === currentUserName) {
+      return true
+    }
+    return false
+  }
+};
 gui.StyleSummary = function StyleSummary(styles) {
   var propertyValues = {};
   function getPropertyValues(section, propertyName) {
@@ -13062,7 +13209,7 @@ gui.StyleSummary = function StyleSummary(styles) {
     if(!propertyValues.hasOwnProperty(cacheKey)) {
       values = [];
       styles.forEach(function(style) {
-        var styleSection = style[section], value = styleSection && styleSection[propertyName];
+        var styleSection = (style.styleProperties[section]), value = styleSection && styleSection[propertyName];
         if(values.indexOf(value) === -1) {
           values.push(value)
         }
@@ -13103,45 +13250,11 @@ gui.StyleSummary = function StyleSummary(styles) {
   this.text = {isBold:this.isBold, isItalic:this.isItalic, hasUnderline:this.hasUnderline, hasStrikeThrough:this.hasStrikeThrough, fontSize:this.fontSize, fontName:this.fontName};
   this.paragraph = {isAlignedLeft:this.isAlignedLeft, isAlignedCenter:this.isAlignedCenter, isAlignedRight:this.isAlignedRight, isAlignedJustified:this.isAlignedJustified}
 };
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
-gui.DirectFormattingController = function DirectFormattingController(session, inputMemberId, objectNameGenerator, directParagraphStylingEnabled) {
-  var self = this, odtDocument = session.getOdtDocument(), utils = new core.Utils, odfUtils = new odf.OdfUtils, eventNotifier = new core.EventNotifier([gui.DirectFormattingController.textStylingChanged, gui.DirectFormattingController.paragraphStylingChanged]), textns = odf.Namespaces.textns, FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT, directCursorStyleProperties, selectionAppliedStyles = [], selectionStylesSummary = new gui.StyleSummary(selectionAppliedStyles);
+gui.DirectFormattingController = function DirectFormattingController(session, sessionConstraints, sessionContext, inputMemberId, objectNameGenerator, directTextStylingEnabled, directParagraphStylingEnabled) {
+  var self = this, odtDocument = session.getOdtDocument(), utils = new core.Utils, odfUtils = new odf.OdfUtils, eventNotifier = new core.EventNotifier([gui.DirectFormattingController.enabledChanged, gui.DirectFormattingController.textStylingChanged, gui.DirectFormattingController.paragraphStylingChanged]), textns = odf.Namespaces.textns, NEXT = core.StepDirection.NEXT, directCursorStyleProperties = null, lastSignalledStyleSummary, selectionInfoCache, enabledFeatures = {directTextStyling:false, directParagraphStyling:false};
+  function getCachedStyleSummary() {
+    return selectionInfoCache.value().styleSummary
+  }
   function getNodes(range) {
     var container, nodes;
     if(range.collapsed) {
@@ -13151,16 +13264,24 @@ gui.DirectFormattingController = function DirectFormattingController(session, in
       }
       nodes = [container]
     }else {
-      nodes = odfUtils.getTextNodes(range, true)
+      nodes = odfUtils.getTextElements(range, true, false)
     }
     return nodes
   }
-  function getSelectionAppliedStyles() {
-    var cursor = odtDocument.getCursor(inputMemberId), range = cursor && cursor.getSelectedRange(), nodes = range ? getNodes(range) : [], selectionStyles = odtDocument.getFormatting().getAppliedStyles(nodes);
-    if(selectionStyles[0] && directCursorStyleProperties) {
-      selectionStyles[0] = utils.mergeObjects(selectionStyles[0], (directCursorStyleProperties))
+  function getSelectionInfo() {
+    var cursor = odtDocument.getCursor(inputMemberId), range = cursor && cursor.getSelectedRange(), nodes = [], selectionStyles = [], selectionContainsText = true;
+    if(range) {
+      nodes = getNodes(range);
+      if(nodes.length === 0) {
+        nodes = [range.startContainer, range.endContainer];
+        selectionContainsText = false
+      }
+      selectionStyles = odtDocument.getFormatting().getAppliedStyles(nodes)
     }
-    return selectionStyles
+    if(selectionStyles[0] !== undefined && directCursorStyleProperties) {
+      selectionStyles[0].styleProperties = utils.mergeObjects(selectionStyles[0].styleProperties, directCursorStyleProperties)
+    }
+    return{containsText:selectionContainsText, appliedStyles:selectionStyles, styleSummary:new gui.StyleSummary(selectionStyles)}
   }
   function createDiff(oldSummary, newSummary) {
     var diffMap = {};
@@ -13172,13 +13293,11 @@ gui.DirectFormattingController = function DirectFormattingController(session, in
     });
     return diffMap
   }
-  function updateSelectionStylesInfo() {
-    var textStyleDiff, paragraphStyleDiff, newSelectionStylesSummary;
-    selectionAppliedStyles = getSelectionAppliedStyles();
-    newSelectionStylesSummary = new gui.StyleSummary(selectionAppliedStyles);
-    textStyleDiff = createDiff(selectionStylesSummary.text, newSelectionStylesSummary.text);
-    paragraphStyleDiff = createDiff(selectionStylesSummary.paragraph, newSelectionStylesSummary.paragraph);
-    selectionStylesSummary = newSelectionStylesSummary;
+  function emitStylingChanges() {
+    var textStyleDiff, paragraphStyleDiff, newSelectionStylesSummary = getCachedStyleSummary();
+    textStyleDiff = createDiff(lastSignalledStyleSummary.text, newSelectionStylesSummary.text);
+    paragraphStyleDiff = createDiff(lastSignalledStyleSummary.paragraph, newSelectionStylesSummary.paragraph);
+    lastSignalledStyleSummary = newSelectionStylesSummary;
     if(Object.keys(textStyleDiff).length > 0) {
       eventNotifier.emit(gui.DirectFormattingController.textStylingChanged, textStyleDiff)
     }
@@ -13186,19 +13305,36 @@ gui.DirectFormattingController = function DirectFormattingController(session, in
       eventNotifier.emit(gui.DirectFormattingController.paragraphStylingChanged, paragraphStyleDiff)
     }
   }
+  function updateEnabledState() {
+    var newEnabledFeatures = {directTextStyling:true, directParagraphStyling:true};
+    if(sessionConstraints.getState(gui.CommonConstraints.EDIT.REVIEW_MODE) === true) {
+      newEnabledFeatures.directTextStyling = newEnabledFeatures.directParagraphStyling = (sessionContext.isLocalCursorWithinOwnAnnotation())
+    }
+    if(newEnabledFeatures.directTextStyling) {
+      newEnabledFeatures.directTextStyling = selectionInfoCache.value().containsText
+    }
+    if(!(newEnabledFeatures.directTextStyling === enabledFeatures.directTextStyling && newEnabledFeatures.directParagraphStyling === enabledFeatures.directParagraphStyling)) {
+      enabledFeatures = newEnabledFeatures;
+      eventNotifier.emit(gui.DirectFormattingController.enabledChanged, enabledFeatures)
+    }
+  }
+  this.enabledFeatures = function() {
+    return enabledFeatures
+  };
   function onCursorEvent(cursorOrId) {
     var cursorMemberId = typeof cursorOrId === "string" ? cursorOrId : cursorOrId.getMemberId();
     if(cursorMemberId === inputMemberId) {
-      updateSelectionStylesInfo()
+      selectionInfoCache.reset();
+      updateEnabledState()
     }
   }
   function onParagraphStyleModified() {
-    updateSelectionStylesInfo()
+    selectionInfoCache.reset()
   }
   function onParagraphChanged(args) {
     var cursor = odtDocument.getCursor(inputMemberId), p = args.paragraphElement;
-    if(cursor && odtDocument.getParagraphElement(cursor.getNode()) === p) {
-      updateSelectionStylesInfo()
+    if(cursor && odfUtils.getParagraphElement(cursor.getNode()) === p) {
+      selectionInfoCache.reset()
     }
   }
   function toggle(predicate, toggleMethod) {
@@ -13206,6 +13342,9 @@ gui.DirectFormattingController = function DirectFormattingController(session, in
     return true
   }
   function formatTextSelection(textProperties) {
+    if(!enabledFeatures.directTextStyling) {
+      return
+    }
     var selection = odtDocument.getCursorSelection(inputMemberId), op, properties = {"style:text-properties":textProperties};
     if(selection.length !== 0) {
       op = new ops.OpApplyDirectStyling;
@@ -13213,7 +13352,7 @@ gui.DirectFormattingController = function DirectFormattingController(session, in
       session.enqueue([op])
     }else {
       directCursorStyleProperties = utils.mergeObjects(directCursorStyleProperties || {}, properties);
-      updateSelectionStylesInfo()
+      selectionInfoCache.reset()
     }
   }
   this.formatTextSelection = formatTextSelection;
@@ -13223,12 +13362,16 @@ gui.DirectFormattingController = function DirectFormattingController(session, in
     formatTextSelection(textProperties)
   }
   this.createCursorStyleOp = function(position, length, useCachedStyle) {
-    var styleOp = null, properties = useCachedStyle ? selectionAppliedStyles[0] : directCursorStyleProperties;
+    var styleOp = null, appliedStyles, properties = directCursorStyleProperties;
+    if(useCachedStyle) {
+      appliedStyles = selectionInfoCache.value().appliedStyles[0];
+      properties = appliedStyles && appliedStyles.styleProperties
+    }
     if(properties && properties["style:text-properties"]) {
       styleOp = new ops.OpApplyDirectStyling;
       styleOp.init({memberid:inputMemberId, position:position, length:length, setProperties:{"style:text-properties":properties["style:text-properties"]}});
       directCursorStyleProperties = null;
-      updateSelectionStylesInfo()
+      selectionInfoCache.reset()
     }
     return styleOp
   };
@@ -13237,7 +13380,7 @@ gui.DirectFormattingController = function DirectFormattingController(session, in
     if(directCursorStyleProperties && spec.memberid === inputMemberId) {
       if(spec.optype !== "SplitParagraph") {
         directCursorStyleProperties = null;
-        updateSelectionStylesInfo()
+        selectionInfoCache.reset()
       }
     }
   }
@@ -13270,60 +13413,60 @@ gui.DirectFormattingController = function DirectFormattingController(session, in
   }
   this.setFontName = setFontName;
   this.getAppliedStyles = function() {
-    return selectionAppliedStyles
+    return selectionInfoCache.value().appliedStyles
   };
   this.toggleBold = toggle.bind(self, function() {
-    return selectionStylesSummary.isBold()
+    return getCachedStyleSummary().isBold()
   }, setBold);
   this.toggleItalic = toggle.bind(self, function() {
-    return selectionStylesSummary.isItalic()
+    return getCachedStyleSummary().isItalic()
   }, setItalic);
   this.toggleUnderline = toggle.bind(self, function() {
-    return selectionStylesSummary.hasUnderline()
+    return getCachedStyleSummary().hasUnderline()
   }, setHasUnderline);
   this.toggleStrikethrough = toggle.bind(self, function() {
-    return selectionStylesSummary.hasStrikeThrough()
+    return getCachedStyleSummary().hasStrikeThrough()
   }, setHasStrikethrough);
   this.isBold = function() {
-    return selectionStylesSummary.isBold()
+    return getCachedStyleSummary().isBold()
   };
   this.isItalic = function() {
-    return selectionStylesSummary.isItalic()
+    return getCachedStyleSummary().isItalic()
   };
   this.hasUnderline = function() {
-    return selectionStylesSummary.hasUnderline()
+    return getCachedStyleSummary().hasUnderline()
   };
   this.hasStrikeThrough = function() {
-    return selectionStylesSummary.hasStrikeThrough()
+    return getCachedStyleSummary().hasStrikeThrough()
   };
   this.fontSize = function() {
-    return selectionStylesSummary.fontSize()
+    return getCachedStyleSummary().fontSize()
   };
   this.fontName = function() {
-    return selectionStylesSummary.fontName()
+    return getCachedStyleSummary().fontName()
   };
   this.isAlignedLeft = function() {
-    return selectionStylesSummary.isAlignedLeft()
+    return getCachedStyleSummary().isAlignedLeft()
   };
   this.isAlignedCenter = function() {
-    return selectionStylesSummary.isAlignedCenter()
+    return getCachedStyleSummary().isAlignedCenter()
   };
   this.isAlignedRight = function() {
-    return selectionStylesSummary.isAlignedRight()
+    return getCachedStyleSummary().isAlignedRight()
   };
   this.isAlignedJustified = function() {
-    return selectionStylesSummary.isAlignedJustified()
+    return getCachedStyleSummary().isAlignedJustified()
   };
-  function roundUp(step) {
-    return step === ops.StepsTranslator.NEXT_STEP
-  }
   function getOwnProperty(obj, key) {
     return obj.hasOwnProperty(key) ? obj[key] : undefined
   }
   function applyParagraphDirectStyling(applyDirectStyling) {
+    if(!enabledFeatures.directParagraphStyling) {
+      return
+    }
     var range = odtDocument.getCursor(inputMemberId).getSelectedRange(), paragraphs = odfUtils.getParagraphElements(range), formatting = odtDocument.getFormatting(), operations = [], derivedStyleNames = {}, defaultStyleName;
     paragraphs.forEach(function(paragraph) {
-      var paragraphStartPoint = odtDocument.convertDomPointToCursorStep(paragraph, 0, roundUp), paragraphStyleName = paragraph.getAttributeNS(odf.Namespaces.textns, "style-name"), newParagraphStyleName, opAddStyle, opSetParagraphStyle, paragraphProperties;
+      var paragraphStartPoint = odtDocument.convertDomPointToCursorStep(paragraph, 0, NEXT), paragraphStyleName = paragraph.getAttributeNS(odf.Namespaces.textns, "style-name"), newParagraphStyleName, opAddStyle, opSetParagraphStyle, paragraphProperties;
       if(paragraphStyleName) {
         newParagraphStyleName = getOwnProperty(derivedStyleNames, paragraphStyleName)
       }else {
@@ -13351,7 +13494,7 @@ gui.DirectFormattingController = function DirectFormattingController(session, in
   }
   function applySimpleParagraphDirectStyling(styleOverrides) {
     applyParagraphDirectStyling(function(paragraphStyle) {
-      return utils.mergeObjects(paragraphStyle, styleOverrides)
+      return(utils.mergeObjects(paragraphStyle, styleOverrides))
     })
   }
   function alignParagraph(alignment) {
@@ -13376,17 +13519,15 @@ gui.DirectFormattingController = function DirectFormattingController(session, in
   function modifyParagraphIndent(direction, paragraphStyle) {
     var tabStopDistance = odtDocument.getFormatting().getDefaultTabStopDistance(), paragraphProperties = paragraphStyle["style:paragraph-properties"], indentValue, indent, newIndent;
     if(paragraphProperties) {
-      indentValue = paragraphProperties["fo:margin-left"];
-      if(indentValue) {
-        indent = odfUtils.parseLength(indentValue)
-      }
+      indentValue = (paragraphProperties["fo:margin-left"]);
+      indent = odfUtils.parseLength(indentValue)
     }
     if(indent && indent.unit === tabStopDistance.unit) {
       newIndent = indent.value + direction * tabStopDistance.value + indent.unit
     }else {
       newIndent = direction * tabStopDistance.value + tabStopDistance.unit
     }
-    return utils.mergeObjects(paragraphStyle, {"style:paragraph-properties":{"fo:margin-left":newIndent}})
+    return(utils.mergeObjects(paragraphStyle, {"style:paragraph-properties":{"fo:margin-left":newIndent}}))
   }
   this.indent = function() {
     applyParagraphDirectStyling(modifyParagraphIndent.bind(null, 1));
@@ -13397,19 +13538,12 @@ gui.DirectFormattingController = function DirectFormattingController(session, in
     return true
   };
   function isSelectionAtTheEndOfLastParagraph(range, paragraphNode) {
-    var iterator = gui.SelectionMover.createPositionIterator(paragraphNode), rootConstrainedFilter = new core.PositionFilterChain;
-    rootConstrainedFilter.addFilter(odtDocument.getPositionFilter());
-    rootConstrainedFilter.addFilter(odtDocument.createRootFilter(inputMemberId));
-    iterator.setUnfilteredPosition((range.endContainer), range.endOffset);
-    while(iterator.nextPosition()) {
-      if(rootConstrainedFilter.acceptPosition(iterator) === FILTER_ACCEPT) {
-        return odtDocument.getParagraphElement(iterator.getCurrentNode()) !== paragraphNode
-      }
-    }
-    return true
+    var stepIterator, filters = [odtDocument.getPositionFilter(), odtDocument.createRootFilter(inputMemberId)];
+    stepIterator = odtDocument.createStepIterator((range.endContainer), range.endOffset, filters, paragraphNode);
+    return stepIterator.nextStep() === false
   }
   function isTextStyleDifferentFromFirstParagraph(range, paragraphNode) {
-    var textNodes = getNodes(range), textStyle = odtDocument.getFormatting().getAppliedStyles(textNodes)[0], paragraphStyle = odtDocument.getFormatting().getAppliedStylesForElement(paragraphNode);
+    var textNodes = getNodes(range), selectedNodes = textNodes.length === 0 ? [range.startContainer] : textNodes, appliedTextStyles = odtDocument.getFormatting().getAppliedStyles(selectedNodes), textStyle = appliedTextStyles.length > 0 ? appliedTextStyles[0].styleProperties : undefined, paragraphStyle = odtDocument.getFormatting().getAppliedStylesForElement(paragraphNode).styleProperties;
     if(!textStyle || (textStyle["style:family"] !== "text" || !textStyle["style:text-properties"])) {
       return false
     }
@@ -13423,7 +13557,10 @@ gui.DirectFormattingController = function DirectFormattingController(session, in
     })
   }
   this.createParagraphStyleOps = function(position) {
-    var cursor = odtDocument.getCursor(inputMemberId), range = cursor.getSelectedRange(), operations = [], op, startNode, endNode, paragraphNode, properties, parentStyleName, styleName;
+    if(!enabledFeatures.directParagraphStyling) {
+      return[]
+    }
+    var cursor = odtDocument.getCursor(inputMemberId), range = cursor.getSelectedRange(), operations = [], op, startNode, endNode, paragraphNode, appliedStyles, properties, parentStyleName, styleName;
     if(cursor.hasForwardSelection()) {
       startNode = cursor.getAnchorNode();
       endNode = cursor.getNode()
@@ -13431,18 +13568,19 @@ gui.DirectFormattingController = function DirectFormattingController(session, in
       startNode = cursor.getNode();
       endNode = cursor.getAnchorNode()
     }
-    paragraphNode = (odtDocument.getParagraphElement(endNode));
+    paragraphNode = (odfUtils.getParagraphElement(endNode));
     runtime.assert(Boolean(paragraphNode), "DirectFormattingController: Cursor outside paragraph");
     if(!isSelectionAtTheEndOfLastParagraph(range, paragraphNode)) {
       return operations
     }
     if(endNode !== startNode) {
-      paragraphNode = (odtDocument.getParagraphElement(startNode))
+      paragraphNode = (odfUtils.getParagraphElement(startNode))
     }
     if(!directCursorStyleProperties && !isTextStyleDifferentFromFirstParagraph(range, paragraphNode)) {
       return operations
     }
-    properties = selectionAppliedStyles[0];
+    appliedStyles = selectionInfoCache.value().appliedStyles[0];
+    properties = appliedStyles && appliedStyles.styleProperties;
     if(!properties) {
       return operations
     }
@@ -13473,9 +13611,14 @@ gui.DirectFormattingController = function DirectFormattingController(session, in
     odtDocument.unsubscribe(ops.OdtDocument.signalParagraphStyleModified, onParagraphStyleModified);
     odtDocument.unsubscribe(ops.OdtDocument.signalParagraphChanged, onParagraphChanged);
     odtDocument.unsubscribe(ops.OdtDocument.signalOperationEnd, clearCursorStyle);
+    odtDocument.unsubscribe(ops.OdtDocument.signalProcessingBatchEnd, emitStylingChanges);
+    sessionConstraints.unsubscribe(gui.CommonConstraints.EDIT.REVIEW_MODE, updateEnabledState);
     callback()
   };
   function emptyFunction() {
+  }
+  function emptyFalseReturningFunction() {
+    return false
   }
   function init() {
     odtDocument.subscribe(ops.Document.signalCursorAdded, onCursorEvent);
@@ -13484,7 +13627,24 @@ gui.DirectFormattingController = function DirectFormattingController(session, in
     odtDocument.subscribe(ops.OdtDocument.signalParagraphStyleModified, onParagraphStyleModified);
     odtDocument.subscribe(ops.OdtDocument.signalParagraphChanged, onParagraphChanged);
     odtDocument.subscribe(ops.OdtDocument.signalOperationEnd, clearCursorStyle);
-    updateSelectionStylesInfo();
+    odtDocument.subscribe(ops.OdtDocument.signalProcessingBatchEnd, emitStylingChanges);
+    sessionConstraints.subscribe(gui.CommonConstraints.EDIT.REVIEW_MODE, updateEnabledState);
+    selectionInfoCache = new core.LazyProperty(getSelectionInfo);
+    lastSignalledStyleSummary = getCachedStyleSummary();
+    updateEnabledState();
+    if(!directTextStylingEnabled) {
+      self.formatTextSelection = emptyFunction;
+      self.setBold = emptyFunction;
+      self.setItalic = emptyFunction;
+      self.setHasUnderline = emptyFunction;
+      self.setHasStrikethrough = emptyFunction;
+      self.setFontSize = emptyFunction;
+      self.setFontName = emptyFunction;
+      self.toggleBold = emptyFalseReturningFunction;
+      self.toggleItalic = emptyFalseReturningFunction;
+      self.toggleUnderline = emptyFalseReturningFunction;
+      self.toggleStrikethrough = emptyFalseReturningFunction
+    }
     if(!directParagraphStylingEnabled) {
       self.alignParagraphCenter = emptyFunction;
       self.alignParagraphJustified = emptyFunction;
@@ -13499,13 +13659,90 @@ gui.DirectFormattingController = function DirectFormattingController(session, in
   }
   init()
 };
+gui.DirectFormattingController.enabledChanged = "enabled/changed";
 gui.DirectFormattingController.textStylingChanged = "textStyling/changed";
 gui.DirectFormattingController.paragraphStylingChanged = "paragraphStyling/changed";
-(function() {
-  return gui.DirectFormattingController
-})();
-gui.HyperlinkClickHandler = function HyperlinkClickHandler(getRootNode) {
-  var webodfns = "urn:webodf:names:helper", links = "links", inactive = "inactive", None = gui.HyperlinkClickHandler.Modifier.None, Ctrl = gui.HyperlinkClickHandler.Modifier.Ctrl, Meta = gui.HyperlinkClickHandler.Modifier.Meta, odfUtils = new odf.OdfUtils, xpath = xmldom.XPath, modifier = None;
+gui.KeyboardHandler = function KeyboardHandler() {
+  var modifier = gui.KeyboardHandler.Modifier, defaultBinding = null, bindings = {};
+  function getModifiers(e) {
+    var modifiers = modifier.None;
+    if(e.metaKey) {
+      modifiers |= modifier.Meta
+    }
+    if(e.ctrlKey) {
+      modifiers |= modifier.Ctrl
+    }
+    if(e.altKey) {
+      modifiers |= modifier.Alt
+    }
+    if(e.shiftKey) {
+      modifiers |= modifier.Shift
+    }
+    return modifiers
+  }
+  function getKeyCombo(keyCode, modifiers) {
+    if(!modifiers) {
+      modifiers = modifier.None
+    }
+    switch(keyCode) {
+      case gui.KeyboardHandler.KeyCode.LeftMeta:
+      ;
+      case gui.KeyboardHandler.KeyCode.RightMeta:
+      ;
+      case gui.KeyboardHandler.KeyCode.MetaInMozilla:
+        modifiers |= modifier.Meta;
+        break;
+      case gui.KeyboardHandler.KeyCode.Ctrl:
+        modifiers |= modifier.Ctrl;
+        break;
+      case gui.KeyboardHandler.KeyCode.Alt:
+        modifiers |= modifier.Alt;
+        break;
+      case gui.KeyboardHandler.KeyCode.Shift:
+        modifiers |= modifier.Shift;
+        break
+    }
+    return keyCode + ":" + modifiers
+  }
+  this.setDefault = function(callback) {
+    defaultBinding = callback
+  };
+  this.bind = function(keyCode, modifiers, callback, overwrite) {
+    var keyCombo = getKeyCombo(keyCode, modifiers);
+    runtime.assert(overwrite || bindings.hasOwnProperty(keyCombo) === false, "tried to overwrite the callback handler of key combo: " + keyCombo);
+    bindings[keyCombo] = callback
+  };
+  this.unbind = function(keyCode, modifiers) {
+    var keyCombo = getKeyCombo(keyCode, modifiers);
+    delete bindings[keyCombo]
+  };
+  this.reset = function() {
+    defaultBinding = null;
+    bindings = {}
+  };
+  this.handleEvent = function(e) {
+    var keyCombo = getKeyCombo(e.keyCode, getModifiers(e)), callback = bindings[keyCombo], handled = false;
+    if(callback) {
+      handled = callback()
+    }else {
+      if(defaultBinding !== null) {
+        handled = defaultBinding(e)
+      }
+    }
+    if(handled) {
+      if(e.preventDefault) {
+        e.preventDefault()
+      }else {
+        e.returnValue = false
+      }
+    }
+  }
+};
+gui.KeyboardHandler.Modifier = {None:0, Meta:1, Ctrl:2, Alt:4, CtrlAlt:6, Shift:8, MetaShift:9, CtrlShift:10, AltShift:12};
+gui.KeyboardHandler.KeyCode = {Backspace:8, Tab:9, Clear:12, Enter:13, Shift:16, Ctrl:17, Alt:18, End:35, Home:36, Left:37, Up:38, Right:39, Down:40, Delete:46, A:65, B:66, C:67, D:68, E:69, F:70, G:71, H:72, I:73, J:74, K:75, L:76, M:77, N:78, O:79, P:80, Q:81, R:82, S:83, T:84, U:85, V:86, W:87, X:88, Y:89, Z:90, LeftMeta:91, RightMeta:93, MetaInMozilla:224};
+gui.HyperlinkClickHandler = function HyperlinkClickHandler(getContainer, keyDownHandler, keyUpHandler) {
+  var inactiveLinksCssClass = "webodf-inactiveLinks", modifier = gui.KeyboardHandler.Modifier, keyCode = gui.KeyboardHandler.KeyCode, xpath = xmldom.XPath, odfUtils = new odf.OdfUtils, window = (runtime.getWindow()), activeModifier = modifier.None, activeKeyBindings = [];
+  runtime.assert(window !== null, "Expected to be run in an environment which has a global window, like a browser.");
   function getHyperlinkElement(node) {
     while(node !== null) {
       if(odfUtils.isHyperlink(node)) {
@@ -13519,15 +13756,15 @@ gui.HyperlinkClickHandler = function HyperlinkClickHandler(getRootNode) {
     return null
   }
   this.handleClick = function(e) {
-    var target = e.target || e.srcElement, modifierPressed, linkElement, url, rootNode, bookmarks;
+    var target = e.target || e.srcElement, pressedModifier, linkElement, url, rootNode, bookmarks;
     if(e.ctrlKey) {
-      modifierPressed = Ctrl
+      pressedModifier = modifier.Ctrl
     }else {
       if(e.metaKey) {
-        modifierPressed = Meta
+        pressedModifier = modifier.Meta
       }
     }
-    if(modifier !== None && modifier !== modifierPressed) {
+    if(activeModifier !== modifier.None && activeModifier !== pressedModifier) {
       return
     }
     linkElement = getHyperlinkElement((target));
@@ -13540,7 +13777,7 @@ gui.HyperlinkClickHandler = function HyperlinkClickHandler(getRootNode) {
     }
     if(url[0] === "#") {
       url = url.substring(1);
-      rootNode = (getRootNode());
+      rootNode = getContainer();
       bookmarks = xpath.getODFElementsWithXPath(rootNode, "//text:bookmark-start[@text:name='" + url + "']", odf.Namespaces.lookupNamespaceURI);
       if(bookmarks.length === 0) {
         bookmarks = xpath.getODFElementsWithXPath(rootNode, "//text:bookmark[@text:name='" + url + "']", odf.Namespaces.lookupNamespaceURI)
@@ -13549,7 +13786,7 @@ gui.HyperlinkClickHandler = function HyperlinkClickHandler(getRootNode) {
         bookmarks[0].scrollIntoView(true)
       }
     }else {
-      runtime.getWindow().open(url)
+      window.open(url)
     }
     if(e.preventDefault) {
       e.preventDefault()
@@ -13558,118 +13795,147 @@ gui.HyperlinkClickHandler = function HyperlinkClickHandler(getRootNode) {
     }
   };
   function showPointerCursor() {
-    getRootNode().removeAttributeNS(webodfns, links)
+    var container = getContainer();
+    runtime.assert(Boolean(container.classList), "Document container has no classList element");
+    container.classList.remove(inactiveLinksCssClass)
   }
-  this.showPointerCursor = showPointerCursor;
   function showTextCursor() {
-    getRootNode().setAttributeNS(webodfns, links, inactive)
+    var container = getContainer();
+    runtime.assert(Boolean(container.classList), "Document container has no classList element");
+    container.classList.add(inactiveLinksCssClass)
   }
-  this.showTextCursor = showTextCursor;
+  function cleanupEventBindings() {
+    window.removeEventListener("focus", showTextCursor, false);
+    activeKeyBindings.forEach(function(boundShortcut) {
+      keyDownHandler.unbind(boundShortcut.keyCode, boundShortcut.modifier);
+      keyUpHandler.unbind(boundShortcut.keyCode, boundShortcut.modifier)
+    });
+    activeKeyBindings.length = 0
+  }
+  function bindEvents(modifierKey) {
+    cleanupEventBindings();
+    if(modifierKey !== modifier.None) {
+      window.addEventListener("focus", showTextCursor, false);
+      switch(modifierKey) {
+        case modifier.Ctrl:
+          activeKeyBindings.push({keyCode:keyCode.Ctrl, modifier:modifier.None});
+          break;
+        case modifier.Meta:
+          activeKeyBindings.push({keyCode:keyCode.LeftMeta, modifier:modifier.None});
+          activeKeyBindings.push({keyCode:keyCode.RightMeta, modifier:modifier.None});
+          activeKeyBindings.push({keyCode:keyCode.MetaInMozilla, modifier:modifier.None});
+          break
+      }
+      activeKeyBindings.forEach(function(boundShortcut) {
+        keyDownHandler.bind(boundShortcut.keyCode, boundShortcut.modifier, showPointerCursor);
+        keyUpHandler.bind(boundShortcut.keyCode, boundShortcut.modifier, showTextCursor)
+      })
+    }
+  }
   this.setModifier = function(value) {
-    modifier = value;
-    if(modifier !== None) {
+    if(activeModifier === value) {
+      return
+    }
+    runtime.assert(value === modifier.None || (value === modifier.Ctrl || value === modifier.Meta), "Unsupported KeyboardHandler.Modifier value: " + value);
+    activeModifier = value;
+    if(activeModifier !== modifier.None) {
       showTextCursor()
     }else {
       showPointerCursor()
     }
+    bindEvents(activeModifier)
+  };
+  this.getModifier = function() {
+    return activeModifier
+  };
+  this.destroy = function(callback) {
+    showTextCursor();
+    cleanupEventBindings();
+    callback()
   }
-};
-gui.HyperlinkClickHandler.Modifier = {None:0, Ctrl:1, Meta:2};
-gui.HyperlinkController = function HyperlinkController(session, inputMemberId) {
-  var odfUtils = new odf.OdfUtils, odtDocument = session.getOdtDocument();
-  function addHyperlink(hyperlink, insertionText) {
-    var selection = odtDocument.getCursorSelection(inputMemberId), op = new ops.OpApplyHyperlink, operations = [];
-    if(selection.length === 0 || insertionText) {
-      insertionText = insertionText || hyperlink;
-      op = new ops.OpInsertText;
-      op.init({memberid:inputMemberId, position:selection.position, text:insertionText});
-      selection.length = insertionText.length;
-      operations.push(op)
-    }
-    op = new ops.OpApplyHyperlink;
-    op.init({memberid:inputMemberId, position:selection.position, length:selection.length, hyperlink:hyperlink});
-    operations.push(op);
-    session.enqueue(operations)
-  }
-  this.addHyperlink = addHyperlink;
-  function removeHyperlinks() {
-    var iterator = gui.SelectionMover.createPositionIterator(odtDocument.getRootNode()), selectedRange = odtDocument.getCursor(inputMemberId).getSelectedRange(), links = odfUtils.getHyperlinkElements(selectedRange), removeEntireLink = selectedRange.collapsed && links.length === 1, domRange = odtDocument.getDOMDocument().createRange(), operations = [], cursorRange, firstLink, lastLink, offset, op;
-    if(links.length === 0) {
-      return
-    }
-    links.forEach(function(link) {
-      domRange.selectNodeContents(link);
-      cursorRange = odtDocument.convertDomToCursorRange({anchorNode:(domRange.startContainer), anchorOffset:domRange.startOffset, focusNode:(domRange.endContainer), focusOffset:domRange.endOffset});
-      op = new ops.OpRemoveHyperlink;
-      op.init({memberid:inputMemberId, position:cursorRange.position, length:cursorRange.length});
-      operations.push(op)
-    });
-    if(!removeEntireLink) {
-      firstLink = (links[0]);
-      if(selectedRange.comparePoint(firstLink, 0) === -1) {
-        domRange.setStart(firstLink, 0);
-        domRange.setEnd(selectedRange.startContainer, selectedRange.startOffset);
-        cursorRange = odtDocument.convertDomToCursorRange({anchorNode:(domRange.startContainer), anchorOffset:domRange.startOffset, focusNode:(domRange.endContainer), focusOffset:domRange.endOffset});
-        if(cursorRange.length > 0) {
-          op = new ops.OpApplyHyperlink;
-          (op).init({memberid:inputMemberId, position:cursorRange.position, length:cursorRange.length, hyperlink:odfUtils.getHyperlinkTarget(firstLink)});
-          operations.push(op)
-        }
-      }
-      lastLink = (links[links.length - 1]);
-      iterator.moveToEndOfNode(lastLink);
-      offset = iterator.unfilteredDomOffset();
-      if(selectedRange.comparePoint(lastLink, offset) === 1) {
-        domRange.setStart(selectedRange.endContainer, selectedRange.endOffset);
-        domRange.setEnd(lastLink, offset);
-        cursorRange = odtDocument.convertDomToCursorRange({anchorNode:(domRange.startContainer), anchorOffset:domRange.startOffset, focusNode:(domRange.endContainer), focusOffset:domRange.endOffset});
-        if(cursorRange.length > 0) {
-          op = new ops.OpApplyHyperlink;
-          (op).init({memberid:inputMemberId, position:cursorRange.position, length:cursorRange.length, hyperlink:odfUtils.getHyperlinkTarget(lastLink)});
-          operations.push(op)
-        }
-      }
-    }
-    session.enqueue(operations);
-    domRange.detach()
-  }
-  this.removeHyperlinks = removeHyperlinks
 };
 gui.EventManager = function EventManager(odtDocument) {
   var window = (runtime.getWindow()), bindToDirectHandler = {"beforecut":true, "beforepaste":true, "longpress":true, "drag":true, "dragstop":true}, bindToWindow = {"mousedown":true, "mouseup":true, "focus":true}, compoundEvents = {}, eventDelegates = {}, eventTrap, canvasElement = (odtDocument.getCanvas().getElement()), eventManager = this, longPressTimers = {}, LONGPRESS_DURATION = 400;
-  function EventDelegate() {
-    var self = this, recentEvents = [];
-    this.filters = [];
-    this.handlers = [];
-    this.handleEvent = function(e) {
+  function EventDelegate(eventName) {
+    var self = this, recentEvents = [], subscribers = new core.EventNotifier([eventName]);
+    function listenEvent(eventTarget, eventType, eventHandler) {
+      var onVariant, bound = false;
+      onVariant = "on" + eventType;
+      if(eventTarget.attachEvent) {
+        eventTarget.attachEvent(onVariant, eventHandler);
+        bound = true
+      }
+      if(!bound && eventTarget.addEventListener) {
+        eventTarget.addEventListener(eventType, eventHandler, false);
+        bound = true
+      }
+      if((!bound || bindToDirectHandler[eventType]) && eventTarget.hasOwnProperty(onVariant)) {
+        eventTarget[onVariant] = eventHandler
+      }
+    }
+    function removeEvent(eventTarget, eventType, eventHandler) {
+      var onVariant = "on" + eventType;
+      if((eventTarget).detachEvent) {
+        (eventTarget).detachEvent(onVariant, eventHandler)
+      }
+      if(eventTarget.removeEventListener) {
+        eventTarget.removeEventListener(eventType, eventHandler, false)
+      }
+      if(eventTarget[onVariant] === eventHandler) {
+        eventTarget[onVariant] = null
+      }
+    }
+    function handleEvent(e) {
       if(recentEvents.indexOf(e) === -1) {
         recentEvents.push(e);
         if(self.filters.every(function(filter) {
           return filter(e)
         })) {
-          self.handlers.forEach(function(handler) {
-            handler(e)
-          })
+          try {
+            subscribers.emit(eventName, e)
+          }catch(err) {
+            runtime.log("Error occurred while processing " + eventName + ":\n" + err.message + "\n" + err.stack)
+          }
         }
         runtime.setTimeout(function() {
           recentEvents.splice(recentEvents.indexOf(e), 1)
         }, 0)
       }
     }
+    this.filters = [];
+    this.subscribe = function(cb) {
+      subscribers.subscribe(eventName, cb)
+    };
+    this.unsubscribe = function(cb) {
+      subscribers.unsubscribe(eventName, cb)
+    };
+    this.destroy = function() {
+      removeEvent(window, eventName, handleEvent);
+      removeEvent(eventTrap, eventName, handleEvent);
+      removeEvent(canvasElement, eventName, handleEvent)
+    };
+    function init() {
+      if(bindToWindow[eventName]) {
+        listenEvent(window, eventName, handleEvent)
+      }
+      listenEvent(eventTrap, eventName, handleEvent);
+      listenEvent(canvasElement, eventName, handleEvent)
+    }
+    init()
   }
   function CompoundEvent(eventName, dependencies, eventProxy) {
-    var cachedState = {}, events = new core.EventNotifier(["eventTriggered"]);
+    var cachedState = {}, subscribers = new core.EventNotifier([eventName]);
     function subscribedProxy(event) {
       eventProxy(event, cachedState, function(compoundEventInstance) {
         compoundEventInstance.type = eventName;
-        events.emit("eventTriggered", compoundEventInstance)
+        subscribers.emit(eventName, compoundEventInstance)
       })
     }
     this.subscribe = function(cb) {
-      events.subscribe("eventTriggered", cb)
+      subscribers.subscribe(eventName, cb)
     };
     this.unsubscribe = function(cb) {
-      events.unsubscribe("eventTriggered", cb)
+      subscribers.unsubscribe(eventName, cb)
     };
     this.destroy = function() {
       dependencies.forEach(function(eventName) {
@@ -13722,7 +13988,7 @@ gui.EventManager = function EventManager(odtDocument) {
     if(fingers !== 1 || event.type === "touchend") {
       cachedTarget = null
     }else {
-      if(event.type === "touchstart" && target.getAttribute("class") === "draggable") {
+      if(event.type === "touchstart" && target.getAttribute("class") === "webodf-draggable") {
         cachedTarget = target
       }else {
         if(event.type === "touchmove" && cachedTarget) {
@@ -13768,34 +14034,10 @@ gui.EventManager = function EventManager(odtDocument) {
       }
     }
   }
-  function listenEvent(eventTarget, eventType, eventHandler) {
-    var onVariant, bound = false;
-    if(compoundEvents.hasOwnProperty(eventType)) {
-      compoundEvents[eventType].subscribe(eventHandler);
-      return
-    }
-    onVariant = "on" + eventType;
-    if(eventTarget.attachEvent) {
-      eventTarget.attachEvent(onVariant, eventHandler);
-      bound = true
-    }
-    if(!bound && eventTarget.addEventListener) {
-      eventTarget.addEventListener(eventType, eventHandler, false);
-      bound = true
-    }
-    if((!bound || bindToDirectHandler[eventType]) && eventTarget.hasOwnProperty(onVariant)) {
-      eventTarget[onVariant] = eventHandler
-    }
-  }
   function getDelegateForEvent(eventName, shouldCreate) {
-    var delegate = eventDelegates[eventName] || null;
+    var delegate = eventDelegates[eventName] || (compoundEvents[eventName] || null);
     if(!delegate && shouldCreate) {
-      delegate = eventDelegates[eventName] = new EventDelegate;
-      if(bindToWindow[eventName]) {
-        listenEvent(window, eventName, delegate.handleEvent)
-      }
-      listenEvent(eventTrap, eventName, delegate.handleEvent);
-      listenEvent(canvasElement, eventName, delegate.handleEvent)
+      delegate = eventDelegates[eventName] = new EventDelegate(eventName)
     }
     return delegate
   }
@@ -13809,20 +14051,31 @@ gui.EventManager = function EventManager(odtDocument) {
       delegate.filters.splice(index, 1)
     }
   };
-  this.subscribe = function(eventName, handler) {
+  function subscribe(eventName, handler) {
     var delegate = getDelegateForEvent(eventName, true);
-    delegate.handlers.push(handler)
-  };
-  this.unsubscribe = function(eventName, handler) {
-    var delegate = getDelegateForEvent(eventName, false), handlerIndex = delegate && delegate.handlers.indexOf(handler);
-    if(delegate && handlerIndex !== -1) {
-      delegate.handlers.splice(handlerIndex, 1)
+    delegate.subscribe(handler)
+  }
+  this.subscribe = subscribe;
+  function unsubscribe(eventName, handler) {
+    var delegate = getDelegateForEvent(eventName, false);
+    if(delegate) {
+      delegate.unsubscribe(handler)
     }
-  };
+  }
+  this.unsubscribe = unsubscribe;
   function hasFocus() {
     return odtDocument.getDOMDocument().activeElement === eventTrap
   }
   this.hasFocus = hasFocus;
+  function disableTrapSelection() {
+    if(hasFocus()) {
+      eventTrap.blur()
+    }
+    eventTrap.setAttribute("disabled", "true")
+  }
+  function enableTrapSelection() {
+    eventTrap.removeAttribute("disabled")
+  }
   function findScrollableParents(element) {
     var scrollParents = [];
     while(element) {
@@ -13834,25 +14087,37 @@ gui.EventManager = function EventManager(odtDocument) {
     scrollParents.push(new WindowScrollState(window));
     return scrollParents
   }
-  this.focus = function() {
+  function focus() {
     var scrollParents;
     if(!hasFocus()) {
       scrollParents = findScrollableParents(eventTrap);
+      enableTrapSelection();
       eventTrap.focus();
       scrollParents.forEach(function(scrollParent) {
         scrollParent.restore()
       })
     }
-  };
+  }
+  this.focus = focus;
   this.getEventTrap = function() {
     return eventTrap
   };
-  this.blur = function() {
-    if(hasFocus()) {
+  this.setEditing = function(editable) {
+    var hadFocus = hasFocus();
+    if(hadFocus) {
       eventTrap.blur()
+    }
+    if(editable) {
+      eventTrap.removeAttribute("readOnly")
+    }else {
+      eventTrap.setAttribute("readOnly", "true")
+    }
+    if(hadFocus) {
+      focus()
     }
   };
   this.destroy = function(callback) {
+    unsubscribe("touchstart", declareTouchEnabled);
     Object.keys(longPressTimers).forEach(function(timer) {
       clearTimeout(parseInt(timer, 10))
     });
@@ -13861,48 +14126,35 @@ gui.EventManager = function EventManager(odtDocument) {
       compoundEvents[compoundEventName].destroy()
     });
     compoundEvents = {};
-    eventManager.unsubscribe("touchstart", declareTouchEnabled);
+    unsubscribe("mousedown", disableTrapSelection);
+    unsubscribe("mouseup", enableTrapSelection);
+    unsubscribe("contextmenu", enableTrapSelection);
+    Object.keys(eventDelegates).forEach(function(eventName) {
+      eventDelegates[eventName].destroy()
+    });
+    eventDelegates = {};
     eventTrap.parentNode.removeChild(eventTrap);
     callback()
   };
   function init() {
     var sizerElement = odtDocument.getOdfCanvas().getSizer(), doc = sizerElement.ownerDocument;
     runtime.assert(Boolean(window), "EventManager requires a window object to operate correctly");
-    eventTrap = (doc.createElement("input"));
+    eventTrap = (doc.createElement("textarea"));
     eventTrap.id = "eventTrap";
-    eventTrap.setAttribute("tabindex", -1);
+    eventTrap.setAttribute("tabindex", "-1");
+    eventTrap.setAttribute("readOnly", "true");
+    eventTrap.setAttribute("rows", "1");
     sizerElement.appendChild(eventTrap);
+    subscribe("mousedown", disableTrapSelection);
+    subscribe("mouseup", enableTrapSelection);
+    subscribe("contextmenu", enableTrapSelection);
     compoundEvents.longpress = new CompoundEvent("longpress", ["touchstart", "touchmove", "touchend"], emitLongPressEvent);
     compoundEvents.drag = new CompoundEvent("drag", ["touchstart", "touchmove", "touchend"], emitDragEvent);
     compoundEvents.dragstop = new CompoundEvent("dragstop", ["drag", "touchend"], emitDragStopEvent);
-    eventManager.subscribe("touchstart", declareTouchEnabled)
+    subscribe("touchstart", declareTouchEnabled)
   }
   init()
 };
-/*
-
- Copyright (C) 2014 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- This file is part of WebODF.
-
- WebODF is free software: you can redistribute it and/or modify it
- under the terms of the GNU Affero General Public License (GNU AGPL)
- as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.
-
- WebODF is distributed in the hope that it will be useful, but
- WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU Affero General Public License for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with WebODF.  If not, see <http://www.gnu.org/licenses/>.
- @licend
-
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 gui.IOSSafariSupport = function(eventManager) {
   var window = runtime.getWindow(), eventTrap = eventManager.getEventTrap();
   function suppressFocusScrollIfKeyboardOpen() {
@@ -13926,8 +14178,134 @@ gui.IOSSafariSupport = function(eventManager) {
   }
   init()
 };
-gui.ImageController = function ImageController(session, inputMemberId, objectNameGenerator) {
-  var cmPerPixel = 0.0264583333333334, fileExtensionByMimetype = {"image/gif":".gif", "image/jpeg":".jpg", "image/png":".png"}, textns = odf.Namespaces.textns, odtDocument = session.getOdtDocument(), formatting = odtDocument.getFormatting(), paragraphStyleToPageContentSizeMap = {};
+gui.HyperlinkController = function HyperlinkController(session, sessionConstraints, sessionContext, inputMemberId) {
+  var odfUtils = new odf.OdfUtils, odtDocument = session.getOdtDocument(), eventNotifier = new core.EventNotifier([gui.HyperlinkController.enabledChanged]), isEnabled = false;
+  function updateEnabledState() {
+    var newIsEnabled = true;
+    if(sessionConstraints.getState(gui.CommonConstraints.EDIT.REVIEW_MODE) === true) {
+      newIsEnabled = (sessionContext.isLocalCursorWithinOwnAnnotation())
+    }
+    if(newIsEnabled !== isEnabled) {
+      isEnabled = newIsEnabled;
+      eventNotifier.emit(gui.HyperlinkController.enabledChanged, isEnabled)
+    }
+  }
+  function onCursorEvent(cursor) {
+    if(cursor.getMemberId() === inputMemberId) {
+      updateEnabledState()
+    }
+  }
+  this.isEnabled = function() {
+    return isEnabled
+  };
+  this.subscribe = function(eventid, cb) {
+    eventNotifier.subscribe(eventid, cb)
+  };
+  this.unsubscribe = function(eventid, cb) {
+    eventNotifier.unsubscribe(eventid, cb)
+  };
+  function addHyperlink(hyperlink, insertionText) {
+    if(!isEnabled) {
+      return
+    }
+    var selection = odtDocument.getCursorSelection(inputMemberId), op = new ops.OpApplyHyperlink, operations = [];
+    if(selection.length === 0 || insertionText) {
+      insertionText = insertionText || hyperlink;
+      op = new ops.OpInsertText;
+      op.init({memberid:inputMemberId, position:selection.position, text:insertionText});
+      selection.length = insertionText.length;
+      operations.push(op)
+    }
+    op = new ops.OpApplyHyperlink;
+    op.init({memberid:inputMemberId, position:selection.position, length:selection.length, hyperlink:hyperlink});
+    operations.push(op);
+    session.enqueue(operations)
+  }
+  this.addHyperlink = addHyperlink;
+  function removeHyperlinks() {
+    if(!isEnabled) {
+      return
+    }
+    var iterator = odtDocument.createPositionIterator(odtDocument.getRootNode()), selectedRange = odtDocument.getCursor(inputMemberId).getSelectedRange(), links = odfUtils.getHyperlinkElements(selectedRange), removeEntireLink = selectedRange.collapsed && links.length === 1, domRange = odtDocument.getDOMDocument().createRange(), operations = [], cursorRange, firstLink, lastLink, offset, op;
+    if(links.length === 0) {
+      return
+    }
+    links.forEach(function(link) {
+      domRange.selectNodeContents(link);
+      cursorRange = odtDocument.convertDomToCursorRange({anchorNode:(domRange.startContainer), anchorOffset:domRange.startOffset, focusNode:(domRange.endContainer), focusOffset:domRange.endOffset});
+      op = new ops.OpRemoveHyperlink;
+      op.init({memberid:inputMemberId, position:cursorRange.position, length:cursorRange.length});
+      operations.push(op)
+    });
+    if(!removeEntireLink) {
+      firstLink = (links[0]);
+      if(selectedRange.comparePoint(firstLink, 0) === -1) {
+        domRange.setStart(firstLink, 0);
+        domRange.setEnd(selectedRange.startContainer, selectedRange.startOffset);
+        cursorRange = odtDocument.convertDomToCursorRange({anchorNode:(domRange.startContainer), anchorOffset:domRange.startOffset, focusNode:(domRange.endContainer), focusOffset:domRange.endOffset});
+        if(cursorRange.length > 0) {
+          op = new ops.OpApplyHyperlink;
+          (op).init({memberid:inputMemberId, position:cursorRange.position, length:cursorRange.length, hyperlink:odfUtils.getHyperlinkTarget(firstLink)});
+          operations.push(op)
+        }
+      }
+      lastLink = (links[links.length - 1]);
+      iterator.moveToEndOfNode(lastLink);
+      offset = iterator.unfilteredDomOffset();
+      if(selectedRange.comparePoint(lastLink, offset) === 1) {
+        domRange.setStart(selectedRange.endContainer, selectedRange.endOffset);
+        domRange.setEnd(lastLink, offset);
+        cursorRange = odtDocument.convertDomToCursorRange({anchorNode:(domRange.startContainer), anchorOffset:domRange.startOffset, focusNode:(domRange.endContainer), focusOffset:domRange.endOffset});
+        if(cursorRange.length > 0) {
+          op = new ops.OpApplyHyperlink;
+          (op).init({memberid:inputMemberId, position:cursorRange.position, length:cursorRange.length, hyperlink:odfUtils.getHyperlinkTarget(lastLink)});
+          operations.push(op)
+        }
+      }
+    }
+    session.enqueue(operations);
+    domRange.detach()
+  }
+  this.removeHyperlinks = removeHyperlinks;
+  this.destroy = function(callback) {
+    odtDocument.unsubscribe(ops.Document.signalCursorMoved, onCursorEvent);
+    sessionConstraints.unsubscribe(gui.CommonConstraints.EDIT.REVIEW_MODE, updateEnabledState);
+    callback()
+  };
+  function init() {
+    odtDocument.subscribe(ops.Document.signalCursorMoved, onCursorEvent);
+    sessionConstraints.subscribe(gui.CommonConstraints.EDIT.REVIEW_MODE, updateEnabledState);
+    updateEnabledState()
+  }
+  init()
+};
+gui.HyperlinkController.enabledChanged = "enabled/changed";
+gui.ImageController = function ImageController(session, sessionConstraints, sessionContext, inputMemberId, objectNameGenerator) {
+  var fileExtensionByMimetype = {"image/gif":".gif", "image/jpeg":".jpg", "image/png":".png"}, textns = odf.Namespaces.textns, odtDocument = session.getOdtDocument(), odfUtils = new odf.OdfUtils, formatting = odtDocument.getFormatting(), eventNotifier = new core.EventNotifier([gui.HyperlinkController.enabledChanged]), isEnabled = false;
+  function updateEnabledState() {
+    var newIsEnabled = true;
+    if(sessionConstraints.getState(gui.CommonConstraints.EDIT.REVIEW_MODE) === true) {
+      newIsEnabled = (sessionContext.isLocalCursorWithinOwnAnnotation())
+    }
+    if(newIsEnabled !== isEnabled) {
+      isEnabled = newIsEnabled;
+      eventNotifier.emit(gui.ImageController.enabledChanged, isEnabled)
+    }
+  }
+  function onCursorEvent(cursor) {
+    if(cursor.getMemberId() === inputMemberId) {
+      updateEnabledState()
+    }
+  }
+  this.isEnabled = function() {
+    return isEnabled
+  };
+  this.subscribe = function(eventid, cb) {
+    eventNotifier.subscribe(eventid, cb)
+  };
+  this.unsubscribe = function(eventid, cb) {
+    eventNotifier.unsubscribe(eventid, cb)
+  };
   function createAddGraphicsStyleOp(name) {
     var op = new ops.OpAddStyle;
     op.init({memberid:inputMemberId, styleName:name, styleFamily:"graphic", isAutomaticStyle:false, setProperties:{"style:graphic-properties":{"text:anchor-type":"paragraph", "svg:x":"0cm", "svg:y":"0cm", "style:wrap":"dynamic", "style:number-wrapped-paragraphs":"no-limit", "style:wrap-contour":"false", "style:vertical-pos":"top", "style:vertical-rel":"paragraph", "style:horizontal-pos":"center", "style:horizontal-rel":"paragraph"}}});
@@ -13943,7 +14321,7 @@ gui.ImageController = function ImageController(session, inputMemberId, objectNam
     mimetype = mimetype.toLowerCase();
     return fileExtensionByMimetype.hasOwnProperty(mimetype) ? fileExtensionByMimetype[mimetype] : null
   }
-  function insertImageInternal(mimetype, content, widthInCm, heightInCm) {
+  function insertImageInternal(mimetype, content, widthMeasure, heightMeasure) {
     var graphicsStyleName = "Graphics", stylesElement = odtDocument.getOdfCanvas().odfContainer().rootElement.styles, fileExtension = getFileExtension(mimetype), fileName, graphicsStyleElement, frameStyleName, op, operations = [];
     runtime.assert(fileExtension !== null, "Image type is not supported: " + mimetype);
     fileName = "Pictures/" + objectNameGenerator.generateImageName() + fileExtension;
@@ -13959,11 +14337,11 @@ gui.ImageController = function ImageController(session, inputMemberId, objectNam
     op = createAddFrameStyleOp(frameStyleName, graphicsStyleName);
     operations.push(op);
     op = new ops.OpInsertImage;
-    op.init({memberid:inputMemberId, position:odtDocument.getCursorPosition(inputMemberId), filename:fileName, frameWidth:widthInCm + "cm", frameHeight:heightInCm + "cm", frameStyleName:frameStyleName, frameName:objectNameGenerator.generateFrameName()});
+    op.init({memberid:inputMemberId, position:odtDocument.getCursorPosition(inputMemberId), filename:fileName, frameWidth:widthMeasure, frameHeight:heightMeasure, frameStyleName:frameStyleName, frameName:objectNameGenerator.generateFrameName()});
     operations.push(op);
     session.enqueue(operations)
   }
-  function trimmedSize(originalSize, pageContentSize) {
+  function scaleToAvailableContentSize(originalSize, pageContentSize) {
     var widthRatio = 1, heightRatio = 1, ratio;
     if(originalSize.width > pageContentSize.width) {
       widthRatio = pageContentSize.width / originalSize.width
@@ -13975,19 +14353,33 @@ gui.ImageController = function ImageController(session, inputMemberId, objectNam
     return{width:originalSize.width * ratio, height:originalSize.height * ratio}
   }
   this.insertImage = function(mimetype, content, widthInPx, heightInPx) {
-    var paragraphElement, styleName, pageContentSize, originalSize, newSize;
-    runtime.assert(widthInPx > 0 && heightInPx > 0, "Both width and height of the image should be greater than 0px.");
-    paragraphElement = odtDocument.getParagraphElement(odtDocument.getCursor(inputMemberId).getNode());
-    styleName = paragraphElement.getAttributeNS(textns, "style-name");
-    if(!paragraphStyleToPageContentSizeMap.hasOwnProperty(styleName)) {
-      paragraphStyleToPageContentSizeMap[styleName] = formatting.getContentSize(styleName, "paragraph")
+    if(!isEnabled) {
+      return
     }
-    pageContentSize = paragraphStyleToPageContentSizeMap[styleName];
-    originalSize = {width:widthInPx * cmPerPixel, height:heightInPx * cmPerPixel};
-    newSize = trimmedSize(originalSize, pageContentSize);
-    insertImageInternal(mimetype, content, newSize.width, newSize.height)
+    var paragraphElement, styleName, pageContentSize, imageSize;
+    runtime.assert(widthInPx > 0 && heightInPx > 0, "Both width and height of the image should be greater than 0px.");
+    imageSize = {width:widthInPx, height:heightInPx};
+    paragraphElement = odfUtils.getParagraphElement(odtDocument.getCursor(inputMemberId).getNode());
+    styleName = paragraphElement.getAttributeNS(textns, "style-name");
+    if(styleName) {
+      pageContentSize = formatting.getContentSize(styleName, "paragraph");
+      imageSize = scaleToAvailableContentSize(imageSize, pageContentSize)
+    }
+    insertImageInternal(mimetype, content, imageSize.width + "px", imageSize.height + "px")
+  };
+  this.destroy = function(callback) {
+    odtDocument.unsubscribe(ops.Document.signalCursorMoved, onCursorEvent);
+    sessionConstraints.unsubscribe(gui.CommonConstraints.EDIT.REVIEW_MODE, updateEnabledState);
+    callback()
+  };
+  function init() {
+    odtDocument.subscribe(ops.Document.signalCursorMoved, onCursorEvent);
+    sessionConstraints.subscribe(gui.CommonConstraints.EDIT.REVIEW_MODE, updateEnabledState);
+    updateEnabledState()
   }
+  init()
 };
+gui.ImageController.enabledChanged = "enabled/changed";
 gui.ImageSelector = function ImageSelector(odfCanvas) {
   var svgns = odf.Namespaces.svgns, imageSelectorId = "imageSelector", selectorBorderWidth = 1, squareClassNames = ["topLeft", "topRight", "bottomRight", "bottomLeft", "topMiddle", "rightMiddle", "bottomMiddle", "leftMiddle"], document = odfCanvas.getElement().ownerDocument, hasSelection = false;
   function createSelectorElement() {
@@ -14067,7 +14459,7 @@ gui.ImageSelector = function ImageSelector(odfCanvas) {
     init()
   }
   gui.InputMethodEditor = function InputMethodEditor(inputMemberId, eventManager) {
-    var cursorns = "urn:webodf:names:cursor", localCursor = null, eventTrap = eventManager.getEventTrap(), doc = (eventTrap.ownerDocument), compositionElement, async = new core.Async, FAKE_CONTENT = "b", processUpdates, pendingEvent = false, pendingData = "", events = new core.EventNotifier([gui.InputMethodEditor.signalCompositionStart, gui.InputMethodEditor.signalCompositionEnd]), lastCompositionData, filters = [], cleanup, isEditable = false;
+    var cursorns = "urn:webodf:names:cursor", localCursor = null, eventTrap = eventManager.getEventTrap(), doc = (eventTrap.ownerDocument), compositionElement, processUpdates, pendingEvent = false, pendingData = "", events = new core.EventNotifier([gui.InputMethodEditor.signalCompositionStart, gui.InputMethodEditor.signalCompositionEnd]), lastCompositionData, textSerializer, filters = [], cleanup;
     this.subscribe = events.subscribe;
     this.unsubscribe = events.unsubscribe;
     function setCursorComposing(state) {
@@ -14093,14 +14485,19 @@ gui.ImageSelector = function ImageSelector(odfCanvas) {
       pendingData += data;
       processUpdates.trigger()
     }
-    function resetWindowSelection() {
+    function synchronizeWindowSelection() {
       flushEvent();
       if(localCursor && localCursor.getSelectedRange().collapsed) {
         eventTrap.value = ""
       }else {
-        eventTrap.value = FAKE_CONTENT
+        eventTrap.value = textSerializer.writeToString(localCursor.getSelectedRange().cloneContents())
       }
       eventTrap.setSelectionRange(0, eventTrap.value.length)
+    }
+    function handleCursorUpdated() {
+      if(eventManager.hasFocus()) {
+        processUpdates.trigger()
+      }
     }
     function compositionStart() {
       lastCompositionData = undefined;
@@ -14127,6 +14524,7 @@ gui.ImageSelector = function ImageSelector(odfCanvas) {
       if(cursor.getMemberId() === inputMemberId) {
         localCursor = cursor;
         localCursor.getNode().appendChild(compositionElement);
+        cursor.subscribe(ops.OdtCursor.signalCursorUpdated, handleCursorUpdated);
         eventManager.subscribe("input", synchronizeCompositionText);
         eventManager.subscribe("compositionupdate", synchronizeCompositionText)
       }
@@ -14134,51 +14532,28 @@ gui.ImageSelector = function ImageSelector(odfCanvas) {
     this.removeCursor = function(memberid) {
       if(localCursor && memberid === inputMemberId) {
         localCursor.getNode().removeChild(compositionElement);
+        localCursor.unsubscribe(ops.OdtCursor.signalCursorUpdated, handleCursorUpdated);
         eventManager.unsubscribe("input", synchronizeCompositionText);
         eventManager.unsubscribe("compositionupdate", synchronizeCompositionText);
         localCursor = null
       }
-    };
-    function suppressFocus() {
-      eventManager.blur();
-      eventTrap.setAttribute("disabled", true)
-    }
-    function synchronizeEventStatus() {
-      var hasFocus = eventManager.hasFocus();
-      if(hasFocus) {
-        eventManager.blur()
-      }
-      if(isEditable) {
-        eventTrap.removeAttribute("disabled")
-      }else {
-        eventTrap.setAttribute("disabled", true)
-      }
-      if(hasFocus) {
-        eventManager.focus()
-      }
-    }
-    this.setEditing = function(editable) {
-      isEditable = editable;
-      synchronizeEventStatus()
     };
     this.destroy = function(callback) {
       eventManager.unsubscribe("compositionstart", compositionStart);
       eventManager.unsubscribe("compositionend", compositionEnd);
       eventManager.unsubscribe("textInput", textInput);
       eventManager.unsubscribe("keypress", flushEvent);
-      eventManager.unsubscribe("mousedown", suppressFocus);
-      eventManager.unsubscribe("mouseup", synchronizeEventStatus);
-      eventManager.unsubscribe("focus", resetWindowSelection);
-      async.destroyAll(cleanup, callback)
+      eventManager.unsubscribe("focus", synchronizeWindowSelection);
+      core.Async.destroyAll(cleanup, callback)
     };
     function init() {
+      textSerializer = new odf.TextSerializer;
+      textSerializer.filter = new odf.OdfNodeFilter;
       eventManager.subscribe("compositionstart", compositionStart);
       eventManager.subscribe("compositionend", compositionEnd);
       eventManager.subscribe("textInput", textInput);
       eventManager.subscribe("keypress", flushEvent);
-      eventManager.subscribe("mousedown", suppressFocus);
-      eventManager.subscribe("mouseup", synchronizeEventStatus);
-      eventManager.subscribe("focus", resetWindowSelection);
+      eventManager.subscribe("focus", synchronizeWindowSelection);
       filters.push(new DetectSafariCompositionError(eventManager));
       function getDestroy(filter) {
         return filter.destroy
@@ -14186,207 +14561,198 @@ gui.ImageSelector = function ImageSelector(odfCanvas) {
       cleanup = filters.map(getDestroy);
       compositionElement = doc.createElement("span");
       compositionElement.setAttribute("id", "composer");
-      processUpdates = new core.ScheduledTask(resetWindowSelection, 1);
+      processUpdates = core.Task.createTimeoutTask(synchronizeWindowSelection, 1);
       cleanup.push(processUpdates.destroy)
     }
     init()
   };
   gui.InputMethodEditor.signalCompositionStart = "input/compositionstart";
-  gui.InputMethodEditor.signalCompositionEnd = "input/compositionend";
-  return gui.InputMethodEditor
+  gui.InputMethodEditor.signalCompositionEnd = "input/compositionend"
 })();
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
-gui.KeyboardHandler = function KeyboardHandler() {
-  var modifier = gui.KeyboardHandler.Modifier, defaultBinding = null, bindings = {};
-  function getModifiers(e) {
-    var modifiers = modifier.None;
-    if(e.metaKey) {
-      modifiers |= modifier.Meta
-    }
-    if(e.ctrlKey) {
-      modifiers |= modifier.Ctrl
-    }
-    if(e.altKey) {
-      modifiers |= modifier.Alt
-    }
-    if(e.shiftKey) {
-      modifiers |= modifier.Shift
-    }
-    return modifiers
+gui.MetadataController = function MetadataController(session, inputMemberId) {
+  var odtDocument = session.getOdtDocument(), eventNotifier = new core.EventNotifier([gui.MetadataController.signalMetadataChanged]), readonlyProperties = ["dc:creator", "dc:date", "meta:editing-cycles", "meta:editing-duration", "meta:document-statistic"];
+  function onMetadataUpdated(changes) {
+    eventNotifier.emit(gui.MetadataController.signalMetadataChanged, changes)
   }
-  function getKeyCombo(keyCode, modifiers) {
-    if(!modifiers) {
-      modifiers = modifier.None
+  function isWriteableMetadata(property) {
+    var isWriteable = readonlyProperties.indexOf(property) === -1;
+    if(!isWriteable) {
+      runtime.log("Setting " + property + " is restricted.")
     }
-    return keyCode + ":" + modifiers
+    return isWriteable
   }
-  this.setDefault = function(callback) {
-    defaultBinding = callback
-  };
-  this.bind = function(keyCode, modifiers, callback, overwrite) {
-    var keyCombo = getKeyCombo(keyCode, modifiers);
-    runtime.assert(overwrite || bindings.hasOwnProperty(keyCombo) === false, "tried to overwrite the callback handler of key combo: " + keyCombo);
-    bindings[keyCombo] = callback
-  };
-  this.unbind = function(keyCode, modifiers) {
-    var keyCombo = getKeyCombo(keyCode, modifiers);
-    delete bindings[keyCombo]
-  };
-  this.reset = function() {
-    defaultBinding = null;
-    bindings = {}
-  };
-  this.handleEvent = function(e) {
-    var keyCombo = getKeyCombo(e.keyCode, getModifiers(e)), callback = bindings[keyCombo], handled = false;
-    if(callback) {
-      handled = callback()
-    }else {
-      if(defaultBinding !== null) {
-        handled = defaultBinding(e)
-      }
+  this.setMetadata = function(setProperties, removedProperties) {
+    var filteredSetProperties = {}, filteredRemovedProperties = "", op;
+    if(setProperties) {
+      Object.keys(setProperties).filter(isWriteableMetadata).forEach(function(property) {
+        filteredSetProperties[property] = setProperties[property]
+      })
     }
-    if(handled) {
-      if(e.preventDefault) {
-        e.preventDefault()
-      }else {
-        e.returnValue = false
-      }
+    if(removedProperties) {
+      filteredRemovedProperties = removedProperties.filter(isWriteableMetadata).join(",")
     }
+    if(filteredRemovedProperties.length > 0 || Object.keys(filteredSetProperties).length > 0) {
+      op = new ops.OpUpdateMetadata;
+      op.init({memberid:inputMemberId, setProperties:filteredSetProperties, removedProperties:filteredRemovedProperties.length > 0 ? {attributes:filteredRemovedProperties} : null});
+      session.enqueue([op])
+    }
+  };
+  this.getMetadata = function(property) {
+    var namespaceUri, parts;
+    runtime.assert(typeof property === "string", "Property must be a string");
+    parts = property.split(":");
+    runtime.assert(parts.length === 2, "Property must be a namespace-prefixed string");
+    namespaceUri = odf.Namespaces.lookupNamespaceURI(parts[0]);
+    runtime.assert(Boolean(namespaceUri), "Prefix must be for an ODF namespace.");
+    return odtDocument.getOdfCanvas().odfContainer().getMetadata((namespaceUri), parts[1])
+  };
+  this.subscribe = function(eventid, cb) {
+    eventNotifier.subscribe(eventid, cb)
+  };
+  this.unsubscribe = function(eventid, cb) {
+    eventNotifier.unsubscribe(eventid, cb)
+  };
+  this.destroy = function(callback) {
+    odtDocument.unsubscribe(ops.OdtDocument.signalMetadataUpdated, onMetadataUpdated);
+    callback()
+  };
+  function init() {
+    odtDocument.subscribe(ops.OdtDocument.signalMetadataUpdated, onMetadataUpdated)
   }
+  init()
 };
-gui.KeyboardHandler.Modifier = {None:0, Meta:1, Ctrl:2, Alt:4, CtrlAlt:6, Shift:8, MetaShift:9, CtrlShift:10, AltShift:12};
-gui.KeyboardHandler.KeyCode = {Backspace:8, Tab:9, Clear:12, Enter:13, Ctrl:17, End:35, Home:36, Left:37, Up:38, Right:39, Down:40, Delete:46, A:65, B:66, C:67, D:68, E:69, F:70, G:71, H:72, I:73, J:74, K:75, L:76, M:77, N:78, O:79, P:80, Q:81, R:82, S:83, T:84, U:85, V:86, W:87, X:88, Y:89, Z:90, LeftMeta:91, MetaInMozilla:224};
-(function() {
-  return gui.KeyboardHandler
-})();
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
-gui.PlainTextPasteboard = function PlainTextPasteboard(odtDocument, inputMemberId) {
-  function createOp(op, data) {
-    op.init(data);
-    return op
+gui.MetadataController.signalMetadataChanged = "metadata/changed";
+gui.PasteController = function PasteController(session, sessionConstraints, sessionContext, inputMemberId) {
+  var odtDocument = session.getOdtDocument(), isEnabled = false, textns = odf.Namespaces.textns, NEXT = core.StepDirection.NEXT, odfUtils = new odf.OdfUtils;
+  function updateEnabledState() {
+    if(sessionConstraints.getState(gui.CommonConstraints.EDIT.REVIEW_MODE) === true) {
+      isEnabled = (sessionContext.isLocalCursorWithinOwnAnnotation())
+    }else {
+      isEnabled = true
+    }
   }
-  this.createPasteOps = function(data) {
-    var originalCursorPosition = odtDocument.getCursorPosition(inputMemberId), cursorPosition = originalCursorPosition, operations = [], paragraphs;
+  function onCursorEvent(cursor) {
+    if(cursor.getMemberId() === inputMemberId) {
+      updateEnabledState()
+    }
+  }
+  this.isEnabled = function() {
+    return isEnabled
+  };
+  this.paste = function(data) {
+    if(!isEnabled) {
+      return
+    }
+    var originalCursorPosition = odtDocument.getCursorPosition(inputMemberId), cursorNode = odtDocument.getCursor(inputMemberId).getNode(), originalParagraph = (odfUtils.getParagraphElement(cursorNode)), paragraphStyle = originalParagraph.getAttributeNS(textns, "style-name") || "", cursorPosition = originalCursorPosition, operations = [], currentParagraphStartPosition = odtDocument.convertDomPointToCursorStep(originalParagraph, 0, NEXT), paragraphs;
     paragraphs = data.replace(/\r/g, "").split("\n");
     paragraphs.forEach(function(text) {
-      operations.push(createOp(new ops.OpSplitParagraph, {memberid:inputMemberId, position:cursorPosition, moveCursor:true}));
+      var insertTextOp = new ops.OpInsertText, splitParagraphOp = new ops.OpSplitParagraph;
+      insertTextOp.init({memberid:inputMemberId, position:cursorPosition, text:text, moveCursor:true});
+      operations.push(insertTextOp);
+      cursorPosition += text.length;
+      splitParagraphOp.init({memberid:inputMemberId, position:cursorPosition, paragraphStyleName:paragraphStyle, sourceParagraphPosition:currentParagraphStartPosition, moveCursor:true});
+      operations.push(splitParagraphOp);
       cursorPosition += 1;
-      operations.push(createOp(new ops.OpInsertText, {memberid:inputMemberId, position:cursorPosition, text:text, moveCursor:true}));
-      cursorPosition += text.length
+      currentParagraphStartPosition = cursorPosition
     });
-    operations.push(createOp(new ops.OpRemoveText, {memberid:inputMemberId, position:originalCursorPosition, length:1}));
-    return operations
+    operations.pop();
+    session.enqueue(operations)
+  };
+  this.destroy = function(callback) {
+    odtDocument.unsubscribe(ops.Document.signalCursorMoved, onCursorEvent);
+    sessionConstraints.unsubscribe(gui.CommonConstraints.EDIT.REVIEW_MODE, updateEnabledState);
+    callback()
+  };
+  function init() {
+    odtDocument.subscribe(ops.Document.signalCursorMoved, onCursorEvent);
+    sessionConstraints.subscribe(gui.CommonConstraints.EDIT.REVIEW_MODE, updateEnabledState);
+    updateEnabledState()
+  }
+  init()
+};
+gui.ClosestXOffsetScanner = function(offset) {
+  var self = this, closestDiff, LEFT_TO_RIGHT = gui.StepInfo.VisualDirection.LEFT_TO_RIGHT;
+  this.token = undefined;
+  function isFurtherFromOffset(edgeOffset) {
+    if(edgeOffset !== null && closestDiff !== undefined) {
+      return Math.abs(edgeOffset - offset) > closestDiff
+    }
+    return false
+  }
+  function updateDiffIfSmaller(edge) {
+    if(edge !== null && isFurtherFromOffset(edge) === false) {
+      closestDiff = Math.abs(edge - offset)
+    }
+  }
+  this.process = function(stepInfo, previousRect, nextRect) {
+    var edge1, edge2;
+    if(stepInfo.visualDirection === LEFT_TO_RIGHT) {
+      edge1 = previousRect && previousRect.right;
+      edge2 = nextRect && nextRect.left
+    }else {
+      edge1 = previousRect && previousRect.left;
+      edge2 = nextRect && nextRect.right
+    }
+    if(isFurtherFromOffset(edge1) || isFurtherFromOffset(edge2)) {
+      return true
+    }
+    if(previousRect || nextRect) {
+      updateDiffIfSmaller(edge1);
+      updateDiffIfSmaller(edge2);
+      self.token = stepInfo.token
+    }
+    return false
   }
 };
-/*
-
- Copyright (C) 2014 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
+gui.LineBoundaryScanner = function() {
+  var self = this, lineRect = null, MIN_OVERLAP_THRESHOLD = 0.4;
+  function verticalOverlapPercent(rect1, rect2) {
+    var rect1Height = rect1.bottom - rect1.top, rect2Height = rect2.bottom - rect2.top, minRectHeight = Math.min(rect1Height, rect2Height), intersectTop = Math.max(rect1.top, rect2.top), intersectBottom = Math.min(rect1.bottom, rect2.bottom), overlapHeight = intersectBottom - intersectTop;
+    return minRectHeight > 0 ? overlapHeight / minRectHeight : 0
+  }
+  function isLineBoundary(nextRect) {
+    if(lineRect) {
+      return verticalOverlapPercent((lineRect), nextRect) <= MIN_OVERLAP_THRESHOLD
+    }
+    return false
+  }
+  function combineRects(rect1, rect2) {
+    return{left:Math.min(rect1.left, rect2.left), right:Math.max(rect1.right, rect2.right), top:Math.min(rect1.top, rect2.top), bottom:Math.min(rect1.bottom, rect2.bottom)}
+  }
+  function growRect(originalRect, newRect) {
+    if(originalRect && newRect) {
+      return combineRects((originalRect), (newRect))
+    }
+    return originalRect || newRect
+  }
+  this.token = undefined;
+  this.process = function(stepInfo, previousRect, nextRect) {
+    if(nextRect && isLineBoundary((nextRect))) {
+      return true
+    }
+    if(previousRect && !nextRect) {
+      self.token = stepInfo.token
+    }
+    lineRect = growRect(lineRect, previousRect);
+    return false
+  }
+};
+gui.ParagraphBoundaryScanner = function() {
+  var self = this, isInitialised = false, lastParagraph, odfUtils = new odf.OdfUtils;
+  this.token = undefined;
+  this.process = function(stepInfo) {
+    var currentParagraph = odfUtils.getParagraphElement(stepInfo.container());
+    if(!isInitialised) {
+      lastParagraph = currentParagraph;
+      isInitialised = true
+    }
+    if(lastParagraph !== currentParagraph) {
+      return true
+    }
+    self.token = stepInfo.token;
+    return false
+  }
+};
 odf.WordBoundaryFilter = function WordBoundaryFilter(odtDocument, includeWhitespace) {
   var TEXT_NODE = Node.TEXT_NODE, ELEMENT_NODE = Node.ELEMENT_NODE, odfUtils = new odf.OdfUtils, punctuation = /[!-#%-*,-\/:-;?-@\[-\]_{}\u00a1\u00ab\u00b7\u00bb\u00bf;\u00b7\u055a-\u055f\u0589-\u058a\u05be\u05c0\u05c3\u05c6\u05f3-\u05f4\u0609-\u060a\u060c-\u060d\u061b\u061e-\u061f\u066a-\u066d\u06d4\u0700-\u070d\u07f7-\u07f9\u0964-\u0965\u0970\u0df4\u0e4f\u0e5a-\u0e5b\u0f04-\u0f12\u0f3a-\u0f3d\u0f85\u0fd0-\u0fd4\u104a-\u104f\u10fb\u1361-\u1368\u166d-\u166e\u169b-\u169c\u16eb-\u16ed\u1735-\u1736\u17d4-\u17d6\u17d8-\u17da\u1800-\u180a\u1944-\u1945\u19de-\u19df\u1a1e-\u1a1f\u1b5a-\u1b60\u1c3b-\u1c3f\u1c7e-\u1c7f\u2000-\u206e\u207d-\u207e\u208d-\u208e\u3008-\u3009\u2768-\u2775\u27c5-\u27c6\u27e6-\u27ef\u2983-\u2998\u29d8-\u29db\u29fc-\u29fd\u2cf9-\u2cfc\u2cfe-\u2cff\u2e00-\u2e7e\u3000-\u303f\u30a0\u30fb\ua60d-\ua60f\ua673\ua67e\ua874-\ua877\ua8ce-\ua8cf\ua92e-\ua92f\ua95f\uaa5c-\uaa5f\ufd3e-\ufd3f\ufe10-\ufe19\ufe30-\ufe52\ufe54-\ufe61\ufe63\ufe68\ufe6a-\ufe6b\uff01-\uff03\uff05-\uff0a\uff0c-\uff0f\uff1a-\uff1b\uff1f-\uff20\uff3b-\uff3d\uff3f\uff5b\uff5d\uff5f-\uff65]|\ud800[\udd00-\udd01\udf9f\udfd0]|\ud802[\udd1f\udd3f\ude50-\ude58]|\ud809[\udc00-\udc7e]/, 
   spacing = /\s/, FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT, FILTER_REJECT = core.PositionFilter.FilterResult.FILTER_REJECT, TRAILING = odf.WordBoundaryFilter.IncludeWhitespace.TRAILING, LEADING = odf.WordBoundaryFilter.IncludeWhitespace.LEADING, NeighborType = {NO_NEIGHBOUR:0, SPACE_CHAR:1, PUNCTUATION_CHAR:2, WORD_CHAR:3, OTHER:4};
@@ -14452,26 +14818,23 @@ odf.WordBoundaryFilter = function WordBoundaryFilter(odtDocument, includeWhitesp
   }
 };
 odf.WordBoundaryFilter.IncludeWhitespace = {None:0, TRAILING:1, LEADING:2};
-(function() {
-  return odf.WordBoundaryFilter
-})();
 gui.SelectionController = function SelectionController(session, inputMemberId) {
-  var odtDocument = session.getOdtDocument(), domUtils = new core.DomUtils, odfUtils = new odf.OdfUtils, baseFilter = odtDocument.getPositionFilter(), keyboardMovementsFilter = new core.PositionFilterChain, rootFilter = odtDocument.createRootFilter(inputMemberId), TRAILING_SPACE = odf.WordBoundaryFilter.IncludeWhitespace.TRAILING, LEADING_SPACE = odf.WordBoundaryFilter.IncludeWhitespace.LEADING;
+  var odtDocument = session.getOdtDocument(), domUtils = new core.DomUtils, odfUtils = new odf.OdfUtils, baseFilter = odtDocument.getPositionFilter(), guiStepUtils = new gui.GuiStepUtils, rootFilter = odtDocument.createRootFilter(inputMemberId), caretXPositionLocator = null, lastXPosition, resetLastXPositionTask, TRAILING_SPACE = odf.WordBoundaryFilter.IncludeWhitespace.TRAILING, LEADING_SPACE = odf.WordBoundaryFilter.IncludeWhitespace.LEADING, PREVIOUS = core.StepDirection.PREVIOUS, NEXT = core.StepDirection.NEXT, 
+  UPDOWN_NAVIGATION_RESET_DELAY_MS = 2E3;
+  function resetLastXPosition(op) {
+    var opspec = op.spec();
+    if(op.isEdit || opspec.memberid === inputMemberId) {
+      lastXPosition = undefined;
+      resetLastXPositionTask.cancel()
+    }
+  }
   function createKeyboardStepIterator() {
     var cursor = odtDocument.getCursor(inputMemberId), node = cursor.getNode();
     return odtDocument.createStepIterator(node, 0, [baseFilter, rootFilter], odtDocument.getRootElement(node))
   }
   function createWordBoundaryStepIterator(node, offset, includeWhitespace) {
-    var wordBoundaryFilter = new odf.WordBoundaryFilter(odtDocument, includeWhitespace);
-    return odtDocument.createStepIterator(node, offset, [baseFilter, rootFilter, wordBoundaryFilter], odtDocument.getRootElement(node))
-  }
-  function constrain(lookup) {
-    return function(originalNode) {
-      var originalContainer = lookup(originalNode);
-      return function(step, node) {
-        return lookup(node) === originalContainer
-      }
-    }
+    var wordBoundaryFilter = new odf.WordBoundaryFilter(odtDocument, includeWhitespace), nodeRoot = odtDocument.getRootElement(node) || odtDocument.getRootNode(), nodeRootFilter = odtDocument.createRootFilter(nodeRoot);
+    return odtDocument.createStepIterator(node, offset, [baseFilter, nodeRootFilter, wordBoundaryFilter], nodeRoot)
   }
   function selectionToRange(selection) {
     var hasForwardSelection = domUtils.comparePoints((selection.anchorNode), selection.anchorOffset, (selection.focusNode), selection.focusOffset) >= 0, range = selection.focusNode.ownerDocument.createRange();
@@ -14496,6 +14859,19 @@ gui.SelectionController = function SelectionController(session, inputMemberId) {
     var op = new ops.OpMoveCursor;
     op.init({memberid:inputMemberId, position:position, length:length || 0, selectionType:selectionType});
     return op
+  }
+  function moveCursorFocusPoint(focusNode, focusOffset, extend) {
+    var cursor, newSelection, newCursorSelection;
+    cursor = odtDocument.getCursor(inputMemberId);
+    newSelection = rangeToSelection(cursor.getSelectedRange(), cursor.hasForwardSelection());
+    newSelection.focusNode = focusNode;
+    newSelection.focusOffset = focusOffset;
+    if(!extend) {
+      newSelection.anchorNode = newSelection.focusNode;
+      newSelection.anchorOffset = newSelection.focusOffset
+    }
+    newCursorSelection = odtDocument.convertDomToCursorRange(newSelection);
+    session.enqueue([createOpMoveCursor(newCursorSelection.position, newCursorSelection.length)])
   }
   function selectImage(frameNode) {
     var frameRoot = odtDocument.getRootElement(frameNode), frameRootFilter = odtDocument.createRootFilter(frameRoot), stepIterator = odtDocument.createStepIterator(frameNode, 0, [frameRootFilter, odtDocument.getPositionFilter()], frameRoot), anchorNode, anchorOffset, newSelection, op;
@@ -14539,8 +14915,35 @@ gui.SelectionController = function SelectionController(session, inputMemberId) {
     }
   }
   this.expandToParagraphBoundaries = expandToParagraphBoundaries;
+  function roundToClosestStep(root, filters, range, modifyStart) {
+    var stepIterator, node, offset;
+    if(modifyStart) {
+      node = (range.startContainer);
+      offset = range.startOffset
+    }else {
+      node = (range.endContainer);
+      offset = range.endOffset
+    }
+    if(!domUtils.containsNode(root, node)) {
+      if(domUtils.comparePoints(root, 0, node, offset) < 0) {
+        offset = 0
+      }else {
+        offset = root.childNodes.length
+      }
+      node = root
+    }
+    stepIterator = odtDocument.createStepIterator(node, offset, filters, odfUtils.getParagraphElement(node) || root);
+    if(!stepIterator.roundToClosestStep()) {
+      runtime.assert(false, "No step found in requested range")
+    }
+    if(modifyStart) {
+      range.setStart(stepIterator.container(), stepIterator.offset())
+    }else {
+      range.setEnd(stepIterator.container(), stepIterator.offset())
+    }
+  }
   function selectRange(range, hasForwardSelection, clickCount) {
-    var canvasElement = odtDocument.getOdfCanvas().getElement(), validSelection, startInsideCanvas, endInsideCanvas, existingSelection, newSelection, op;
+    var canvasElement = odtDocument.getOdfCanvas().getElement(), validSelection, startInsideCanvas, endInsideCanvas, existingSelection, newSelection, anchorRoot, filters = [baseFilter], op;
     startInsideCanvas = domUtils.containsNode(canvasElement, range.startContainer);
     endInsideCanvas = domUtils.containsNode(canvasElement, range.endContainer);
     if(!startInsideCanvas && !endInsideCanvas) {
@@ -14555,8 +14958,19 @@ gui.SelectionController = function SelectionController(session, inputMemberId) {
         }
       }
     }
+    if(hasForwardSelection) {
+      anchorRoot = odtDocument.getRootElement((range.startContainer))
+    }else {
+      anchorRoot = odtDocument.getRootElement((range.endContainer))
+    }
+    if(!anchorRoot) {
+      anchorRoot = odtDocument.getRootNode()
+    }
+    filters.push(odtDocument.createRootFilter(anchorRoot));
+    roundToClosestStep(anchorRoot, filters, range, true);
+    roundToClosestStep(anchorRoot, filters, range, false);
     validSelection = rangeToSelection(range, hasForwardSelection);
-    newSelection = odtDocument.convertDomToCursorRange(validSelection, constrain(odfUtils.getParagraphElement));
+    newSelection = odtDocument.convertDomToCursorRange(validSelection);
     existingSelection = odtDocument.getCursorSelection(inputMemberId);
     if(newSelection.position !== existingSelection.position || newSelection.length !== existingSelection.length) {
       op = createOpMoveCursor(newSelection.position, newSelection.length, ops.OdtCursor.RangeSelection);
@@ -14564,278 +14978,282 @@ gui.SelectionController = function SelectionController(session, inputMemberId) {
     }
   }
   this.selectRange = selectRange;
-  function extendCursorByAdjustment(lengthAdjust) {
-    var selection = odtDocument.getCursorSelection(inputMemberId), stepCounter = odtDocument.getCursor(inputMemberId).getStepCounter(), newLength;
-    if(lengthAdjust !== 0) {
-      if(lengthAdjust > 0) {
-        lengthAdjust = stepCounter.convertForwardStepsBetweenFilters(lengthAdjust, keyboardMovementsFilter, baseFilter)
-      }else {
-        lengthAdjust = -stepCounter.convertBackwardStepsBetweenFilters(-lengthAdjust, keyboardMovementsFilter, baseFilter)
-      }
-      newLength = selection.length + lengthAdjust;
-      session.enqueue([createOpMoveCursor(selection.position, newLength)])
-    }
-  }
-  function extendSelection(advanceIterator) {
-    var stepIterator = createKeyboardStepIterator(), anchorNode = odtDocument.getCursor(inputMemberId).getAnchorNode(), newSelection;
-    if(advanceIterator(stepIterator)) {
-      newSelection = odtDocument.convertDomToCursorRange({anchorNode:anchorNode, anchorOffset:0, focusNode:stepIterator.container(), focusOffset:stepIterator.offset()});
-      session.enqueue([createOpMoveCursor(newSelection.position, newSelection.length)])
-    }
-  }
-  function moveCursorByAdjustment(positionAdjust) {
-    var position = odtDocument.getCursorPosition(inputMemberId), stepCounter = odtDocument.getCursor(inputMemberId).getStepCounter();
-    if(positionAdjust !== 0) {
-      positionAdjust = positionAdjust > 0 ? stepCounter.convertForwardStepsBetweenFilters(positionAdjust, keyboardMovementsFilter, baseFilter) : -stepCounter.convertBackwardStepsBetweenFilters(-positionAdjust, keyboardMovementsFilter, baseFilter);
-      position = position + positionAdjust;
-      session.enqueue([createOpMoveCursor(position, 0)])
-    }
-  }
-  function moveCursor(advanceIterator) {
-    var stepIterator = createKeyboardStepIterator(), position;
-    if(advanceIterator(stepIterator)) {
-      position = odtDocument.convertDomPointToCursorStep(stepIterator.container(), stepIterator.offset());
-      session.enqueue([createOpMoveCursor(position, 0)])
+  function moveCursor(direction, extend) {
+    var stepIterator = createKeyboardStepIterator();
+    if(stepIterator.advanceStep(direction)) {
+      moveCursorFocusPoint(stepIterator.container(), stepIterator.offset(), extend)
     }
   }
   function moveCursorToLeft() {
-    moveCursor(function(iterator) {
-      return iterator.previousStep()
-    });
+    moveCursor(PREVIOUS, false);
     return true
   }
   this.moveCursorToLeft = moveCursorToLeft;
   function moveCursorToRight() {
-    moveCursor(function(iterator) {
-      return iterator.nextStep()
-    });
+    moveCursor(NEXT, false);
     return true
   }
   this.moveCursorToRight = moveCursorToRight;
   function extendSelectionToLeft() {
-    extendSelection(function(iterator) {
-      return iterator.previousStep()
-    });
+    moveCursor(PREVIOUS, true);
     return true
   }
   this.extendSelectionToLeft = extendSelectionToLeft;
   function extendSelectionToRight() {
-    extendSelection(function(iterator) {
-      return iterator.nextStep()
-    });
+    moveCursor(NEXT, true);
     return true
   }
   this.extendSelectionToRight = extendSelectionToRight;
+  this.setCaretXPositionLocator = function(locator) {
+    caretXPositionLocator = locator
+  };
   function moveCursorByLine(direction, extend) {
-    var paragraphNode = odtDocument.getParagraphElement(odtDocument.getCursor(inputMemberId).getNode()), steps;
-    runtime.assert(Boolean(paragraphNode), "SelectionController: Cursor outside paragraph");
-    steps = odtDocument.getCursor(inputMemberId).getStepCounter().countLinesSteps(direction, keyboardMovementsFilter);
-    if(extend) {
-      extendCursorByAdjustment(steps)
-    }else {
-      moveCursorByAdjustment(steps)
+    var stepIterator, currentX = lastXPosition, stepScanners = [new gui.LineBoundaryScanner, new gui.ParagraphBoundaryScanner];
+    if(currentX === undefined && caretXPositionLocator) {
+      currentX = caretXPositionLocator()
+    }
+    if(isNaN(currentX)) {
+      return
+    }
+    stepIterator = createKeyboardStepIterator();
+    if(!guiStepUtils.moveToFilteredStep(stepIterator, direction, stepScanners)) {
+      return
+    }
+    if(!stepIterator.advanceStep(direction)) {
+      return
+    }
+    stepScanners = [new gui.ClosestXOffsetScanner((currentX)), new gui.LineBoundaryScanner, new gui.ParagraphBoundaryScanner];
+    if(guiStepUtils.moveToFilteredStep(stepIterator, direction, stepScanners)) {
+      moveCursorFocusPoint(stepIterator.container(), stepIterator.offset(), extend);
+      lastXPosition = currentX;
+      resetLastXPositionTask.restart()
     }
   }
   function moveCursorUp() {
-    moveCursorByLine(-1, false);
+    moveCursorByLine(PREVIOUS, false);
     return true
   }
   this.moveCursorUp = moveCursorUp;
   function moveCursorDown() {
-    moveCursorByLine(1, false);
+    moveCursorByLine(NEXT, false);
     return true
   }
   this.moveCursorDown = moveCursorDown;
   function extendSelectionUp() {
-    moveCursorByLine(-1, true);
+    moveCursorByLine(PREVIOUS, true);
     return true
   }
   this.extendSelectionUp = extendSelectionUp;
   function extendSelectionDown() {
-    moveCursorByLine(1, true);
+    moveCursorByLine(NEXT, true);
     return true
   }
   this.extendSelectionDown = extendSelectionDown;
   function moveCursorToLineBoundary(direction, extend) {
-    var steps = odtDocument.getCursor(inputMemberId).getStepCounter().countStepsToLineBoundary(direction, keyboardMovementsFilter);
-    if(extend) {
-      extendCursorByAdjustment(steps)
-    }else {
-      moveCursorByAdjustment(steps)
+    var stepIterator = createKeyboardStepIterator(), stepScanners = [new gui.LineBoundaryScanner, new gui.ParagraphBoundaryScanner];
+    if(guiStepUtils.moveToFilteredStep(stepIterator, direction, stepScanners)) {
+      moveCursorFocusPoint(stepIterator.container(), stepIterator.offset(), extend)
     }
   }
   function moveCursorByWord(direction, extend) {
-    var cursor = odtDocument.getCursor(inputMemberId), newSelection = rangeToSelection(cursor.getSelectedRange(), cursor.hasForwardSelection()), newCursorSelection, selectionUpdated, stepIterator = createWordBoundaryStepIterator(newSelection.focusNode, newSelection.focusOffset, TRAILING_SPACE);
-    if(direction >= 0) {
-      selectionUpdated = stepIterator.nextStep()
-    }else {
-      selectionUpdated = stepIterator.previousStep()
-    }
-    if(selectionUpdated) {
-      newSelection.focusNode = stepIterator.container();
-      newSelection.focusOffset = stepIterator.offset();
-      if(!extend) {
-        newSelection.anchorNode = newSelection.focusNode;
-        newSelection.anchorOffset = newSelection.focusOffset
-      }
-      newCursorSelection = odtDocument.convertDomToCursorRange(newSelection);
-      session.enqueue([createOpMoveCursor(newCursorSelection.position, newCursorSelection.length)])
+    var cursor = odtDocument.getCursor(inputMemberId), newSelection = rangeToSelection(cursor.getSelectedRange(), cursor.hasForwardSelection()), stepIterator = createWordBoundaryStepIterator(newSelection.focusNode, newSelection.focusOffset, TRAILING_SPACE);
+    if(stepIterator.advanceStep(direction)) {
+      moveCursorFocusPoint(stepIterator.container(), stepIterator.offset(), extend)
     }
   }
   function moveCursorBeforeWord() {
-    moveCursorByWord(-1, false);
+    moveCursorByWord(PREVIOUS, false);
     return true
   }
   this.moveCursorBeforeWord = moveCursorBeforeWord;
   function moveCursorPastWord() {
-    moveCursorByWord(1, false);
+    moveCursorByWord(NEXT, false);
     return true
   }
   this.moveCursorPastWord = moveCursorPastWord;
   function extendSelectionBeforeWord() {
-    moveCursorByWord(-1, true);
+    moveCursorByWord(PREVIOUS, true);
     return true
   }
   this.extendSelectionBeforeWord = extendSelectionBeforeWord;
   function extendSelectionPastWord() {
-    moveCursorByWord(1, true);
+    moveCursorByWord(NEXT, true);
     return true
   }
   this.extendSelectionPastWord = extendSelectionPastWord;
   function moveCursorToLineStart() {
-    moveCursorToLineBoundary(-1, false);
+    moveCursorToLineBoundary(PREVIOUS, false);
     return true
   }
   this.moveCursorToLineStart = moveCursorToLineStart;
   function moveCursorToLineEnd() {
-    moveCursorToLineBoundary(1, false);
+    moveCursorToLineBoundary(NEXT, false);
     return true
   }
   this.moveCursorToLineEnd = moveCursorToLineEnd;
   function extendSelectionToLineStart() {
-    moveCursorToLineBoundary(-1, true);
+    moveCursorToLineBoundary(PREVIOUS, true);
     return true
   }
   this.extendSelectionToLineStart = extendSelectionToLineStart;
   function extendSelectionToLineEnd() {
-    moveCursorToLineBoundary(1, true);
+    moveCursorToLineBoundary(NEXT, true);
     return true
   }
   this.extendSelectionToLineEnd = extendSelectionToLineEnd;
-  function extendCursorToNodeBoundary(direction, getContainmentNode) {
-    var cursor = odtDocument.getCursor(inputMemberId), node = getContainmentNode(cursor.getNode()), selection = rangeToSelection(cursor.getSelectedRange(), cursor.hasForwardSelection()), newCursorSelection;
-    runtime.assert(Boolean(node), "SelectionController: Cursor outside root");
-    if(direction < 0) {
-      selection.focusNode = (node);
-      selection.focusOffset = 0
-    }else {
-      selection.focusNode = (node);
-      selection.focusOffset = node.childNodes.length
+  function adjustSelectionByNode(direction, extend, getContainmentNode) {
+    var validStepFound = false, cursor = odtDocument.getCursor(inputMemberId), containmentNode, selection = rangeToSelection(cursor.getSelectedRange(), cursor.hasForwardSelection()), rootElement = odtDocument.getRootElement(selection.focusNode), stepIterator;
+    runtime.assert(Boolean(rootElement), "SelectionController: Cursor outside root");
+    stepIterator = odtDocument.createStepIterator(selection.focusNode, selection.focusOffset, [baseFilter, rootFilter], rootElement);
+    stepIterator.roundToClosestStep();
+    if(!stepIterator.advanceStep(direction)) {
+      return
     }
-    newCursorSelection = odtDocument.convertDomToCursorRange(selection, constrain(getContainmentNode));
-    session.enqueue([createOpMoveCursor(newCursorSelection.position, newCursorSelection.length)])
-  }
-  function extendSelectionToParagraphStart() {
-    extendCursorToNodeBoundary(-1, odtDocument.getParagraphElement);
-    return true
-  }
-  this.extendSelectionToParagraphStart = extendSelectionToParagraphStart;
-  function extendSelectionToParagraphEnd() {
-    extendCursorToNodeBoundary(1, odtDocument.getParagraphElement);
-    return true
-  }
-  this.extendSelectionToParagraphEnd = extendSelectionToParagraphEnd;
-  function moveCursorToRootBoundary(direction) {
-    var cursor = odtDocument.getCursor(inputMemberId), root = odtDocument.getRootElement(cursor.getNode()), newPosition;
-    runtime.assert(Boolean(root), "SelectionController: Cursor outside root");
-    if(direction < 0) {
-      newPosition = odtDocument.convertDomPointToCursorStep(root, 0, function(step) {
-        return step === ops.StepsTranslator.NEXT_STEP
-      })
-    }else {
-      newPosition = odtDocument.convertDomPointToCursorStep(root, root.childNodes.length)
+    containmentNode = getContainmentNode(stepIterator.container());
+    if(!containmentNode) {
+      return
     }
-    session.enqueue([createOpMoveCursor(newPosition, 0)]);
-    return true
+    if(direction === PREVIOUS) {
+      stepIterator.setPosition((containmentNode), 0);
+      validStepFound = stepIterator.roundToNextStep()
+    }else {
+      stepIterator.setPosition((containmentNode), containmentNode.childNodes.length);
+      validStepFound = stepIterator.roundToPreviousStep()
+    }
+    if(validStepFound) {
+      moveCursorFocusPoint(stepIterator.container(), stepIterator.offset(), extend)
+    }
   }
-  function moveCursorToDocumentStart() {
-    moveCursorToRootBoundary(-1);
+  this.extendSelectionToParagraphStart = function() {
+    adjustSelectionByNode(PREVIOUS, true, odfUtils.getParagraphElement);
     return true
-  }
-  this.moveCursorToDocumentStart = moveCursorToDocumentStart;
-  function moveCursorToDocumentEnd() {
-    moveCursorToRootBoundary(1);
+  };
+  this.extendSelectionToParagraphEnd = function() {
+    adjustSelectionByNode(NEXT, true, odfUtils.getParagraphElement);
     return true
-  }
-  this.moveCursorToDocumentEnd = moveCursorToDocumentEnd;
-  function extendSelectionToDocumentStart() {
-    extendCursorToNodeBoundary(-1, odtDocument.getRootElement);
+  };
+  this.moveCursorToParagraphStart = function() {
+    adjustSelectionByNode(PREVIOUS, false, odfUtils.getParagraphElement);
     return true
-  }
-  this.extendSelectionToDocumentStart = extendSelectionToDocumentStart;
-  function extendSelectionToDocumentEnd() {
-    extendCursorToNodeBoundary(1, odtDocument.getRootElement);
+  };
+  this.moveCursorToParagraphEnd = function() {
+    adjustSelectionByNode(NEXT, false, odfUtils.getParagraphElement);
     return true
-  }
-  this.extendSelectionToDocumentEnd = extendSelectionToDocumentEnd;
+  };
+  this.moveCursorToDocumentStart = function() {
+    adjustSelectionByNode(PREVIOUS, false, odtDocument.getRootElement);
+    return true
+  };
+  this.moveCursorToDocumentEnd = function() {
+    adjustSelectionByNode(NEXT, false, odtDocument.getRootElement);
+    return true
+  };
+  this.extendSelectionToDocumentStart = function() {
+    adjustSelectionByNode(PREVIOUS, true, odtDocument.getRootElement);
+    return true
+  };
+  this.extendSelectionToDocumentEnd = function() {
+    adjustSelectionByNode(NEXT, true, odtDocument.getRootElement);
+    return true
+  };
   function extendSelectionToEntireDocument() {
-    var cursor = odtDocument.getCursor(inputMemberId), root = odtDocument.getRootElement(cursor.getNode()), newSelection, newCursorSelection;
-    runtime.assert(Boolean(root), "SelectionController: Cursor outside root");
-    newSelection = {anchorNode:root, anchorOffset:0, focusNode:root, focusOffset:root.childNodes.length};
-    newCursorSelection = odtDocument.convertDomToCursorRange(newSelection, constrain(odtDocument.getRootElement));
+    var cursor = odtDocument.getCursor(inputMemberId), rootElement = odtDocument.getRootElement(cursor.getNode()), anchorNode, anchorOffset, stepIterator, newCursorSelection;
+    runtime.assert(Boolean(rootElement), "SelectionController: Cursor outside root");
+    stepIterator = odtDocument.createStepIterator(rootElement, 0, [baseFilter, rootFilter], rootElement);
+    stepIterator.roundToClosestStep();
+    anchorNode = stepIterator.container();
+    anchorOffset = stepIterator.offset();
+    stepIterator.setPosition(rootElement, rootElement.childNodes.length);
+    stepIterator.roundToClosestStep();
+    newCursorSelection = odtDocument.convertDomToCursorRange({anchorNode:anchorNode, anchorOffset:anchorOffset, focusNode:stepIterator.container(), focusOffset:stepIterator.offset()});
     session.enqueue([createOpMoveCursor(newCursorSelection.position, newCursorSelection.length)]);
     return true
   }
   this.extendSelectionToEntireDocument = extendSelectionToEntireDocument;
+  this.destroy = function(callback) {
+    odtDocument.unsubscribe(ops.OdtDocument.signalOperationStart, resetLastXPosition);
+    core.Async.destroyAll([resetLastXPositionTask.destroy], callback)
+  };
   function init() {
-    keyboardMovementsFilter.addFilter(baseFilter);
-    keyboardMovementsFilter.addFilter(odtDocument.createRootFilter(inputMemberId))
+    resetLastXPositionTask = core.Task.createTimeoutTask(function() {
+      lastXPosition = undefined
+    }, UPDOWN_NAVIGATION_RESET_DELAY_MS);
+    odtDocument.subscribe(ops.OdtDocument.signalOperationStart, resetLastXPosition)
   }
   init()
 };
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
-gui.TextController = function TextController(session, inputMemberId, directStyleOp, paragraphStyleOps) {
-  var odtDocument = session.getOdtDocument(), FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT;
-  function createOpRemoveSelection(selection) {
-    var op = new ops.OpRemoveText;
-    op.init({memberid:inputMemberId, position:selection.position, length:selection.length});
-    return op
+gui.TextController = function TextController(session, sessionConstraints, sessionContext, inputMemberId, directStyleOp, paragraphStyleOps) {
+  var odtDocument = session.getOdtDocument(), odfUtils = new odf.OdfUtils, domUtils = new core.DomUtils, BACKWARD = false, FORWARD = true, isEnabled = false, textns = odf.Namespaces.textns, NEXT = core.StepDirection.NEXT;
+  function updateEnabledState() {
+    if(sessionConstraints.getState(gui.CommonConstraints.EDIT.REVIEW_MODE) === true) {
+      isEnabled = (sessionContext.isLocalCursorWithinOwnAnnotation())
+    }else {
+      isEnabled = true
+    }
+  }
+  function onCursorEvent(cursor) {
+    if(cursor.getMemberId() === inputMemberId) {
+      updateEnabledState()
+    }
+  }
+  this.isEnabled = function() {
+    return isEnabled
+  };
+  function domToCursorRange(range, subTree, withRootFilter) {
+    var filters = [odtDocument.getPositionFilter()], startStep, endStep, stepIterator;
+    if(withRootFilter) {
+      filters.push(odtDocument.createRootFilter((range.startContainer)))
+    }
+    stepIterator = odtDocument.createStepIterator((range.startContainer), range.startOffset, filters, subTree);
+    if(!stepIterator.roundToClosestStep()) {
+      runtime.assert(false, "No walkable step found in paragraph element at range start")
+    }
+    startStep = odtDocument.convertDomPointToCursorStep(stepIterator.container(), stepIterator.offset());
+    if(range.collapsed) {
+      endStep = startStep
+    }else {
+      stepIterator.setPosition((range.endContainer), range.endOffset);
+      if(!stepIterator.roundToClosestStep()) {
+        runtime.assert(false, "No walkable step found in paragraph element at range end")
+      }
+      endStep = odtDocument.convertDomPointToCursorStep(stepIterator.container(), stepIterator.offset())
+    }
+    return{position:(startStep), length:(endStep - startStep)}
+  }
+  function createRemoveSelectionOps(range) {
+    var firstParagraph, lastParagraph, mergedParagraphStyleName, previousParagraphStart, paragraphs = odfUtils.getParagraphElements(range), paragraphRange = (range.cloneRange()), operations = [];
+    firstParagraph = paragraphs[0];
+    if(paragraphs.length > 1) {
+      if(odfUtils.hasNoODFContent(firstParagraph)) {
+        lastParagraph = paragraphs[paragraphs.length - 1];
+        mergedParagraphStyleName = lastParagraph.getAttributeNS(odf.Namespaces.textns, "style-name") || ""
+      }else {
+        mergedParagraphStyleName = firstParagraph.getAttributeNS(odf.Namespaces.textns, "style-name") || ""
+      }
+    }
+    paragraphs.forEach(function(paragraph, index) {
+      var paragraphStart, removeLimits, intersectionRange, removeOp, mergeOp;
+      paragraphRange.setStart(paragraph, 0);
+      paragraphRange.collapse(true);
+      paragraphStart = domToCursorRange(paragraphRange, paragraph, false).position;
+      if(index > 0) {
+        mergeOp = new ops.OpMergeParagraph;
+        mergeOp.init({memberid:inputMemberId, paragraphStyleName:mergedParagraphStyleName, destinationStartPosition:previousParagraphStart, sourceStartPosition:paragraphStart, moveCursor:index === 1});
+        operations.unshift(mergeOp)
+      }
+      previousParagraphStart = paragraphStart;
+      paragraphRange.selectNodeContents(paragraph);
+      intersectionRange = domUtils.rangeIntersection(paragraphRange, range);
+      if(intersectionRange) {
+        removeLimits = domToCursorRange(intersectionRange, paragraph, true);
+        if(removeLimits.length > 0) {
+          removeOp = new ops.OpRemoveText;
+          removeOp.init({memberid:inputMemberId, position:removeLimits.position, length:removeLimits.length});
+          operations.unshift(removeOp)
+        }
+      }
+    });
+    return operations
   }
   function toForwardSelection(selection) {
     if(selection.length < 0) {
@@ -14845,13 +15263,15 @@ gui.TextController = function TextController(session, inputMemberId, directStyle
     return selection
   }
   this.enqueueParagraphSplittingOps = function() {
-    var selection = toForwardSelection(odtDocument.getCursorSelection(inputMemberId)), op, operations = [], styleOps;
+    if(!isEnabled) {
+      return false
+    }
+    var cursor = odtDocument.getCursor(inputMemberId), range = cursor.getSelectedRange(), selection = toForwardSelection(odtDocument.getCursorSelection(inputMemberId)), op, operations = [], styleOps, originalParagraph = (odfUtils.getParagraphElement(cursor.getNode())), paragraphStyle = originalParagraph.getAttributeNS(textns, "style-name") || "";
     if(selection.length > 0) {
-      op = createOpRemoveSelection(selection);
-      operations.push(op)
+      operations = operations.concat(createRemoveSelectionOps(range))
     }
     op = new ops.OpSplitParagraph;
-    op.init({memberid:inputMemberId, position:selection.position, moveCursor:true});
+    op.init({memberid:inputMemberId, position:selection.position, paragraphStyleName:paragraphStyle, sourceParagraphPosition:odtDocument.convertDomPointToCursorStep(originalParagraph, 0, NEXT), moveCursor:true});
     operations.push(op);
     if(paragraphStyleOps) {
       styleOps = paragraphStyleOps(selection.position + 1);
@@ -14860,59 +15280,56 @@ gui.TextController = function TextController(session, inputMemberId, directStyle
     session.enqueue(operations);
     return true
   };
-  function hasPositionInDirection(cursorNode, forward) {
-    var rootConstrainedFilter = new core.PositionFilterChain, iterator = gui.SelectionMover.createPositionIterator(odtDocument.getRootElement(cursorNode)), nextPosition = (forward ? iterator.nextPosition : iterator.previousPosition);
-    rootConstrainedFilter.addFilter(odtDocument.getPositionFilter());
-    rootConstrainedFilter.addFilter(odtDocument.createRootFilter(inputMemberId));
-    iterator.setUnfilteredPosition(cursorNode, 0);
-    while(nextPosition()) {
-      if(rootConstrainedFilter.acceptPosition(iterator) === FILTER_ACCEPT) {
-        return true
+  function createStepIterator(cursorNode) {
+    var cursorRoot = odtDocument.getRootElement(cursorNode), filters = [odtDocument.getPositionFilter(), odtDocument.createRootFilter(cursorRoot)];
+    return odtDocument.createStepIterator(cursorNode, 0, filters, cursorRoot)
+  }
+  function removeTextInDirection(isForward) {
+    if(!isEnabled) {
+      return false
+    }
+    var cursorNode, range = (odtDocument.getCursor(inputMemberId).getSelectedRange().cloneRange()), selection = toForwardSelection(odtDocument.getCursorSelection(inputMemberId)), stepIterator;
+    if(selection.length === 0) {
+      selection = undefined;
+      cursorNode = odtDocument.getCursor(inputMemberId).getNode();
+      stepIterator = createStepIterator(cursorNode);
+      if(stepIterator.roundToClosestStep() && (isForward ? stepIterator.nextStep() : stepIterator.previousStep())) {
+        selection = toForwardSelection(odtDocument.convertDomToCursorRange({anchorNode:cursorNode, anchorOffset:0, focusNode:stepIterator.container(), focusOffset:stepIterator.offset()}));
+        if(isForward) {
+          range.setStart(cursorNode, 0);
+          range.setEnd(stepIterator.container(), stepIterator.offset())
+        }else {
+          range.setStart(stepIterator.container(), stepIterator.offset());
+          range.setEnd(cursorNode, 0)
+        }
       }
     }
-    return false
+    if(selection) {
+      session.enqueue(createRemoveSelectionOps(range))
+    }
+    return selection !== undefined
   }
   this.removeTextByBackspaceKey = function() {
-    var cursor = odtDocument.getCursor(inputMemberId), selection = toForwardSelection(odtDocument.getCursorSelection(inputMemberId)), op = null;
-    if(selection.length === 0) {
-      if(hasPositionInDirection(cursor.getNode(), false)) {
-        op = new ops.OpRemoveText;
-        op.init({memberid:inputMemberId, position:selection.position - 1, length:1});
-        session.enqueue([op])
-      }
-    }else {
-      op = createOpRemoveSelection(selection);
-      session.enqueue([op])
-    }
-    return op !== null
+    return removeTextInDirection(BACKWARD)
   };
   this.removeTextByDeleteKey = function() {
-    var cursor = odtDocument.getCursor(inputMemberId), selection = toForwardSelection(odtDocument.getCursorSelection(inputMemberId)), op = null;
-    if(selection.length === 0) {
-      if(hasPositionInDirection(cursor.getNode(), true)) {
-        op = new ops.OpRemoveText;
-        op.init({memberid:inputMemberId, position:selection.position, length:1});
-        session.enqueue([op])
-      }
-    }else {
-      op = createOpRemoveSelection(selection);
-      session.enqueue([op])
-    }
-    return op !== null
+    return removeTextInDirection(FORWARD)
   };
   this.removeCurrentSelection = function() {
-    var selection = toForwardSelection(odtDocument.getCursorSelection(inputMemberId)), op;
-    if(selection.length !== 0) {
-      op = createOpRemoveSelection(selection);
-      session.enqueue([op])
+    if(!isEnabled) {
+      return false
     }
+    var range = odtDocument.getCursor(inputMemberId).getSelectedRange();
+    session.enqueue(createRemoveSelectionOps(range));
     return true
   };
   function insertText(text) {
-    var selection = toForwardSelection(odtDocument.getCursorSelection(inputMemberId)), op, stylingOp, operations = [], useCachedStyle = false;
+    if(!isEnabled) {
+      return
+    }
+    var range = odtDocument.getCursor(inputMemberId).getSelectedRange(), selection = toForwardSelection(odtDocument.getCursorSelection(inputMemberId)), op, stylingOp, operations = [], useCachedStyle = false;
     if(selection.length > 0) {
-      op = createOpRemoveSelection(selection);
-      operations.push(op);
+      operations = operations.concat(createRemoveSelectionOps(range));
       useCachedStyle = true
     }
     op = new ops.OpInsertText;
@@ -14926,48 +15343,19 @@ gui.TextController = function TextController(session, inputMemberId, directStyle
     }
     session.enqueue(operations)
   }
-  this.insertText = insertText
+  this.insertText = insertText;
+  this.destroy = function(callback) {
+    odtDocument.unsubscribe(ops.Document.signalCursorMoved, onCursorEvent);
+    sessionConstraints.unsubscribe(gui.CommonConstraints.EDIT.REVIEW_MODE, updateEnabledState);
+    callback()
+  };
+  function init() {
+    odtDocument.subscribe(ops.Document.signalCursorMoved, onCursorEvent);
+    sessionConstraints.subscribe(gui.CommonConstraints.EDIT.REVIEW_MODE, updateEnabledState);
+    updateEnabledState()
+  }
+  init()
 };
-(function() {
-  return gui.TextController
-})();
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 gui.UndoManager = function UndoManager() {
 };
 gui.UndoManager.prototype.subscribe = function(signal, callback) {
@@ -14997,16 +15385,19 @@ gui.UndoManager.prototype.onOperationExecuted = function(op) {
 gui.UndoManager.signalUndoStackChanged = "undoStackChanged";
 gui.UndoManager.signalUndoStateCreated = "undoStateCreated";
 gui.UndoManager.signalUndoStateModified = "undoStateModified";
-(function() {
-  return gui.UndoManager
-})();
+gui.SessionControllerOptions = function() {
+  this.directTextStylingEnabled = false;
+  this.directParagraphStylingEnabled = false;
+  this.annotationsEnabled = false
+};
 (function() {
   var FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT;
   gui.SessionController = function SessionController(session, inputMemberId, shadowCursor, args) {
-    var window = (runtime.getWindow()), odtDocument = session.getOdtDocument(), async = new core.Async, domUtils = new core.DomUtils, odfUtils = new odf.OdfUtils, mimeDataExporter = new gui.MimeDataExporter, clipboard = new gui.Clipboard(mimeDataExporter), keyDownHandler = new gui.KeyboardHandler, keyPressHandler = new gui.KeyboardHandler, keyUpHandler = new gui.KeyboardHandler, clickStartedWithinCanvas = false, objectNameGenerator = new odf.ObjectNameGenerator(odtDocument.getOdfCanvas().odfContainer(), 
-    inputMemberId), isMouseMoved = false, mouseDownRootFilter = null, handleMouseClickTimeoutId, undoManager = null, eventManager = new gui.EventManager(odtDocument), annotationController = new gui.AnnotationController(session, inputMemberId), directFormattingController = new gui.DirectFormattingController(session, inputMemberId, objectNameGenerator, args.directParagraphStylingEnabled), createCursorStyleOp = (directFormattingController.createCursorStyleOp), createParagraphStyleOps = (directFormattingController.createParagraphStyleOps), 
-    textController = new gui.TextController(session, inputMemberId, createCursorStyleOp, createParagraphStyleOps), imageController = new gui.ImageController(session, inputMemberId, objectNameGenerator), imageSelector = new gui.ImageSelector(odtDocument.getOdfCanvas()), shadowCursorIterator = gui.SelectionMover.createPositionIterator(odtDocument.getRootNode()), drawShadowCursorTask, redrawRegionSelectionTask, pasteHandler = new gui.PlainTextPasteboard(odtDocument, inputMemberId), inputMethodEditor = 
-    new gui.InputMethodEditor(inputMemberId, eventManager), clickCount = 0, hyperlinkClickHandler = new gui.HyperlinkClickHandler(odtDocument.getRootNode), hyperlinkController = new gui.HyperlinkController(session, inputMemberId), selectionController = new gui.SelectionController(session, inputMemberId), modifier = gui.KeyboardHandler.Modifier, keyCode = gui.KeyboardHandler.KeyCode, isMacOS = window.navigator.appVersion.toLowerCase().indexOf("mac") !== -1, isIOS = ["iPad", "iPod", "iPhone"].indexOf(window.navigator.platform) !== 
+    var window = (runtime.getWindow()), odtDocument = session.getOdtDocument(), sessionConstraints = new gui.SessionConstraints, sessionContext = new gui.SessionContext(session, inputMemberId), domUtils = new core.DomUtils, odfUtils = new odf.OdfUtils, mimeDataExporter = new gui.MimeDataExporter, clipboard = new gui.Clipboard(mimeDataExporter), keyDownHandler = new gui.KeyboardHandler, keyPressHandler = new gui.KeyboardHandler, keyUpHandler = new gui.KeyboardHandler, clickStartedWithinCanvas = false, 
+    objectNameGenerator = new odf.ObjectNameGenerator(odtDocument.getOdfCanvas().odfContainer(), inputMemberId), isMouseMoved = false, mouseDownRootFilter = null, handleMouseClickTimeoutId, undoManager = null, eventManager = new gui.EventManager(odtDocument), annotationsEnabled = args.annotationsEnabled, annotationController = new gui.AnnotationController(session, sessionConstraints, inputMemberId), directFormattingController = new gui.DirectFormattingController(session, sessionConstraints, sessionContext, 
+    inputMemberId, objectNameGenerator, args.directTextStylingEnabled, args.directParagraphStylingEnabled), createCursorStyleOp = (directFormattingController.createCursorStyleOp), createParagraphStyleOps = (directFormattingController.createParagraphStyleOps), textController = new gui.TextController(session, sessionConstraints, sessionContext, inputMemberId, createCursorStyleOp, createParagraphStyleOps), imageController = new gui.ImageController(session, sessionConstraints, sessionContext, inputMemberId, 
+    objectNameGenerator), imageSelector = new gui.ImageSelector(odtDocument.getOdfCanvas()), shadowCursorIterator = odtDocument.createPositionIterator(odtDocument.getRootNode()), drawShadowCursorTask, redrawRegionSelectionTask, pasteController = new gui.PasteController(session, sessionConstraints, sessionContext, inputMemberId), inputMethodEditor = new gui.InputMethodEditor(inputMemberId, eventManager), clickCount = 0, hyperlinkClickHandler = new gui.HyperlinkClickHandler(odtDocument.getOdfCanvas().getElement, 
+    keyDownHandler, keyUpHandler), hyperlinkController = new gui.HyperlinkController(session, sessionConstraints, sessionContext, inputMemberId), selectionController = new gui.SelectionController(session, inputMemberId), metadataController = new gui.MetadataController(session, inputMemberId), modifier = gui.KeyboardHandler.Modifier, keyCode = gui.KeyboardHandler.KeyCode, isMacOS = window.navigator.appVersion.toLowerCase().indexOf("mac") !== -1, isIOS = ["iPad", "iPod", "iPhone"].indexOf(window.navigator.platform) !== 
     -1, iOSSafariSupport;
     runtime.assert(window !== null, "Expected to be run in an environment which has a global window, like a browser.");
     function getTarget(e) {
@@ -15091,7 +15482,7 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
       }
       if(plainText) {
         textController.removeCurrentSelection();
-        session.enqueue(pasteHandler.createPasteOps(plainText))
+        pasteController.paste(plainText)
       }
       cancelEvent(e)
     }
@@ -15107,16 +15498,12 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
       odtDocument.emit(ops.OdtDocument.signalUndoStackChanged, e)
     }
     function undo() {
-      var eventTrap = eventManager.getEventTrap(), sizer, hadFocusBefore;
+      var hadFocusBefore;
       if(undoManager) {
         hadFocusBefore = eventManager.hasFocus();
         undoManager.moveBackward(1);
-        sizer = odtDocument.getOdfCanvas().getSizer();
-        if(!domUtils.containsNode(sizer, eventTrap)) {
-          sizer.appendChild(eventTrap);
-          if(hadFocusBefore) {
-            eventManager.focus()
-          }
+        if(hadFocusBefore) {
+          eventManager.focus()
         }
         return true
       }
@@ -15192,13 +15579,17 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
         selection.addRange(range.cloneRange())
       }
     }
+    function computeClickCount(event) {
+      return event.button === 0 ? event.detail : 0
+    }
     function handleMouseDown(e) {
-      var target = getTarget(e), cursor = odtDocument.getCursor(inputMemberId);
+      var target = getTarget(e), cursor = odtDocument.getCursor(inputMemberId), rootNode;
       clickStartedWithinCanvas = target !== null && domUtils.containsNode(odtDocument.getOdfCanvas().getElement(), target);
       if(clickStartedWithinCanvas) {
         isMouseMoved = false;
-        mouseDownRootFilter = odtDocument.createRootFilter((target));
-        clickCount = e.detail;
+        rootNode = odtDocument.getRootElement((target)) || odtDocument.getRootNode();
+        mouseDownRootFilter = odtDocument.createRootFilter(rootNode);
+        clickCount = computeClickCount(e);
         if(cursor && e.shiftKey) {
           window.getSelection().collapse(cursor.getAnchorNode(), 0)
         }else {
@@ -15224,7 +15615,7 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
       return{container:stepIterator.container(), offset:stepIterator.offset()}
     }
     function moveByMouseClickEvent(event) {
-      var selection = mutableSelection(window.getSelection()), position, selectionRange, rect, frameNode;
+      var selection = mutableSelection(window.getSelection()), isCollapsed = window.getSelection().isCollapsed, position, selectionRange, rect, frameNode;
       if(!selection.anchorNode && !selection.focusNode) {
         position = caretPositionFromPoint(event.clientX, event.clientY);
         if(position) {
@@ -15237,11 +15628,15 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
       if(odfUtils.isImage(selection.focusNode) && (selection.focusOffset === 0 && odfUtils.isCharacterFrame(selection.focusNode.parentNode))) {
         frameNode = (selection.focusNode.parentNode);
         rect = frameNode.getBoundingClientRect();
-        if(event.clientX > rect.right) {
+        if(event.clientX > rect.left) {
           position = getNextWalkablePosition(frameNode);
           if(position) {
-            selection.anchorNode = selection.focusNode = position.container;
-            selection.anchorOffset = selection.focusOffset = position.offset
+            selection.focusNode = position.container;
+            selection.focusOffset = position.offset;
+            if(isCollapsed) {
+              selection.anchorNode = selection.focusNode;
+              selection.anchorOffset = selection.focusOffset
+            }
           }
         }
       }else {
@@ -15255,7 +15650,7 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
       }
       if(selection.anchorNode && selection.focusNode) {
         selectionRange = selectionController.selectionToRange(selection);
-        selectionController.selectRange(selectionRange.range, selectionRange.hasForwardSelection, event.detail)
+        selectionController.selectRange(selectionRange.range, selectionRange.hasForwardSelection, computeClickCount(event))
       }
       eventManager.focus()
     }
@@ -15272,16 +15667,16 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
       }
     }
     function handleMouseClickEvent(event) {
-      var target = getTarget(event), range, wasCollapsed, frameNode, pos;
+      var target = getTarget(event), clickEvent, range, wasCollapsed, frameNode, pos;
       drawShadowCursorTask.processRequests();
-      if(odfUtils.isImage(target) && (odfUtils.isCharacterFrame(target.parentNode) && window.getSelection().isCollapsed)) {
-        selectionController.selectImage((target.parentNode));
-        eventManager.focus()
-      }else {
-        if(imageSelector.isSelectorElement(target)) {
+      if(clickStartedWithinCanvas) {
+        if(odfUtils.isImage(target) && (odfUtils.isCharacterFrame(target.parentNode) && window.getSelection().isCollapsed)) {
+          selectionController.selectImage((target.parentNode));
           eventManager.focus()
         }else {
-          if(clickStartedWithinCanvas) {
+          if(imageSelector.isSelectorElement(target)) {
+            eventManager.focus()
+          }else {
             if(isMouseMoved) {
               range = shadowCursor.getSelectedRange();
               wasCollapsed = range.collapsed;
@@ -15295,23 +15690,24 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
                   }
                 }
               }
-              selectionController.selectRange(range, shadowCursor.hasForwardSelection(), event.detail);
+              selectionController.selectRange(range, shadowCursor.hasForwardSelection(), computeClickCount(event));
               eventManager.focus()
             }else {
               if(isIOS) {
                 moveByMouseClickEvent(event)
               }else {
+                clickEvent = domUtils.cloneEvent(event);
                 handleMouseClickTimeoutId = runtime.setTimeout(function() {
-                  moveByMouseClickEvent(event)
+                  moveByMouseClickEvent(clickEvent)
                 }, 0)
               }
             }
           }
         }
+        clickCount = 0;
+        clickStartedWithinCanvas = false;
+        isMouseMoved = false
       }
-      clickCount = 0;
-      clickStartedWithinCanvas = false;
-      isMouseMoved = false
     }
     function handleDragStart(e) {
       var cursor = odtDocument.getCursor(inputMemberId), selectedRange = cursor.getSelectedRange();
@@ -15334,11 +15730,12 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
     function handleMouseUp(event) {
       var target = (getTarget(event)), annotationNode = null;
       if(target.className === "annotationRemoveButton") {
+        runtime.assert(annotationsEnabled, "Remove buttons are displayed on annotations while annotation editing is disabled in the controller.");
         annotationNode = domUtils.getElementsByTagNameNS((target.parentNode), odf.Namespaces.officens, "annotation")[0];
         annotationController.removeAnnotation(annotationNode);
         eventManager.focus()
       }else {
-        if(target.getAttribute("class") !== "draggable") {
+        if(target.getAttribute("class") !== "webodf-draggable") {
           handleMouseClickEvent(event)
         }
       }
@@ -15346,7 +15743,11 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
     function insertNonEmptyData(e) {
       var input = e.data;
       if(input) {
-        textController.insertText(input)
+        if(input.indexOf("\n") === -1) {
+          textController.insertText(input)
+        }else {
+          pasteController.paste(input)
+        }
       }
     }
     function returnTrue(fn) {
@@ -15386,12 +15787,11 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
       eventManager.subscribe("cut", handleCut);
       eventManager.subscribe("beforepaste", handleBeforePaste);
       eventManager.subscribe("paste", handlePaste);
-      window.addEventListener("focus", hyperlinkClickHandler.showTextCursor, false);
       if(undoManager) {
         undoManager.initialize()
       }
-      inputMethodEditor.setEditing(true);
-      hyperlinkClickHandler.setModifier(isMacOS ? gui.HyperlinkClickHandler.Modifier.Meta : gui.HyperlinkClickHandler.Modifier.Ctrl);
+      eventManager.setEditing(true);
+      hyperlinkClickHandler.setModifier(isMacOS ? modifier.Meta : modifier.Ctrl);
       keyDownHandler.bind(keyCode.Backspace, modifier.None, returnTrue(textController.removeTextByBackspaceKey), true);
       keyDownHandler.bind(keyCode.Delete, modifier.None, textController.removeTextByDeleteKey);
       keyDownHandler.bind(keyCode.Tab, modifier.None, rangeSelectionOnly(function() {
@@ -15407,13 +15807,11 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
         keyDownHandler.bind(keyCode.E, modifier.MetaShift, rangeSelectionOnly(directFormattingController.alignParagraphCenter));
         keyDownHandler.bind(keyCode.R, modifier.MetaShift, rangeSelectionOnly(directFormattingController.alignParagraphRight));
         keyDownHandler.bind(keyCode.J, modifier.MetaShift, rangeSelectionOnly(directFormattingController.alignParagraphJustified));
-        keyDownHandler.bind(keyCode.C, modifier.MetaShift, annotationController.addAnnotation);
+        if(annotationsEnabled) {
+          keyDownHandler.bind(keyCode.C, modifier.MetaShift, annotationController.addAnnotation)
+        }
         keyDownHandler.bind(keyCode.Z, modifier.Meta, undo);
-        keyDownHandler.bind(keyCode.Z, modifier.MetaShift, redo);
-        keyDownHandler.bind(keyCode.LeftMeta, modifier.Meta, hyperlinkClickHandler.showPointerCursor);
-        keyDownHandler.bind(keyCode.MetaInMozilla, modifier.Meta, hyperlinkClickHandler.showPointerCursor);
-        keyUpHandler.bind(keyCode.LeftMeta, modifier.None, hyperlinkClickHandler.showTextCursor);
-        keyUpHandler.bind(keyCode.MetaInMozilla, modifier.None, hyperlinkClickHandler.showTextCursor)
+        keyDownHandler.bind(keyCode.Z, modifier.MetaShift, redo)
       }else {
         keyDownHandler.bind(keyCode.B, modifier.Ctrl, rangeSelectionOnly(directFormattingController.toggleBold));
         keyDownHandler.bind(keyCode.I, modifier.Ctrl, rangeSelectionOnly(directFormattingController.toggleItalic));
@@ -15422,11 +15820,11 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
         keyDownHandler.bind(keyCode.E, modifier.CtrlShift, rangeSelectionOnly(directFormattingController.alignParagraphCenter));
         keyDownHandler.bind(keyCode.R, modifier.CtrlShift, rangeSelectionOnly(directFormattingController.alignParagraphRight));
         keyDownHandler.bind(keyCode.J, modifier.CtrlShift, rangeSelectionOnly(directFormattingController.alignParagraphJustified));
-        keyDownHandler.bind(keyCode.C, modifier.CtrlAlt, annotationController.addAnnotation);
+        if(annotationsEnabled) {
+          keyDownHandler.bind(keyCode.C, modifier.CtrlAlt, annotationController.addAnnotation)
+        }
         keyDownHandler.bind(keyCode.Z, modifier.Ctrl, undo);
-        keyDownHandler.bind(keyCode.Z, modifier.CtrlShift, redo);
-        keyDownHandler.bind(keyCode.Ctrl, modifier.Ctrl, hyperlinkClickHandler.showPointerCursor);
-        keyUpHandler.bind(keyCode.Ctrl, modifier.None, hyperlinkClickHandler.showTextCursor)
+        keyDownHandler.bind(keyCode.Z, modifier.CtrlShift, redo)
       }
       function handler(e) {
         var text = stringFromKeyPress(e);
@@ -15446,9 +15844,8 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
       eventManager.unsubscribe("beforecut", handleBeforeCut);
       eventManager.unsubscribe("paste", handlePaste);
       eventManager.unsubscribe("beforepaste", handleBeforePaste);
-      window.removeEventListener("focus", hyperlinkClickHandler.showTextCursor, false);
-      inputMethodEditor.setEditing(false);
-      hyperlinkClickHandler.setModifier(gui.HyperlinkClickHandler.Modifier.None);
+      eventManager.setEditing(false);
+      hyperlinkClickHandler.setModifier(modifier.None);
       keyDownHandler.bind(keyCode.Backspace, modifier.None, function() {
         return true
       }, true);
@@ -15463,13 +15860,11 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
         keyDownHandler.unbind(keyCode.E, modifier.MetaShift);
         keyDownHandler.unbind(keyCode.R, modifier.MetaShift);
         keyDownHandler.unbind(keyCode.J, modifier.MetaShift);
-        keyDownHandler.unbind(keyCode.C, modifier.MetaShift);
+        if(annotationsEnabled) {
+          keyDownHandler.unbind(keyCode.C, modifier.MetaShift)
+        }
         keyDownHandler.unbind(keyCode.Z, modifier.Meta);
-        keyDownHandler.unbind(keyCode.Z, modifier.MetaShift);
-        keyDownHandler.unbind(keyCode.LeftMeta, modifier.Meta);
-        keyDownHandler.unbind(keyCode.MetaInMozilla, modifier.Meta);
-        keyUpHandler.unbind(keyCode.LeftMeta, modifier.None);
-        keyUpHandler.unbind(keyCode.MetaInMozilla, modifier.None)
+        keyDownHandler.unbind(keyCode.Z, modifier.MetaShift)
       }else {
         keyDownHandler.unbind(keyCode.B, modifier.Ctrl);
         keyDownHandler.unbind(keyCode.I, modifier.Ctrl);
@@ -15478,11 +15873,11 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
         keyDownHandler.unbind(keyCode.E, modifier.CtrlShift);
         keyDownHandler.unbind(keyCode.R, modifier.CtrlShift);
         keyDownHandler.unbind(keyCode.J, modifier.CtrlShift);
-        keyDownHandler.unbind(keyCode.C, modifier.CtrlAlt);
+        if(annotationsEnabled) {
+          keyDownHandler.unbind(keyCode.C, modifier.CtrlAlt)
+        }
         keyDownHandler.unbind(keyCode.Z, modifier.Ctrl);
-        keyDownHandler.unbind(keyCode.Z, modifier.CtrlShift);
-        keyDownHandler.unbind(keyCode.Ctrl, modifier.Ctrl);
-        keyUpHandler.unbind(keyCode.Ctrl, modifier.None)
+        keyDownHandler.unbind(keyCode.Z, modifier.CtrlShift)
       }
       keyPressHandler.setDefault(null);
       keyPressHandler.unbind(keyCode.Enter, modifier.None)
@@ -15492,6 +15887,9 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
     };
     this.getSession = function() {
       return session
+    };
+    this.getSessionConstraints = function() {
+      return sessionConstraints
     };
     this.setUndoManager = function(manager) {
       if(undoManager) {
@@ -15507,11 +15905,17 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
     this.getUndoManager = function() {
       return undoManager
     };
+    this.getMetadataController = function() {
+      return metadataController
+    };
     this.getAnnotationController = function() {
       return annotationController
     };
     this.getDirectFormattingController = function() {
       return directFormattingController
+    };
+    this.getHyperlinkClickHandler = function() {
+      return hyperlinkClickHandler
     };
     this.getHyperlinkController = function() {
       return hyperlinkController
@@ -15553,17 +15957,16 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
       callback()
     }
     this.destroy = function(callback) {
-      var destroyCallbacks = [];
+      var destroyCallbacks = [drawShadowCursorTask.destroy, redrawRegionSelectionTask.destroy, directFormattingController.destroy, inputMethodEditor.destroy, eventManager.destroy, hyperlinkClickHandler.destroy, hyperlinkController.destroy, metadataController.destroy, selectionController.destroy, textController.destroy, destroy];
       if(iOSSafariSupport) {
-        destroyCallbacks.push(iOSSafariSupport.destroy)
+        destroyCallbacks.unshift(iOSSafariSupport.destroy)
       }
-      destroyCallbacks = destroyCallbacks.concat([drawShadowCursorTask.destroy, redrawRegionSelectionTask.destroy, directFormattingController.destroy, inputMethodEditor.destroy, eventManager.destroy, destroy]);
       runtime.clearTimeout(handleMouseClickTimeoutId);
-      async.destroyAll(destroyCallbacks, callback)
+      core.Async.destroyAll(destroyCallbacks, callback)
     };
     function init() {
-      drawShadowCursorTask = new core.ScheduledTask(updateShadowCursor, 0);
-      redrawRegionSelectionTask = new core.ScheduledTask(redrawRegionSelection, 0);
+      drawShadowCursorTask = core.Task.createRedrawTask(updateShadowCursor);
+      redrawRegionSelectionTask = core.Task.createRedrawTask(redrawRegionSelection);
       keyDownHandler.bind(keyCode.Left, modifier.None, rangeSelectionOnly(selectionController.moveCursorToLeft));
       keyDownHandler.bind(keyCode.Right, modifier.None, rangeSelectionOnly(selectionController.moveCursorToRight));
       keyDownHandler.bind(keyCode.Up, modifier.None, rangeSelectionOnly(selectionController.moveCursorUp));
@@ -15628,50 +16031,19 @@ gui.UndoManager.signalUndoStateModified = "undoStateModified";
       odtDocument.subscribe(ops.OdtDocument.signalOperationEnd, updateUndoStack)
     }
     init()
-  };
-  return gui.SessionController
+  }
 })();
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
-gui.CaretManager = function CaretManager(sessionController) {
-  var carets = {}, async = new core.Async, window = runtime.getWindow(), ensureCaretVisibleTimeoutId, scrollIntoViewScheduled = false;
+gui.CaretManager = function CaretManager(sessionController, viewport) {
+  var carets = {}, window = runtime.getWindow(), odtDocument = sessionController.getSession().getOdtDocument(), eventManager = sessionController.getEventManager();
   function getCaret(memberId) {
     return carets.hasOwnProperty(memberId) ? carets[memberId] : null
+  }
+  function getLocalCaretXOffsetPx() {
+    var localCaret = getCaret(sessionController.getInputMemberId()), lastRect;
+    if(localCaret) {
+      lastRect = localCaret.getBoundingClientRect()
+    }
+    return lastRect ? lastRect.right : undefined
   }
   function getCarets() {
     return Object.keys(carets).map(function(memberid) {
@@ -15681,104 +16053,56 @@ gui.CaretManager = function CaretManager(sessionController) {
   function removeCaret(memberId) {
     var caret = carets[memberId];
     if(caret) {
+      delete carets[memberId];
+      if(memberId === sessionController.getInputMemberId()) {
+        odtDocument.unsubscribe(ops.OdtDocument.signalProcessingBatchEnd, caret.ensureVisible);
+        odtDocument.unsubscribe(ops.Document.signalCursorMoved, caret.refreshCursorBlinking);
+        eventManager.unsubscribe("compositionupdate", caret.handleUpdate);
+        eventManager.unsubscribe("compositionend", caret.handleUpdate);
+        eventManager.unsubscribe("focus", caret.setFocus);
+        eventManager.unsubscribe("blur", caret.removeFocus);
+        window.removeEventListener("focus", caret.show, false);
+        window.removeEventListener("blur", caret.hide, false)
+      }else {
+        odtDocument.unsubscribe(ops.OdtDocument.signalProcessingBatchEnd, caret.handleUpdate)
+      }
       caret.destroy(function() {
-      });
-      delete carets[memberId]
-    }
-  }
-  function refreshLocalCaretBlinking(cursor) {
-    var caret, memberId = cursor.getMemberId();
-    if(memberId === sessionController.getInputMemberId()) {
-      caret = getCaret(memberId);
-      if(caret) {
-        caret.refreshCursorBlinking()
-      }
-    }
-  }
-  function executeEnsureCaretVisible() {
-    var caret = getCaret(sessionController.getInputMemberId());
-    scrollIntoViewScheduled = false;
-    if(caret) {
-      caret.ensureVisible()
-    }
-  }
-  function scheduleCaretVisibilityCheck() {
-    var caret = getCaret(sessionController.getInputMemberId());
-    if(caret) {
-      caret.handleUpdate();
-      if(!scrollIntoViewScheduled) {
-        scrollIntoViewScheduled = true;
-        ensureCaretVisibleTimeoutId = runtime.setTimeout(executeEnsureCaretVisible, 50)
-      }
-    }
-  }
-  function ensureLocalCaretVisible(info) {
-    if(info.memberId === sessionController.getInputMemberId()) {
-      scheduleCaretVisibilityCheck()
-    }
-  }
-  function focusLocalCaret() {
-    var caret = getCaret(sessionController.getInputMemberId());
-    if(caret) {
-      caret.setFocus()
-    }
-  }
-  function blurLocalCaret() {
-    var caret = getCaret(sessionController.getInputMemberId());
-    if(caret) {
-      caret.removeFocus()
-    }
-  }
-  function showLocalCaret() {
-    var caret = getCaret(sessionController.getInputMemberId());
-    if(caret) {
-      caret.show()
-    }
-  }
-  function hideLocalCaret() {
-    var caret = getCaret(sessionController.getInputMemberId());
-    if(caret) {
-      caret.hide()
+      })
     }
   }
   this.registerCursor = function(cursor, caretAvatarInitiallyVisible, blinkOnRangeSelect) {
-    var memberid = cursor.getMemberId(), caret = new gui.Caret(cursor, caretAvatarInitiallyVisible, blinkOnRangeSelect), eventManager = sessionController.getEventManager();
+    var memberid = cursor.getMemberId(), caret = new gui.Caret(cursor, viewport, caretAvatarInitiallyVisible, blinkOnRangeSelect);
     carets[memberid] = caret;
     if(memberid === sessionController.getInputMemberId()) {
       runtime.log("Starting to track input on new cursor of " + memberid);
-      cursor.subscribe(ops.OdtCursor.signalCursorUpdated, scheduleCaretVisibilityCheck);
+      odtDocument.subscribe(ops.OdtDocument.signalProcessingBatchEnd, caret.ensureVisible);
+      odtDocument.subscribe(ops.Document.signalCursorMoved, caret.refreshCursorBlinking);
+      eventManager.subscribe("compositionupdate", caret.handleUpdate);
+      eventManager.subscribe("compositionend", caret.handleUpdate);
+      eventManager.subscribe("focus", caret.setFocus);
+      eventManager.subscribe("blur", caret.removeFocus);
+      window.addEventListener("focus", caret.show, false);
+      window.addEventListener("blur", caret.hide, false);
       caret.setOverlayElement(eventManager.getEventTrap())
     }else {
-      cursor.subscribe(ops.OdtCursor.signalCursorUpdated, caret.handleUpdate)
+      odtDocument.subscribe(ops.OdtDocument.signalProcessingBatchEnd, caret.handleUpdate)
     }
     return caret
   };
   this.getCaret = getCaret;
   this.getCarets = getCarets;
   this.destroy = function(callback) {
-    var odtDocument = sessionController.getSession().getOdtDocument(), eventManager = sessionController.getEventManager(), caretCleanup = getCarets().map(function(caret) {
+    var caretCleanup = getCarets().map(function(caret) {
       return caret.destroy
     });
-    runtime.clearTimeout(ensureCaretVisibleTimeoutId);
-    odtDocument.unsubscribe(ops.OdtDocument.signalParagraphChanged, ensureLocalCaretVisible);
-    odtDocument.unsubscribe(ops.Document.signalCursorMoved, refreshLocalCaretBlinking);
+    sessionController.getSelectionController().setCaretXPositionLocator(null);
     odtDocument.unsubscribe(ops.Document.signalCursorRemoved, removeCaret);
-    eventManager.unsubscribe("focus", focusLocalCaret);
-    eventManager.unsubscribe("blur", blurLocalCaret);
-    window.removeEventListener("focus", showLocalCaret, false);
-    window.removeEventListener("blur", hideLocalCaret, false);
     carets = {};
-    async.destroyAll(caretCleanup, callback)
+    core.Async.destroyAll(caretCleanup, callback)
   };
   function init() {
-    var odtDocument = sessionController.getSession().getOdtDocument(), eventManager = sessionController.getEventManager();
-    odtDocument.subscribe(ops.OdtDocument.signalParagraphChanged, ensureLocalCaretVisible);
-    odtDocument.subscribe(ops.Document.signalCursorMoved, refreshLocalCaretBlinking);
-    odtDocument.subscribe(ops.Document.signalCursorRemoved, removeCaret);
-    eventManager.subscribe("focus", focusLocalCaret);
-    eventManager.subscribe("blur", blurLocalCaret);
-    window.addEventListener("focus", showLocalCaret, false);
-    window.addEventListener("blur", hideLocalCaret, false)
+    sessionController.getSelectionController().setCaretXPositionLocator(getLocalCaretXOffsetPx);
+    odtDocument.subscribe(ops.Document.signalCursorRemoved, removeCaret)
   }
   init()
 };
@@ -15828,43 +16152,6 @@ gui.EditInfoHandle = function EditInfoHandle(parentElement) {
   }
   init()
 };
-/*
-
- Copyright (C) 2012 KO GmbH <aditya.bhatt@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.EditInfo = function EditInfo(container, odtDocument) {
   var editInfoNode, editHistory = {};
   function sortEdits() {
@@ -15910,43 +16197,6 @@ ops.EditInfo = function EditInfo(container, odtDocument) {
   }
   init()
 };
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 gui.EditInfoMarker = function EditInfoMarker(editInfo, initialVisibility) {
   var self = this, editInfoNode, handle, marker, editinfons = "urn:webodf:names:editinfo", decayTimer0, decayTimer1, decayTimer2, decayTimeStep = 1E4;
   function applyDecay(opacity, delay) {
@@ -16038,6 +16288,81 @@ gui.EditInfoMarker = function EditInfoMarker(editInfo, initialVisibility) {
   }
   init()
 };
+gui.HyperlinkTooltipView = function HyperlinkTooltipView(odfCanvas, getActiveModifier) {
+  var domUtils = new core.DomUtils, odfUtils = new odf.OdfUtils, window = (runtime.getWindow()), linkSpan, textSpan, tooltipElement, offsetXPx = 15, offsetYPx = 10;
+  runtime.assert(window !== null, "Expected to be run in an environment which has a global window, like a browser.");
+  function getHyperlinkElement(node) {
+    while(node) {
+      if(odfUtils.isHyperlink(node)) {
+        return(node)
+      }
+      if(odfUtils.isParagraph(node) || odfUtils.isInlineRoot(node)) {
+        break
+      }
+      node = node.parentNode
+    }
+    return null
+  }
+  function getHint() {
+    var modifierKey = getActiveModifier(), hint;
+    switch(modifierKey) {
+      case gui.KeyboardHandler.Modifier.Ctrl:
+        hint = runtime.tr("Ctrl-click to follow link");
+        break;
+      case gui.KeyboardHandler.Modifier.Meta:
+        hint = runtime.tr("\u2318-click to follow link");
+        break;
+      default:
+        hint = "";
+        break
+    }
+    return hint
+  }
+  this.showTooltip = function(e) {
+    var target = e.target || e.srcElement, sizerElement = (odfCanvas.getSizer()), zoomLevel = odfCanvas.getZoomLevel(), referenceRect, linkElement, left, top, max;
+    linkElement = getHyperlinkElement((target));
+    if(!linkElement) {
+      return
+    }
+    if(!domUtils.containsNode(sizerElement, tooltipElement)) {
+      sizerElement.appendChild(tooltipElement)
+    }
+    textSpan.textContent = getHint();
+    linkSpan.textContent = odfUtils.getHyperlinkTarget(linkElement);
+    tooltipElement.style.display = "block";
+    max = window.innerWidth - tooltipElement.offsetWidth - offsetXPx;
+    left = e.clientX > max ? max : e.clientX + offsetXPx;
+    max = window.innerHeight - tooltipElement.offsetHeight - offsetYPx;
+    top = e.clientY > max ? max : e.clientY + offsetYPx;
+    referenceRect = sizerElement.getBoundingClientRect();
+    left = (left - referenceRect.left) / zoomLevel;
+    top = (top - referenceRect.top) / zoomLevel;
+    tooltipElement.style.left = left + "px";
+    tooltipElement.style.top = top + "px"
+  };
+  this.hideTooltip = function() {
+    tooltipElement.style.display = "none"
+  };
+  this.destroy = function(callback) {
+    if(tooltipElement.parentNode) {
+      tooltipElement.parentNode.removeChild(tooltipElement)
+    }
+    callback()
+  };
+  function init() {
+    var document = odfCanvas.getElement().ownerDocument;
+    linkSpan = document.createElement("span");
+    textSpan = document.createElement("span");
+    linkSpan.className = "webodf-hyperlinkTooltipLink";
+    textSpan.className = "webodf-hyperlinkTooltipText";
+    tooltipElement = (document.createElement("div"));
+    tooltipElement.className = "webodf-hyperlinkTooltip";
+    tooltipElement.appendChild(linkSpan);
+    tooltipElement.appendChild(textSpan);
+    odfCanvas.getElement().appendChild(tooltipElement)
+  }
+  init()
+};
 gui.ShadowCursor = function ShadowCursor(document) {
   var selectedRange = (document.getDOMDocument().createRange()), forwardSelection = true;
   this.removeFromDocument = function() {
@@ -16067,9 +16392,6 @@ gui.ShadowCursor = function ShadowCursor(document) {
   init()
 };
 gui.ShadowCursor.ShadowCursorMemberId = "";
-(function() {
-  return gui.ShadowCursor
-})();
 gui.SelectionView = function SelectionView(cursor) {
 };
 gui.SelectionView.prototype.rerender = function() {
@@ -16080,43 +16402,6 @@ gui.SelectionView.prototype.hide = function() {
 };
 gui.SelectionView.prototype.destroy = function(callback) {
 };
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 gui.SelectionViewManager = function SelectionViewManager(SelectionView) {
   var selectionViews = {};
   function getSelectionView(memberId) {
@@ -16182,43 +16467,6 @@ gui.SelectionViewManager = function SelectionViewManager(SelectionView) {
     destroySelectionView(0, undefined)
   }
 };
-/*
-
- Copyright (C) 2012-2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 gui.SessionViewOptions = function() {
   this.editInfoMarkersInitiallyVisible = true;
   this.caretAvatarsInitiallyVisible = true;
@@ -16228,8 +16476,20 @@ gui.SessionViewOptions = function() {
   function configOption(userValue, defaultValue) {
     return userValue !== undefined ? Boolean(userValue) : defaultValue
   }
-  gui.SessionView = function SessionView(viewOptions, localMemberId, session, caretManager, selectionViewManager) {
-    var avatarInfoStyles, editInfons = "urn:webodf:names:editinfo", editInfoMap = {}, showEditInfoMarkers = configOption(viewOptions.editInfoMarkersInitiallyVisible, true), showCaretAvatars = configOption(viewOptions.caretAvatarsInitiallyVisible, true), blinkOnRangeSelect = configOption(viewOptions.caretBlinksOnRangeSelect, true);
+  gui.SessionView = function SessionView(viewOptions, localMemberId, session, sessionConstraints, caretManager, selectionViewManager) {
+    var avatarInfoStyles, annotationConstraintStyles, editInfons = "urn:webodf:names:editinfo", editInfoMap = {}, odtDocument, odfCanvas, highlightRefreshTask, showEditInfoMarkers = configOption(viewOptions.editInfoMarkersInitiallyVisible, true), showCaretAvatars = configOption(viewOptions.caretAvatarsInitiallyVisible, true), blinkOnRangeSelect = configOption(viewOptions.caretBlinksOnRangeSelect, true);
+    function onAnnotationAdded(info) {
+      if(info.memberId === localMemberId) {
+        odfCanvas.getViewport().scrollIntoView(info.annotation.getBoundingClientRect())
+      }
+    }
+    function newStyleSheet() {
+      var head = document.getElementsByTagName("head").item(0), sheet = (document.createElement("style"));
+      sheet.type = "text/css";
+      sheet.media = "screen, print, handheld, projection";
+      head.appendChild(sheet);
+      return sheet
+    }
     function createAvatarInfoNodeMatch(nodeName, memberId, pseudoClass) {
       return nodeName + '[editinfo|memberid="' + memberId + '"]' + pseudoClass
     }
@@ -16256,9 +16516,12 @@ gui.SessionViewOptions = function() {
       setStyle("span.editInfoColor", "{ background-color: " + color + "; }", "");
       setStyle("span.editInfoAuthor", '{ content: "' + name + '"; }', ":before");
       setStyle("dc|creator", "{ background-color: " + color + "; }", "");
-      setStyle(".selectionOverlay", "{ fill: " + color + "; stroke: " + color + ";}", "");
-      if(memberId === gui.ShadowCursor.ShadowCursorMemberId || memberId === localMemberId) {
-        setStyle(".webodf-touchEnabled .selectionOverlay", "{ display: block; }", " > .draggable")
+      setStyle(".webodf-selectionOverlay", "{ fill: " + color + "; stroke: " + color + ";}", "");
+      if(memberId === localMemberId) {
+        setStyle(".webodf-touchEnabled .webodf-selectionOverlay", "{ display: block; }", " > .webodf-draggable");
+        memberId = gui.ShadowCursor.ShadowCursorMemberId;
+        setStyle(".webodf-selectionOverlay", "{ fill: " + color + "; stroke: " + color + ";}", "");
+        setStyle(".webodf-touchEnabled .webodf-selectionOverlay", "{ display: block; }", " > .webodf-draggable")
       }
     }
     function highlightEdit(element, memberId, timestamp) {
@@ -16334,10 +16597,7 @@ gui.SessionViewOptions = function() {
     };
     function renderMemberData(member) {
       var memberId = member.getMemberId(), properties = member.getProperties();
-      setAvatarInfoStyle(memberId, properties.fullName, properties.color);
-      if(localMemberId === memberId) {
-        setAvatarInfoStyle("", "", properties.color)
-      }
+      setAvatarInfoStyle(memberId, properties.fullName, properties.color)
     }
     function onCursorAdded(cursor) {
       var memberId = cursor.getMemberId(), properties = session.getOdtDocument().getMember(memberId).getProperties(), caret;
@@ -16376,10 +16636,32 @@ gui.SessionViewOptions = function() {
       selectionViewManager.removeSelectionView(memberid)
     }
     function onParagraphChanged(info) {
-      highlightEdit(info.paragraphElement, info.memberId, info.timeStamp)
+      highlightEdit(info.paragraphElement, info.memberId, info.timeStamp);
+      highlightRefreshTask.trigger()
     }
-    this.destroy = function(callback) {
-      var odtDocument = session.getOdtDocument(), editInfoArray = Object.keys(editInfoMap).map(function(keyname) {
+    function refreshHighlights() {
+      var annotationViewManager = odfCanvas.getAnnotationViewManager();
+      if(annotationViewManager) {
+        annotationViewManager.rehighlightAnnotations();
+        odtDocument.fixCursorPositions()
+      }
+    }
+    function processConstraints() {
+      var localMemberName, cssString, localMember;
+      if(annotationConstraintStyles.innerHTML !== "") {
+        annotationConstraintStyles.innerHTML = ""
+      }
+      if(sessionConstraints.getState(gui.CommonConstraints.EDIT.ANNOTATIONS.ONLY_DELETE_OWN) === true) {
+        localMember = session.getOdtDocument().getMember(localMemberId);
+        if(localMember) {
+          localMemberName = localMember.getProperties().fullName;
+          cssString = ".annotationWrapper:not([creator = '" + localMemberName + "']) .annotationRemoveButton { display: none; }";
+          annotationConstraintStyles.appendChild(document.createTextNode(cssString))
+        }
+      }
+    }
+    function destroy(callback) {
+      var editInfoArray = Object.keys(editInfoMap).map(function(keyname) {
         return editInfoMap[keyname]
       });
       odtDocument.unsubscribe(ops.Document.signalMemberAdded, renderMemberData);
@@ -16391,7 +16673,11 @@ gui.SessionViewOptions = function() {
       odtDocument.unsubscribe(ops.OdtDocument.signalParagraphChanged, selectionViewManager.rerenderSelectionViews);
       odtDocument.unsubscribe(ops.OdtDocument.signalTableAdded, selectionViewManager.rerenderSelectionViews);
       odtDocument.unsubscribe(ops.OdtDocument.signalParagraphStyleModified, selectionViewManager.rerenderSelectionViews);
+      sessionConstraints.unsubscribe(gui.CommonConstraints.EDIT.ANNOTATIONS.ONLY_DELETE_OWN, processConstraints);
+      odtDocument.unsubscribe(ops.Document.signalMemberAdded, processConstraints);
+      odtDocument.unsubscribe(ops.Document.signalMemberUpdated, processConstraints);
       avatarInfoStyles.parentNode.removeChild(avatarInfoStyles);
+      annotationConstraintStyles.parentNode.removeChild(annotationConstraintStyles);
       (function destroyEditInfo(i, err) {
         if(err) {
           callback(err)
@@ -16405,9 +16691,16 @@ gui.SessionViewOptions = function() {
           }
         }
       })(0, undefined)
+    }
+    this.destroy = function(callback) {
+      var cleanup = [highlightRefreshTask.destroy, destroy];
+      odtDocument.unsubscribe(ops.OdtDocument.signalAnnotationAdded, onAnnotationAdded);
+      core.Async.destroyAll(cleanup, callback)
     };
     function init() {
-      var odtDocument = session.getOdtDocument(), head = document.getElementsByTagName("head").item(0);
+      odtDocument = session.getOdtDocument();
+      odfCanvas = odtDocument.getOdfCanvas();
+      odtDocument.subscribe(ops.OdtDocument.signalAnnotationAdded, onAnnotationAdded);
       odtDocument.subscribe(ops.Document.signalMemberAdded, renderMemberData);
       odtDocument.subscribe(ops.Document.signalMemberUpdated, renderMemberData);
       odtDocument.subscribe(ops.Document.signalCursorAdded, onCursorAdded);
@@ -16417,28 +16710,31 @@ gui.SessionViewOptions = function() {
       odtDocument.subscribe(ops.OdtDocument.signalParagraphChanged, selectionViewManager.rerenderSelectionViews);
       odtDocument.subscribe(ops.OdtDocument.signalTableAdded, selectionViewManager.rerenderSelectionViews);
       odtDocument.subscribe(ops.OdtDocument.signalParagraphStyleModified, selectionViewManager.rerenderSelectionViews);
-      avatarInfoStyles = (document.createElementNS(head.namespaceURI, "style"));
-      avatarInfoStyles.type = "text/css";
-      avatarInfoStyles.media = "screen, print, handheld, projection";
+      sessionConstraints.subscribe(gui.CommonConstraints.EDIT.ANNOTATIONS.ONLY_DELETE_OWN, processConstraints);
+      odtDocument.subscribe(ops.Document.signalMemberAdded, processConstraints);
+      odtDocument.subscribe(ops.Document.signalMemberUpdated, processConstraints);
+      avatarInfoStyles = newStyleSheet();
       avatarInfoStyles.appendChild(document.createTextNode("@namespace editinfo url(urn:webodf:names:editinfo);"));
       avatarInfoStyles.appendChild(document.createTextNode("@namespace dc url(http://purl.org/dc/elements/1.1/);"));
-      head.appendChild(avatarInfoStyles)
+      annotationConstraintStyles = newStyleSheet();
+      processConstraints();
+      highlightRefreshTask = core.Task.createRedrawTask(refreshHighlights)
     }
     init()
   }
 })();
 gui.SvgSelectionView = function SvgSelectionView(cursor) {
-  var document = cursor.getDocument(), documentRoot, root, doc = document.getDOMDocument(), async = new core.Async, svgns = "http://www.w3.org/2000/svg", overlay = doc.createElementNS(svgns, "svg"), polygon = doc.createElementNS(svgns, "polygon"), handle1 = doc.createElementNS(svgns, "circle"), handle2 = doc.createElementNS(svgns, "circle"), odfUtils = new odf.OdfUtils, domUtils = new core.DomUtils, zoomHelper = document.getCanvas().getZoomHelper(), isVisible = true, positionIterator = gui.SelectionMover.createPositionIterator(document.getRootNode()), 
+  var document = cursor.getDocument(), documentRoot, sizer, doc = document.getDOMDocument(), svgns = "http://www.w3.org/2000/svg", overlay = doc.createElementNS(svgns, "svg"), polygon = doc.createElementNS(svgns, "polygon"), handle1 = doc.createElementNS(svgns, "circle"), handle2 = doc.createElementNS(svgns, "circle"), odfUtils = new odf.OdfUtils, domUtils = new core.DomUtils, zoomHelper = document.getCanvas().getZoomHelper(), isVisible = true, positionIterator = cursor.getDocument().createPositionIterator(document.getRootNode()), 
   FILTER_ACCEPT = NodeFilter.FILTER_ACCEPT, FILTER_REJECT = NodeFilter.FILTER_REJECT, HANDLE_RADIUS = 8, renderTask;
   function addOverlay() {
     var newDocumentRoot = document.getRootNode();
     if(documentRoot !== newDocumentRoot) {
       documentRoot = newDocumentRoot;
-      root = (documentRoot.parentNode.parentNode.parentNode);
-      root.appendChild(overlay);
-      overlay.setAttribute("class", "selectionOverlay");
-      handle1.setAttribute("class", "draggable");
-      handle2.setAttribute("class", "draggable");
+      sizer = document.getCanvas().getSizer();
+      sizer.appendChild(overlay);
+      overlay.setAttribute("class", "webodf-selectionOverlay");
+      handle1.setAttribute("class", "webodf-draggable");
+      handle2.setAttribute("class", "webodf-draggable");
       handle1.setAttribute("end", "left");
       handle2.setAttribute("end", "right");
       handle1.setAttribute("r", HANDLE_RADIUS);
@@ -16447,16 +16743,6 @@ gui.SvgSelectionView = function SvgSelectionView(cursor) {
       overlay.appendChild(handle1);
       overlay.appendChild(handle2)
     }
-  }
-  function translateRect(rect) {
-    var rootRect = domUtils.getBoundingClientRect(root), zoomLevel = zoomHelper.getZoomLevel(), resultRect = {};
-    resultRect.top = domUtils.adaptRangeDifferenceToZoomLevel(rect.top - rootRect.top, zoomLevel);
-    resultRect.left = domUtils.adaptRangeDifferenceToZoomLevel(rect.left - rootRect.left, zoomLevel);
-    resultRect.bottom = domUtils.adaptRangeDifferenceToZoomLevel(rect.bottom - rootRect.top, zoomLevel);
-    resultRect.right = domUtils.adaptRangeDifferenceToZoomLevel(rect.right - rootRect.left, zoomLevel);
-    resultRect.width = domUtils.adaptRangeDifferenceToZoomLevel(rect.width, zoomLevel);
-    resultRect.height = domUtils.adaptRangeDifferenceToZoomLevel(rect.height, zoomLevel);
-    return resultRect
   }
   function isRangeVisible(range) {
     var bcr = range.getBoundingClientRect();
@@ -16663,18 +16949,18 @@ gui.SvgSelectionView = function SvgSelectionView(cursor) {
     polygon.setAttribute("points", pointsString)
   }
   function repositionOverlays(selectedRange) {
-    var extremes = getExtremeRanges(selectedRange), firstRange, lastRange, fillerRange, firstRect, fillerRect, lastRect, left, right, top, bottom;
+    var rootRect = (domUtils.getBoundingClientRect(sizer)), zoomLevel = zoomHelper.getZoomLevel(), extremes = getExtremeRanges(selectedRange), firstRange, lastRange, fillerRange, firstRect, fillerRect, lastRect, left, right, top, bottom;
     if(extremes) {
       firstRange = extremes.firstRange;
       lastRange = extremes.lastRange;
       fillerRange = extremes.fillerRange;
-      firstRect = translateRect(getCollapsedRectOfTextRange(firstRange, false));
-      lastRect = translateRect(getCollapsedRectOfTextRange(lastRange, true));
+      firstRect = domUtils.translateRect(getCollapsedRectOfTextRange(firstRange, false), rootRect, zoomLevel);
+      lastRect = domUtils.translateRect(getCollapsedRectOfTextRange(lastRange, true), rootRect, zoomLevel);
       fillerRect = getFillerRect(fillerRange);
       if(!fillerRect) {
         fillerRect = getBoundingRect(firstRect, lastRect)
       }else {
-        fillerRect = translateRect(fillerRect)
+        fillerRect = domUtils.translateRect(fillerRect, rootRect, zoomLevel)
       }
       left = fillerRect.left;
       right = firstRect.left + Math.max(0, fillerRect.width - (firstRect.left - fillerRect.left));
@@ -16728,62 +17014,27 @@ gui.SvgSelectionView = function SvgSelectionView(cursor) {
     handle2.setAttribute("r", radius)
   }
   function destroy(callback) {
-    root.removeChild(overlay);
+    sizer.removeChild(overlay);
+    sizer.classList.remove("webodf-virtualSelections");
     cursor.getDocument().unsubscribe(ops.Document.signalCursorMoved, handleCursorMove);
     zoomHelper.unsubscribe(gui.ZoomHelper.signalZoomChanged, scaleHandles);
     callback()
   }
   this.destroy = function(callback) {
-    async.destroyAll([renderTask.destroy, destroy], callback)
+    core.Async.destroyAll([renderTask.destroy, destroy], callback)
   };
   function init() {
     var editinfons = "urn:webodf:names:editinfo", memberid = cursor.getMemberId();
-    renderTask = new core.ScheduledTask(rerender, 0);
+    renderTask = core.Task.createRedrawTask(rerender);
     addOverlay();
     overlay.setAttributeNS(editinfons, "editinfo:memberid", memberid);
+    sizer.classList.add("webodf-virtualSelections");
     cursor.getDocument().subscribe(ops.Document.signalCursorMoved, handleCursorMove);
     zoomHelper.subscribe(gui.ZoomHelper.signalZoomChanged, scaleHandles);
     scaleHandles(zoomHelper.getZoomLevel())
   }
   init()
 };
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 gui.UndoStateRules = function UndoStateRules() {
   function ReverseIterator(array, predicate) {
     var index = array.length;
@@ -16897,43 +17148,6 @@ gui.UndoStateRules = function UndoStateRules() {
   }
   this.isPartOfOperationSet = isPartOfOperationSet
 };
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 gui.TrivialUndoManager = function TrivialUndoManager(defaultRules) {
   var self = this, cursorns = "urn:webodf:names:cursor", domUtils = new core.DomUtils, initialDoc, initialState = [], playFunc, document, currentUndoState = [], undoStates = [], redoStates = [], eventNotifier = new core.EventNotifier([gui.UndoManager.signalUndoStackChanged, gui.UndoManager.signalUndoStateCreated, gui.UndoManager.signalUndoStateModified, gui.TrivialUndoManager.signalDocumentRootReplaced]), undoRules = defaultRules || new gui.UndoStateRules, isExecutingOps = false;
   function executeOperations(operations) {
@@ -17081,11 +17295,11 @@ gui.TrivialUndoManager = function TrivialUndoManager(defaultRules) {
       moved += 1
     }
     if(moved) {
-      document.setDocumentElement((initialDoc.cloneNode(true)));
-      eventNotifier.emit(gui.TrivialUndoManager.signalDocumentRootReplaced, {});
       document.getMemberIds().forEach(function(memberid) {
         document.removeCursor(memberid)
       });
+      document.setDocumentElement((initialDoc.cloneNode(true)));
+      eventNotifier.emit(gui.TrivialUndoManager.signalDocumentRootReplaced, {});
       executeOperations(initialState);
       undoStates.forEach(executeOperations);
       currentUndoState = mostRecentUndoState() || initialState;
@@ -17095,33 +17309,539 @@ gui.TrivialUndoManager = function TrivialUndoManager(defaultRules) {
   }
 };
 gui.TrivialUndoManager.signalDocumentRootReplaced = "documentRootReplaced";
-(function() {
-  return gui.TrivialUndoManager
-})();
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- This file is part of WebODF.
-
- WebODF is free software: you can redistribute it and/or modify it
- under the terms of the GNU Affero General Public License (GNU AGPL)
- as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.
-
- WebODF is distributed in the hope that it will be useful, but
- WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU Affero General Public License for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with WebODF.  If not, see <http://www.gnu.org/licenses/>.
- @licend
-
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
+odf.GraphicProperties = function(element, styleParseUtils, parent) {
+  var self = this, stylens = odf.Namespaces.stylens, svgns = odf.Namespaces.svgns, getter;
+  getter = {verticalPos:function() {
+    var v = element.getAttributeNS(stylens, "vertical-pos");
+    return v === "" ? undefined : v
+  }, verticalRel:function() {
+    var v = element.getAttributeNS(stylens, "vertical-rel");
+    return v === "" ? undefined : v
+  }, horizontalPos:function() {
+    var v = element.getAttributeNS(stylens, "horizontal-pos");
+    return v === "" ? undefined : v
+  }, horizontalRel:function() {
+    var v = element.getAttributeNS(stylens, "horizontal-rel");
+    return v === "" ? undefined : v
+  }, strokeWidth:function() {
+    var a = element.getAttributeNS(svgns, "stroke-width");
+    return styleParseUtils.parseLength(a)
+  }};
+  this.verticalPos = function() {
+    return(self.data.value("verticalPos"))
+  };
+  this.verticalRel = function() {
+    return(self.data.value("verticalRel"))
+  };
+  this.horizontalPos = function() {
+    return(self.data.value("horizontalPos"))
+  };
+  this.horizontalRel = function() {
+    return(self.data.value("horizontalRel"))
+  };
+  this.strokeWidth = function() {
+    return(self.data.value("strokeWidth"))
+  };
+  this.data;
+  function init() {
+    var p = parent === undefined ? undefined : parent.data;
+    self.data = new odf.LazyStyleProperties(p, getter)
+  }
+  init()
+};
+odf.ComputedGraphicProperties = function() {
+  var g;
+  this.setGraphicProperties = function(graphicProperties) {
+    g = graphicProperties
+  };
+  this.verticalPos = function() {
+    return g && g.verticalPos() || "from-top"
+  };
+  this.verticalRel = function() {
+    return g && g.verticalRel() || "page"
+  };
+  this.horizontalPos = function() {
+    return g && g.horizontalPos() || "from-left"
+  };
+  this.horizontalRel = function() {
+    return g && g.horizontalRel() || "page"
+  }
+};
+odf.PageLayoutProperties = function(element, styleParseUtils, parent) {
+  var self = this, fons = odf.Namespaces.fons, getter;
+  getter = {pageHeight:function() {
+    var a, value;
+    if(element) {
+      a = element.getAttributeNS(fons, "page-height");
+      value = styleParseUtils.parseLength(a)
+    }
+    return value
+  }, pageWidth:function() {
+    var a, value;
+    if(element) {
+      a = element.getAttributeNS(fons, "page-width");
+      value = styleParseUtils.parseLength(a)
+    }
+    return value
+  }};
+  this.pageHeight = function() {
+    return(self.data.value("pageHeight")) || 1123
+  };
+  this.pageWidth = function() {
+    return(self.data.value("pageWidth")) || 794
+  };
+  this.data;
+  function init() {
+    var p = parent === undefined ? undefined : parent.data;
+    self.data = new odf.LazyStyleProperties(p, getter)
+  }
+  init()
+};
+odf.PageLayout = function(element, styleParseUtils, parent) {
+  var self = this;
+  this.pageLayout;
+  function init() {
+    var e = null;
+    if(element) {
+      e = styleParseUtils.getPropertiesElement("page-layout-properties", element)
+    }
+    self.pageLayout = new odf.PageLayoutProperties(e, styleParseUtils, parent && parent.pageLayout)
+  }
+  init()
+};
+odf.PageLayoutCache = function() {
+};
+odf.PageLayoutCache.prototype.getPageLayout = function(name) {
+};
+odf.PageLayoutCache.prototype.getDefaultPageLayout = function() {
+};
+odf.ParagraphProperties = function(element, styleParseUtils, parent) {
+  var self = this, fons = odf.Namespaces.fons, getter;
+  getter = {marginTop:function() {
+    var a = element.getAttributeNS(fons, "margin-top"), value = styleParseUtils.parsePositiveLengthOrPercent(a, "marginTop", parent && parent.data);
+    return value
+  }};
+  this.marginTop = function() {
+    return(self.data.value("marginTop"))
+  };
+  this.data;
+  function init() {
+    var p = parent === undefined ? undefined : parent.data;
+    self.data = new odf.LazyStyleProperties(p, getter)
+  }
+  init()
+};
+odf.ComputedParagraphProperties = function() {
+  var data = {}, styleChain = [];
+  function value(name) {
+    var v, i;
+    if(data.hasOwnProperty(name)) {
+      v = data[name]
+    }else {
+      for(i = 0;v === undefined && i < styleChain.length;i += 1) {
+        v = (styleChain[i][name])()
+      }
+      data[name] = v
+    }
+    return v
+  }
+  this.setStyleChain = function setStyleChain(newStyleChain) {
+    styleChain = newStyleChain;
+    data = {}
+  };
+  this.marginTop = function() {
+    return(value("marginTop")) || 0
+  }
+};
+odf.TextProperties = function(element, styleParseUtils, parent) {
+  var self = this, fons = odf.Namespaces.fons, getter;
+  getter = {fontSize:function() {
+    var a = element.getAttributeNS(fons, "font-size"), value = styleParseUtils.parsePositiveLengthOrPercent(a, "fontSize", parent && parent.data);
+    return value
+  }};
+  this.fontSize = function() {
+    return(self.data.value("fontSize"))
+  };
+  this.data;
+  function init() {
+    var p = parent === undefined ? undefined : parent.data;
+    self.data = new odf.LazyStyleProperties(p, getter)
+  }
+  init()
+};
+odf.ComputedTextProperties = function() {
+  var data = {}, styleChain = [];
+  function value(name) {
+    var v, i;
+    if(data.hasOwnProperty(name)) {
+      v = data[name]
+    }else {
+      for(i = 0;v === undefined && i < styleChain.length;i += 1) {
+        v = (styleChain[i][name])()
+      }
+      data[name] = v
+    }
+    return v
+  }
+  this.setStyleChain = function setStyleChain(newStyleChain) {
+    styleChain = newStyleChain;
+    data = {}
+  };
+  this.fontSize = function() {
+    return(value("fontSize")) || 12
+  }
+};
+odf.MasterPage = function(element, pageLayoutCache) {
+  var self = this;
+  this.pageLayout;
+  function init() {
+    var pageLayoutName;
+    if(element) {
+      pageLayoutName = element.getAttributeNS(odf.Namespaces.stylens, "page-layout-name");
+      self.pageLayout = pageLayoutCache.getPageLayout(pageLayoutName)
+    }else {
+      self.pageLayout = pageLayoutCache.getDefaultPageLayout()
+    }
+  }
+  init()
+};
+odf.MasterPageCache = function() {
+};
+odf.MasterPageCache.prototype.getMasterPage = function(name) {
+};
+odf.StylePileEntry = function(element, styleParseUtils, masterPageCache, parent) {
+  this.text;
+  this.paragraph;
+  this.graphic;
+  this.masterPage = function() {
+    var masterPageName = element.getAttributeNS(odf.Namespaces.stylens, "master-page-name"), masterPage = null;
+    if(masterPageName) {
+      masterPage = masterPageCache.getMasterPage(masterPageName)
+    }
+    return masterPage
+  };
+  function init(self) {
+    var stylens = odf.Namespaces.stylens, family = element.getAttributeNS(stylens, "family"), e = null;
+    if(family === "graphic" || family === "chart") {
+      self.graphic = parent === undefined ? undefined : parent.graphic;
+      e = styleParseUtils.getPropertiesElement("graphic-properties", element, e);
+      if(e !== null) {
+        self.graphic = new odf.GraphicProperties(e, styleParseUtils, self.graphic)
+      }
+    }
+    if(family === "paragraph" || (family === "table-cell" || (family === "graphic" || (family === "presentation" || family === "chart")))) {
+      self.paragraph = parent === undefined ? undefined : parent.paragraph;
+      e = styleParseUtils.getPropertiesElement("paragraph-properties", element, e);
+      if(e !== null) {
+        self.paragraph = new odf.ParagraphProperties(e, styleParseUtils, self.paragraph)
+      }
+    }
+    if(family === "text" || (family === "paragraph" || (family === "table-cell" || (family === "graphic" || (family === "presentation" || family === "chart"))))) {
+      self.text = parent === undefined ? undefined : parent.text;
+      e = styleParseUtils.getPropertiesElement("text-properties", element, e);
+      if(e !== null) {
+        self.text = new odf.TextProperties(e, styleParseUtils, self.text)
+      }
+    }
+  }
+  init(this)
+};
+odf.StylePile = function(styleParseUtils, masterPageCache) {
+  var stylens = odf.Namespaces.stylens, commonStyles = {}, automaticStyles = {}, defaultStyle, parsedCommonStyles = {}, parsedAutomaticStyles = {}, getCommonStyle;
+  function parseStyle(element, visitedStyles) {
+    var parent, parentName, style;
+    if(element.hasAttributeNS(stylens, "parent-style-name")) {
+      parentName = element.getAttributeNS(stylens, "parent-style-name");
+      if(visitedStyles.indexOf(parentName) === -1) {
+        parent = getCommonStyle(parentName, visitedStyles)
+      }
+    }
+    style = new odf.StylePileEntry(element, styleParseUtils, masterPageCache, parent);
+    return style
+  }
+  getCommonStyle = function(styleName, visitedStyles) {
+    var style = parsedCommonStyles[styleName], element;
+    if(!style) {
+      element = commonStyles[styleName];
+      if(element) {
+        visitedStyles.push(styleName);
+        style = parseStyle(element, visitedStyles);
+        parsedCommonStyles[styleName] = style
+      }
+    }
+    return style
+  };
+  function getStyle(styleName) {
+    var style = parsedAutomaticStyles[styleName] || parsedCommonStyles[styleName], element, visitedStyles = [];
+    if(!style) {
+      element = automaticStyles[styleName];
+      if(!element) {
+        element = commonStyles[styleName];
+        if(element) {
+          visitedStyles.push(styleName)
+        }
+      }
+      if(element) {
+        style = parseStyle(element, visitedStyles)
+      }
+    }
+    return style
+  }
+  this.getStyle = getStyle;
+  this.addCommonStyle = function(style) {
+    var name;
+    if(style.hasAttributeNS(stylens, "name")) {
+      name = style.getAttributeNS(stylens, "name");
+      if(!commonStyles.hasOwnProperty(name)) {
+        commonStyles[name] = style
+      }
+    }
+  };
+  this.addAutomaticStyle = function(style) {
+    var name;
+    if(style.hasAttributeNS(stylens, "name")) {
+      name = style.getAttributeNS(stylens, "name");
+      if(!automaticStyles.hasOwnProperty(name)) {
+        automaticStyles[name] = style
+      }
+    }
+  };
+  this.setDefaultStyle = function(style) {
+    if(defaultStyle === undefined) {
+      defaultStyle = parseStyle(style, [])
+    }
+  };
+  this.getDefaultStyle = function() {
+    return defaultStyle
+  }
+};
+odf.ComputedGraphicStyle = function() {
+  this.text = new odf.ComputedTextProperties;
+  this.paragraph = new odf.ComputedParagraphProperties;
+  this.graphic = new odf.ComputedGraphicProperties
+};
+odf.ComputedParagraphStyle = function() {
+  this.text = new odf.ComputedTextProperties;
+  this.paragraph = new odf.ComputedParagraphProperties
+};
+odf.ComputedTextStyle = function() {
+  this.text = new odf.ComputedTextProperties
+};
+odf.StyleCache = function(odfroot) {
+  var self = this, stylePiles, textStyleCache, paragraphStyleCache, graphicStyleCache, textStylePile, paragraphStylePile, graphicStylePile, textns = odf.Namespaces.textns, stylens = odf.Namespaces.stylens, styleInfo = new odf.StyleInfo, styleParseUtils = new odf.StyleParseUtils, masterPages, parsedMasterPages, defaultMasterPage, defaultPageLayout, pageLayouts, parsedPageLayouts;
+  function appendClassNames(family, ns, element, chain) {
+    var names = element.getAttributeNS(ns, "class-names"), stylename, i;
+    if(names) {
+      names = names.split(" ");
+      for(i = 0;i < names.length;i += 1) {
+        stylename = names[i];
+        if(stylename) {
+          chain.push(family);
+          chain.push(stylename)
+        }
+      }
+    }
+  }
+  function getGraphicStyleChain(element, chain) {
+    var stylename = styleInfo.getStyleName("graphic", element);
+    if(stylename !== undefined) {
+      chain.push("graphic");
+      chain.push(stylename)
+    }
+    return chain
+  }
+  function getParagraphStyleChain(element, chain) {
+    var stylename = styleInfo.getStyleName("paragraph", element);
+    if(stylename !== undefined) {
+      chain.push("paragraph");
+      chain.push(stylename)
+    }
+    if(element.namespaceURI === textns && (element.localName === "h" || element.localName === "p")) {
+      appendClassNames("paragraph", textns, element, chain)
+    }
+    return chain
+  }
+  function createPropertiesChain(styleChain, propertiesName, defaultFamily) {
+    var chain = [], i, lastProperties, family, styleName, pile, style, properties;
+    for(i = 0;i < styleChain.length;i += 2) {
+      family = styleChain[i];
+      styleName = styleChain[i + 1];
+      pile = (stylePiles[family]);
+      style = pile.getStyle(styleName);
+      if(style !== undefined) {
+        properties = (style[propertiesName]);
+        if(properties !== undefined && properties !== lastProperties) {
+          chain.push(properties);
+          lastProperties = properties
+        }
+      }
+    }
+    pile = (stylePiles[defaultFamily]);
+    style = pile.getDefaultStyle();
+    if(style) {
+      properties = (style[propertiesName]);
+      if(properties !== undefined && properties !== lastProperties) {
+        chain.push(properties)
+      }
+    }
+    return chain
+  }
+  this.getComputedGraphicStyle = function(element) {
+    var styleChain = getGraphicStyleChain(element, []), key = styleChain.join("/"), computedStyle = graphicStyleCache[key];
+    runtime.assert(styleChain.length % 2 === 0, "Invalid style chain.");
+    if(computedStyle === undefined) {
+      computedStyle = new odf.ComputedGraphicStyle;
+      computedStyle.graphic.setGraphicProperties((createPropertiesChain(styleChain, "graphic", "graphic")[0]));
+      computedStyle.text.setStyleChain((createPropertiesChain(styleChain, "text", "graphic")));
+      computedStyle.paragraph.setStyleChain((createPropertiesChain(styleChain, "paragraph", "graphic")));
+      graphicStyleCache[key] = computedStyle
+    }
+    return computedStyle
+  };
+  this.getComputedParagraphStyle = function(element) {
+    var styleChain = getParagraphStyleChain(element, []), key = styleChain.join("/"), computedStyle = paragraphStyleCache[key];
+    runtime.assert(styleChain.length % 2 === 0, "Invalid style chain.");
+    if(computedStyle === undefined) {
+      computedStyle = new odf.ComputedParagraphStyle;
+      computedStyle.text.setStyleChain((createPropertiesChain(styleChain, "text", "paragraph")));
+      computedStyle.paragraph.setStyleChain((createPropertiesChain(styleChain, "paragraph", "paragraph")));
+      paragraphStyleCache[key] = computedStyle
+    }
+    return computedStyle
+  };
+  function getTextStyleChain(element, chain) {
+    var stylename = styleInfo.getStyleName("text", element), parent = (element.parentNode);
+    if(stylename !== undefined) {
+      chain.push("text");
+      chain.push(stylename)
+    }
+    if(element.localName === "span" && element.namespaceURI === textns) {
+      appendClassNames("text", textns, element, chain)
+    }
+    if(!parent || parent === odfroot) {
+      return chain
+    }
+    if(parent.namespaceURI === textns && (parent.localName === "p" || parent.localName === "h")) {
+      getParagraphStyleChain(parent, chain)
+    }else {
+      getTextStyleChain(parent, chain)
+    }
+    return chain
+  }
+  this.getComputedTextStyle = function(element) {
+    var styleChain = getTextStyleChain(element, []), key = styleChain.join("/"), computedStyle = textStyleCache[key];
+    runtime.assert(styleChain.length % 2 === 0, "Invalid style chain.");
+    if(computedStyle === undefined) {
+      computedStyle = new odf.ComputedTextStyle;
+      computedStyle.text.setStyleChain((createPropertiesChain(styleChain, "text", "text")));
+      textStyleCache[key] = computedStyle
+    }
+    return computedStyle
+  };
+  function getPileFromElement(element) {
+    var family = element.getAttributeNS(stylens, "family");
+    return stylePiles[family]
+  }
+  function addMasterPage(element) {
+    var name = element.getAttributeNS(stylens, "name");
+    if(name.length > 0 && !masterPages.hasOwnProperty(name)) {
+      masterPages[name] = element
+    }
+  }
+  function getPageLayout(name) {
+    var pageLayout = parsedPageLayouts[name], e;
+    if(!pageLayout) {
+      e = pageLayouts[name];
+      if(e) {
+        pageLayout = new odf.PageLayout(e, styleParseUtils, defaultPageLayout);
+        parsedPageLayouts[name] = pageLayout
+      }else {
+        pageLayout = defaultPageLayout
+      }
+    }
+    return pageLayout
+  }
+  this.getPageLayout = getPageLayout;
+  this.getDefaultPageLayout = function() {
+    return defaultPageLayout
+  };
+  function getMasterPage(name) {
+    var masterPage = parsedMasterPages[name], element;
+    if(masterPage === undefined) {
+      element = masterPages[name];
+      if(element) {
+        masterPage = new odf.MasterPage(element, self);
+        parsedMasterPages[name] = masterPage
+      }else {
+        masterPage = null
+      }
+    }
+    return masterPage
+  }
+  this.getMasterPage = getMasterPage;
+  this.getDefaultMasterPage = function() {
+    return defaultMasterPage
+  };
+  function update() {
+    var e, pile, defaultPageLayoutElement = null, defaultMasterPageElement = null;
+    textStyleCache = {};
+    paragraphStyleCache = {};
+    graphicStyleCache = {};
+    masterPages = {};
+    parsedMasterPages = {};
+    parsedPageLayouts = {};
+    pageLayouts = {};
+    textStylePile = new odf.StylePile(styleParseUtils, self);
+    paragraphStylePile = new odf.StylePile(styleParseUtils, self);
+    graphicStylePile = new odf.StylePile(styleParseUtils, self);
+    stylePiles = {text:textStylePile, paragraph:paragraphStylePile, graphic:graphicStylePile};
+    e = odfroot.styles.firstElementChild;
+    while(e) {
+      if(e.namespaceURI === stylens) {
+        pile = getPileFromElement(e);
+        if(pile) {
+          if(e.localName === "style") {
+            pile.addCommonStyle(e)
+          }else {
+            if(e.localName === "default-style") {
+              pile.setDefaultStyle(e)
+            }
+          }
+        }else {
+          if(e.localName === "default-page-layout") {
+            defaultPageLayoutElement = e
+          }
+        }
+      }
+      e = e.nextElementSibling
+    }
+    defaultPageLayout = new odf.PageLayout(defaultPageLayoutElement, styleParseUtils);
+    e = odfroot.automaticStyles.firstElementChild;
+    while(e) {
+      if(e.namespaceURI === stylens) {
+        pile = getPileFromElement(e);
+        if(pile && e.localName === "style") {
+          pile.addAutomaticStyle(e)
+        }else {
+          if(e.localName === "page-layout") {
+            pageLayouts[e.getAttributeNS(stylens, "name")] = e
+          }
+        }
+      }
+      e = e.nextElementSibling
+    }
+    e = odfroot.masterStyles.firstElementChild;
+    while(e) {
+      if(e.namespaceURI === stylens && e.localName === "master-page") {
+        defaultMasterPageElement = defaultMasterPageElement || e;
+        addMasterPage(e)
+      }
+      e = e.nextElementSibling
+    }
+    defaultMasterPage = new odf.MasterPage(defaultMasterPageElement, self)
+  }
+  this.update = update
+};
 ops.OperationTransformMatrix = function OperationTransformMatrix() {
   function invertMoveCursorSpecRange(moveCursorSpec) {
     moveCursorSpec.position = moveCursorSpec.position + moveCursorSpec.length;
@@ -17342,6 +18062,18 @@ ops.OperationTransformMatrix = function OperationTransformMatrix() {
     }
     return{opSpecsA:[applyDirectStylingSpec], opSpecsB:[insertTextSpec]}
   }
+  function transformApplyDirectStylingMergeParagraph(applyDirectStylingSpec, mergeParagraphSpec) {
+    var pointA = applyDirectStylingSpec.position, pointB = applyDirectStylingSpec.position + applyDirectStylingSpec.length;
+    if(pointA >= mergeParagraphSpec.sourceStartPosition) {
+      pointA -= 1
+    }
+    if(pointB >= mergeParagraphSpec.sourceStartPosition) {
+      pointB -= 1
+    }
+    applyDirectStylingSpec.position = pointA;
+    applyDirectStylingSpec.length = pointB - pointA;
+    return{opSpecsA:[applyDirectStylingSpec], opSpecsB:[mergeParagraphSpec]}
+  }
   function transformApplyDirectStylingRemoveText(applyDirectStylingSpec, removeTextSpec) {
     var applyDirectStylingSpecEnd = applyDirectStylingSpec.position + applyDirectStylingSpec.length, removeTextSpecEnd = removeTextSpec.position + removeTextSpec.length, applyDirectStylingSpecResult = [applyDirectStylingSpec], removeTextSpecResult = [removeTextSpec];
     if(removeTextSpecEnd <= applyDirectStylingSpec.position) {
@@ -17392,6 +18124,19 @@ ops.OperationTransformMatrix = function OperationTransformMatrix() {
     }
     return{opSpecsA:[insertTextSpecA], opSpecsB:[insertTextSpecB]}
   }
+  function transformInsertTextMergeParagraph(insertTextSpec, mergeParagraphSpec) {
+    if(insertTextSpec.position >= mergeParagraphSpec.sourceStartPosition) {
+      insertTextSpec.position -= 1
+    }else {
+      if(insertTextSpec.position < mergeParagraphSpec.sourceStartPosition) {
+        mergeParagraphSpec.sourceStartPosition += insertTextSpec.text.length
+      }
+      if(insertTextSpec.position < mergeParagraphSpec.destinationStartPosition) {
+        mergeParagraphSpec.destinationStartPosition += insertTextSpec.text.length
+      }
+    }
+    return{opSpecsA:[insertTextSpec], opSpecsB:[mergeParagraphSpec]}
+  }
   function transformInsertTextMoveCursor(insertTextSpec, moveCursorSpec) {
     var isMoveCursorSpecRangeInverted = invertMoveCursorSpecRangeOnNegativeLength(moveCursorSpec);
     if(insertTextSpec.position < moveCursorSpec.position) {
@@ -17422,22 +18167,132 @@ ops.OperationTransformMatrix = function OperationTransformMatrix() {
     }
     return{opSpecsA:insertTextSpecResult, opSpecsB:removeTextSpecResult}
   }
-  function transformInsertTextSplitParagraph(insertTextSpec, splitParagraphSpec, hasAPriority) {
-    if(insertTextSpec.position < splitParagraphSpec.position) {
+  function transformInsertTextSetParagraphStyle(insertTextSpec, setParagraphStyleSpec) {
+    if(setParagraphStyleSpec.position > insertTextSpec.position) {
+      setParagraphStyleSpec.position += insertTextSpec.text.length
+    }
+    return{opSpecsA:[insertTextSpec], opSpecsB:[setParagraphStyleSpec]}
+  }
+  function transformInsertTextSplitParagraph(insertTextSpec, splitParagraphSpec) {
+    if(insertTextSpec.position < splitParagraphSpec.sourceParagraphPosition) {
+      splitParagraphSpec.sourceParagraphPosition += insertTextSpec.text.length
+    }
+    if(insertTextSpec.position <= splitParagraphSpec.position) {
       splitParagraphSpec.position += insertTextSpec.text.length
     }else {
-      if(insertTextSpec.position > splitParagraphSpec.position) {
-        insertTextSpec.position += 1
-      }else {
-        if(hasAPriority) {
-          splitParagraphSpec.position += insertTextSpec.text.length
-        }else {
-          insertTextSpec.position += 1
-        }
-        return null
-      }
+      insertTextSpec.position += 1
     }
     return{opSpecsA:[insertTextSpec], opSpecsB:[splitParagraphSpec]}
+  }
+  function transformMergeParagraphMergeParagraph(mergeParagraphSpecA, mergeParagraphSpecB, hasAPriority) {
+    var specsForB = [mergeParagraphSpecA], specsForA = [mergeParagraphSpecB], priorityOp, styleParagraphFixup, moveCursorA, moveCursorB;
+    if(mergeParagraphSpecA.destinationStartPosition === mergeParagraphSpecB.destinationStartPosition) {
+      specsForB = [];
+      specsForA = [];
+      if(mergeParagraphSpecA.moveCursor) {
+        moveCursorA = ({optype:"MoveCursor", memberid:mergeParagraphSpecA.memberid, timestamp:mergeParagraphSpecA.timestamp, position:mergeParagraphSpecA.sourceStartPosition - 1});
+        specsForB.push(moveCursorA)
+      }
+      if(mergeParagraphSpecB.moveCursor) {
+        moveCursorB = ({optype:"MoveCursor", memberid:mergeParagraphSpecB.memberid, timestamp:mergeParagraphSpecB.timestamp, position:mergeParagraphSpecB.sourceStartPosition - 1});
+        specsForA.push(moveCursorB)
+      }
+      priorityOp = hasAPriority ? mergeParagraphSpecA : mergeParagraphSpecB;
+      styleParagraphFixup = ({optype:"SetParagraphStyle", memberid:priorityOp.memberid, timestamp:priorityOp.timestamp, position:priorityOp.destinationStartPosition, styleName:priorityOp.paragraphStyleName});
+      if(hasAPriority) {
+        specsForB.push(styleParagraphFixup)
+      }else {
+        specsForA.push(styleParagraphFixup)
+      }
+    }else {
+      if(mergeParagraphSpecB.sourceStartPosition === mergeParagraphSpecA.destinationStartPosition) {
+        mergeParagraphSpecA.destinationStartPosition = mergeParagraphSpecB.destinationStartPosition;
+        mergeParagraphSpecA.sourceStartPosition -= 1;
+        mergeParagraphSpecA.paragraphStyleName = mergeParagraphSpecB.paragraphStyleName
+      }else {
+        if(mergeParagraphSpecA.sourceStartPosition === mergeParagraphSpecB.destinationStartPosition) {
+          mergeParagraphSpecB.destinationStartPosition = mergeParagraphSpecA.destinationStartPosition;
+          mergeParagraphSpecB.sourceStartPosition -= 1;
+          mergeParagraphSpecB.paragraphStyleName = mergeParagraphSpecA.paragraphStyleName
+        }else {
+          if(mergeParagraphSpecA.destinationStartPosition < mergeParagraphSpecB.destinationStartPosition) {
+            mergeParagraphSpecB.destinationStartPosition -= 1;
+            mergeParagraphSpecB.sourceStartPosition -= 1
+          }else {
+            mergeParagraphSpecA.destinationStartPosition -= 1;
+            mergeParagraphSpecA.sourceStartPosition -= 1
+          }
+        }
+      }
+    }
+    return{opSpecsA:specsForB, opSpecsB:specsForA}
+  }
+  function transformMergeParagraphMoveCursor(mergeParagraphSpec, moveCursorSpec) {
+    var pointA = moveCursorSpec.position, pointB = moveCursorSpec.position + moveCursorSpec.length, start = Math.min(pointA, pointB), end = Math.max(pointA, pointB);
+    if(start >= mergeParagraphSpec.sourceStartPosition) {
+      start -= 1
+    }
+    if(end >= mergeParagraphSpec.sourceStartPosition) {
+      end -= 1
+    }
+    if(moveCursorSpec.length >= 0) {
+      moveCursorSpec.position = start;
+      moveCursorSpec.length = end - start
+    }else {
+      moveCursorSpec.position = end;
+      moveCursorSpec.length = start - end
+    }
+    return{opSpecsA:[mergeParagraphSpec], opSpecsB:[moveCursorSpec]}
+  }
+  function transformMergeParagraphRemoveText(mergeParagraphSpec, removeTextSpec) {
+    if(removeTextSpec.position >= mergeParagraphSpec.sourceStartPosition) {
+      removeTextSpec.position -= 1
+    }else {
+      if(removeTextSpec.position < mergeParagraphSpec.destinationStartPosition) {
+        mergeParagraphSpec.destinationStartPosition -= removeTextSpec.length
+      }
+      if(removeTextSpec.position < mergeParagraphSpec.sourceStartPosition) {
+        mergeParagraphSpec.sourceStartPosition -= removeTextSpec.length
+      }
+    }
+    return{opSpecsA:[mergeParagraphSpec], opSpecsB:[removeTextSpec]}
+  }
+  function transformMergeParagraphSetParagraphStyle(mergeParagraphSpec, setParagraphStyleSpec) {
+    var opSpecsA = [mergeParagraphSpec], opSpecsB = [setParagraphStyleSpec];
+    if(setParagraphStyleSpec.position > mergeParagraphSpec.sourceStartPosition) {
+      setParagraphStyleSpec.position -= 1
+    }else {
+      if(setParagraphStyleSpec.position === mergeParagraphSpec.destinationStartPosition || setParagraphStyleSpec.position === mergeParagraphSpec.sourceStartPosition) {
+        setParagraphStyleSpec.position = mergeParagraphSpec.destinationStartPosition;
+        mergeParagraphSpec.paragraphStyleName = setParagraphStyleSpec.styleName
+      }
+    }
+    return{opSpecsA:opSpecsA, opSpecsB:opSpecsB}
+  }
+  function transformMergeParagraphSplitParagraph(mergeParagraphSpec, splitParagraphSpec) {
+    var styleSplitParagraph, moveCursorOp, opSpecsA = [mergeParagraphSpec], opSpecsB = [splitParagraphSpec];
+    if(splitParagraphSpec.position < mergeParagraphSpec.destinationStartPosition) {
+      mergeParagraphSpec.destinationStartPosition += 1;
+      mergeParagraphSpec.sourceStartPosition += 1
+    }else {
+      if(splitParagraphSpec.position >= mergeParagraphSpec.destinationStartPosition && splitParagraphSpec.position < mergeParagraphSpec.sourceStartPosition) {
+        splitParagraphSpec.paragraphStyleName = mergeParagraphSpec.paragraphStyleName;
+        styleSplitParagraph = ({optype:"SetParagraphStyle", memberid:mergeParagraphSpec.memberid, timestamp:mergeParagraphSpec.timestamp, position:mergeParagraphSpec.destinationStartPosition, styleName:mergeParagraphSpec.paragraphStyleName});
+        opSpecsA.push(styleSplitParagraph);
+        if(splitParagraphSpec.position === mergeParagraphSpec.sourceStartPosition - 1 && mergeParagraphSpec.moveCursor) {
+          moveCursorOp = ({optype:"MoveCursor", memberid:mergeParagraphSpec.memberid, timestamp:mergeParagraphSpec.timestamp, position:splitParagraphSpec.position, length:0});
+          opSpecsA.push(moveCursorOp)
+        }
+        mergeParagraphSpec.destinationStartPosition = splitParagraphSpec.position + 1;
+        mergeParagraphSpec.sourceStartPosition += 1
+      }else {
+        if(splitParagraphSpec.position >= mergeParagraphSpec.sourceStartPosition) {
+          splitParagraphSpec.position -= 1;
+          splitParagraphSpec.sourceParagraphPosition -= 1
+        }
+      }
+    }
+    return{opSpecsA:opSpecsA, opSpecsB:opSpecsB}
   }
   function transformUpdateParagraphStyleUpdateParagraphStyle(updateParagraphStyleSpecA, updateParagraphStyleSpecB, hasAPriority) {
     var majorSpec, minorSpec, updateParagraphStyleSpecAResult = [updateParagraphStyleSpecA], updateParagraphStyleSpecBResult = [updateParagraphStyleSpecB];
@@ -17485,19 +18340,61 @@ ops.OperationTransformMatrix = function OperationTransformMatrix() {
     }
     return{opSpecsA:updateMetadataSpecAResult, opSpecsB:updateMetadataSpecBResult}
   }
-  function transformSplitParagraphSplitParagraph(splitParagraphSpecA, splitParagraphSpecB, hasAPriority) {
-    if(splitParagraphSpecA.position < splitParagraphSpecB.position) {
-      splitParagraphSpecB.position += 1
+  function transformSetParagraphStyleSetParagraphStyle(setParagraphStyleSpecA, setParagraphStyleSpecB, hasAPriority) {
+    if(setParagraphStyleSpecA.position === setParagraphStyleSpecB.position) {
+      if(hasAPriority) {
+        setParagraphStyleSpecB.styleName = setParagraphStyleSpecA.styleName
+      }else {
+        setParagraphStyleSpecA.styleName = setParagraphStyleSpecB.styleName
+      }
+    }
+    return{opSpecsA:[setParagraphStyleSpecA], opSpecsB:[setParagraphStyleSpecB]}
+  }
+  function transformSetParagraphStyleSplitParagraph(setParagraphStyleSpec, splitParagraphSpec) {
+    var opSpecsA = [setParagraphStyleSpec], opSpecsB = [splitParagraphSpec], setParagraphClone;
+    if(setParagraphStyleSpec.position > splitParagraphSpec.position) {
+      setParagraphStyleSpec.position += 1
     }else {
-      if(splitParagraphSpecA.position > splitParagraphSpecB.position) {
-        splitParagraphSpecA.position += 1
+      if(setParagraphStyleSpec.position === splitParagraphSpec.sourceParagraphPosition) {
+        splitParagraphSpec.paragraphStyleName = setParagraphStyleSpec.styleName;
+        setParagraphClone = cloneOpspec(setParagraphStyleSpec);
+        setParagraphClone.position = splitParagraphSpec.position + 1;
+        opSpecsA.push(setParagraphClone)
+      }
+    }
+    return{opSpecsA:opSpecsA, opSpecsB:opSpecsB}
+  }
+  function transformSplitParagraphSplitParagraph(splitParagraphSpecA, splitParagraphSpecB, hasAPriority) {
+    var specABeforeB, specBBeforeA;
+    if(splitParagraphSpecA.position < splitParagraphSpecB.position) {
+      specABeforeB = true
+    }else {
+      if(splitParagraphSpecB.position < splitParagraphSpecA.position) {
+        specBBeforeA = true
       }else {
         if(splitParagraphSpecA.position === splitParagraphSpecB.position) {
           if(hasAPriority) {
-            splitParagraphSpecB.position += 1
+            specABeforeB = true
           }else {
-            splitParagraphSpecA.position += 1
+            specBBeforeA = true
           }
+        }
+      }
+    }
+    if(specABeforeB) {
+      splitParagraphSpecB.position += 1;
+      if(splitParagraphSpecA.position < splitParagraphSpecB.sourceParagraphPosition) {
+        splitParagraphSpecB.sourceParagraphPosition += 1
+      }else {
+        splitParagraphSpecB.sourceParagraphPosition = splitParagraphSpecA.position + 1
+      }
+    }else {
+      if(specBBeforeA) {
+        splitParagraphSpecA.position += 1;
+        if(splitParagraphSpecB.position < splitParagraphSpecB.sourceParagraphPosition) {
+          splitParagraphSpecA.sourceParagraphPosition += 1
+        }else {
+          splitParagraphSpecA.sourceParagraphPosition = splitParagraphSpecB.position + 1
         }
       }
     }
@@ -17624,6 +18521,12 @@ ops.OperationTransformMatrix = function OperationTransformMatrix() {
     }
     return{opSpecsA:removeTextSpecAResult, opSpecsB:removeTextSpecBResult}
   }
+  function transformRemoveTextSetParagraphStyle(removeTextSpec, setParagraphStyleSpec) {
+    if(removeTextSpec.position < setParagraphStyleSpec.position) {
+      setParagraphStyleSpec.position -= removeTextSpec.length
+    }
+    return{opSpecsA:[removeTextSpec], opSpecsB:[setParagraphStyleSpec]}
+  }
   function transformRemoveTextSplitParagraph(removeTextSpec, splitParagraphSpec) {
     var removeTextSpecEnd = removeTextSpec.position + removeTextSpec.length, helperOpspec, removeTextSpecResult = [removeTextSpec], splitParagraphSpecResult = [splitParagraphSpec];
     if(splitParagraphSpec.position <= removeTextSpec.position) {
@@ -17642,19 +18545,24 @@ ops.OperationTransformMatrix = function OperationTransformMatrix() {
         splitParagraphSpec.position = removeTextSpec.position
       }
     }
+    if(removeTextSpec.position + removeTextSpec.length < splitParagraphSpec.sourceParagraphPosition) {
+      splitParagraphSpec.sourceParagraphPosition -= removeTextSpec.length
+    }
     return{opSpecsA:removeTextSpecResult, opSpecsB:splitParagraphSpecResult}
   }
   function passUnchanged(opSpecA, opSpecB) {
     return{opSpecsA:[opSpecA], opSpecsB:[opSpecB]}
   }
   var transformations;
-  transformations = {"AddCursor":{"AddCursor":passUnchanged, "AddMember":passUnchanged, "AddStyle":passUnchanged, "ApplyDirectStyling":passUnchanged, "InsertText":passUnchanged, "MoveCursor":passUnchanged, "RemoveCursor":passUnchanged, "RemoveMember":passUnchanged, "RemoveStyle":passUnchanged, "RemoveText":passUnchanged, "SetParagraphStyle":passUnchanged, "SplitParagraph":passUnchanged, "UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "AddMember":{"AddStyle":passUnchanged, 
-  "InsertText":passUnchanged, "MoveCursor":passUnchanged, "RemoveCursor":passUnchanged, "RemoveStyle":passUnchanged, "RemoveText":passUnchanged, "SetParagraphStyle":passUnchanged, "SplitParagraph":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "AddStyle":{"AddStyle":passUnchanged, "ApplyDirectStyling":passUnchanged, "InsertText":passUnchanged, "MoveCursor":passUnchanged, "RemoveCursor":passUnchanged, "RemoveMember":passUnchanged, "RemoveStyle":transformAddStyleRemoveStyle, 
-  "RemoveText":passUnchanged, "SetParagraphStyle":passUnchanged, "SplitParagraph":passUnchanged, "UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "ApplyDirectStyling":{"ApplyDirectStyling":transformApplyDirectStylingApplyDirectStyling, "InsertText":transformApplyDirectStylingInsertText, "MoveCursor":passUnchanged, "RemoveCursor":passUnchanged, "RemoveStyle":passUnchanged, "RemoveText":transformApplyDirectStylingRemoveText, "SetParagraphStyle":passUnchanged, 
-  "SplitParagraph":transformApplyDirectStylingSplitParagraph, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "InsertText":{"InsertText":transformInsertTextInsertText, "MoveCursor":transformInsertTextMoveCursor, "RemoveCursor":passUnchanged, "RemoveMember":passUnchanged, "RemoveStyle":passUnchanged, "RemoveText":transformInsertTextRemoveText, "SplitParagraph":transformInsertTextSplitParagraph, "UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, 
-  "MoveCursor":{"MoveCursor":passUnchanged, "RemoveCursor":transformMoveCursorRemoveCursor, "RemoveMember":passUnchanged, "RemoveStyle":passUnchanged, "RemoveText":transformMoveCursorRemoveText, "SetParagraphStyle":passUnchanged, "SplitParagraph":transformMoveCursorSplitParagraph, "UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "RemoveCursor":{"RemoveCursor":transformRemoveCursorRemoveCursor, "RemoveMember":passUnchanged, "RemoveStyle":passUnchanged, 
-  "RemoveText":passUnchanged, "SetParagraphStyle":passUnchanged, "SplitParagraph":passUnchanged, "UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "RemoveMember":{"RemoveStyle":passUnchanged, "RemoveText":passUnchanged, "SetParagraphStyle":passUnchanged, "SplitParagraph":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "RemoveStyle":{"RemoveStyle":transformRemoveStyleRemoveStyle, "RemoveText":passUnchanged, "SetParagraphStyle":transformRemoveStyleSetParagraphStyle, 
-  "SplitParagraph":passUnchanged, "UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":transformRemoveStyleUpdateParagraphStyle}, "RemoveText":{"RemoveText":transformRemoveTextRemoveText, "SplitParagraph":transformRemoveTextSplitParagraph, "UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "SetParagraphStyle":{"UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "SplitParagraph":{"SplitParagraph":transformSplitParagraphSplitParagraph, 
+  transformations = {"AddCursor":{"AddCursor":passUnchanged, "AddMember":passUnchanged, "AddStyle":passUnchanged, "ApplyDirectStyling":passUnchanged, "InsertText":passUnchanged, "MergeParagraph":passUnchanged, "MoveCursor":passUnchanged, "RemoveCursor":passUnchanged, "RemoveMember":passUnchanged, "RemoveStyle":passUnchanged, "RemoveText":passUnchanged, "SetParagraphStyle":passUnchanged, "SplitParagraph":passUnchanged, "UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, 
+  "AddMember":{"AddStyle":passUnchanged, "ApplyDirectStyling":passUnchanged, "InsertText":passUnchanged, "MergeParagraph":passUnchanged, "MoveCursor":passUnchanged, "RemoveCursor":passUnchanged, "RemoveStyle":passUnchanged, "RemoveText":passUnchanged, "SetParagraphStyle":passUnchanged, "SplitParagraph":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "AddStyle":{"AddStyle":passUnchanged, "ApplyDirectStyling":passUnchanged, "InsertText":passUnchanged, "MergeParagraph":passUnchanged, 
+  "MoveCursor":passUnchanged, "RemoveCursor":passUnchanged, "RemoveMember":passUnchanged, "RemoveStyle":transformAddStyleRemoveStyle, "RemoveText":passUnchanged, "SetParagraphStyle":passUnchanged, "SplitParagraph":passUnchanged, "UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "ApplyDirectStyling":{"ApplyDirectStyling":transformApplyDirectStylingApplyDirectStyling, "InsertText":transformApplyDirectStylingInsertText, "MergeParagraph":transformApplyDirectStylingMergeParagraph, 
+  "MoveCursor":passUnchanged, "RemoveCursor":passUnchanged, "RemoveMember":passUnchanged, "RemoveStyle":passUnchanged, "RemoveText":transformApplyDirectStylingRemoveText, "SetParagraphStyle":passUnchanged, "SplitParagraph":transformApplyDirectStylingSplitParagraph, "UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "InsertText":{"InsertText":transformInsertTextInsertText, "MergeParagraph":transformInsertTextMergeParagraph, "MoveCursor":transformInsertTextMoveCursor, 
+  "RemoveCursor":passUnchanged, "RemoveMember":passUnchanged, "RemoveStyle":passUnchanged, "RemoveText":transformInsertTextRemoveText, "SetParagraphStyle":transformInsertTextSetParagraphStyle, "SplitParagraph":transformInsertTextSplitParagraph, "UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "MergeParagraph":{"MergeParagraph":transformMergeParagraphMergeParagraph, "MoveCursor":transformMergeParagraphMoveCursor, "RemoveCursor":passUnchanged, "RemoveMember":passUnchanged, 
+  "RemoveStyle":passUnchanged, "RemoveText":transformMergeParagraphRemoveText, "SetParagraphStyle":transformMergeParagraphSetParagraphStyle, "SplitParagraph":transformMergeParagraphSplitParagraph, "UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "MoveCursor":{"MoveCursor":passUnchanged, "RemoveCursor":transformMoveCursorRemoveCursor, "RemoveMember":passUnchanged, "RemoveStyle":passUnchanged, "RemoveText":transformMoveCursorRemoveText, "SetParagraphStyle":passUnchanged, 
+  "SplitParagraph":transformMoveCursorSplitParagraph, "UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "RemoveCursor":{"RemoveCursor":transformRemoveCursorRemoveCursor, "RemoveMember":passUnchanged, "RemoveStyle":passUnchanged, "RemoveText":passUnchanged, "SetParagraphStyle":passUnchanged, "SplitParagraph":passUnchanged, "UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "RemoveMember":{"RemoveStyle":passUnchanged, 
+  "RemoveText":passUnchanged, "SetParagraphStyle":passUnchanged, "SplitParagraph":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "RemoveStyle":{"RemoveStyle":transformRemoveStyleRemoveStyle, "RemoveText":passUnchanged, "SetParagraphStyle":transformRemoveStyleSetParagraphStyle, "SplitParagraph":passUnchanged, "UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":transformRemoveStyleUpdateParagraphStyle}, "RemoveText":{"RemoveText":transformRemoveTextRemoveText, 
+  "SetParagraphStyle":transformRemoveTextSetParagraphStyle, "SplitParagraph":transformRemoveTextSplitParagraph, "UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "SetParagraphStyle":{"SetParagraphStyle":transformSetParagraphStyleSetParagraphStyle, "SplitParagraph":transformSetParagraphStyleSplitParagraph, "UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "SplitParagraph":{"SplitParagraph":transformSplitParagraphSplitParagraph, 
   "UpdateMember":passUnchanged, "UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "UpdateMember":{"UpdateMetadata":passUnchanged, "UpdateParagraphStyle":passUnchanged}, "UpdateMetadata":{"UpdateMetadata":transformUpdateMetadataUpdateMetadata, "UpdateParagraphStyle":passUnchanged}, "UpdateParagraphStyle":{"UpdateParagraphStyle":transformUpdateParagraphStyleUpdateParagraphStyle}};
   this.passUnchanged = passUnchanged;
   this.extendTransformations = function(moreTransformations) {
@@ -17703,39 +18611,8 @@ ops.OperationTransformMatrix = function OperationTransformMatrix() {
     return result
   }
 };
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- This file is part of WebODF.
-
- WebODF is free software: you can redistribute it and/or modify it
- under the terms of the GNU Affero General Public License (GNU AGPL)
- as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.
-
- WebODF is distributed in the hope that it will be useful, but
- WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU Affero General Public License for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with WebODF.  If not, see <http://www.gnu.org/licenses/>.
- @licend
-
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
 ops.OperationTransformer = function OperationTransformer() {
-  var operationFactory, operationTransformMatrix = new ops.OperationTransformMatrix;
-  function operations(opspecs) {
-    var ops = [];
-    opspecs.forEach(function(opspec) {
-      ops.push(operationFactory.create(opspec))
-    });
-    return ops
-  }
+  var operationTransformMatrix = new ops.OperationTransformMatrix;
   function transformOpVsOp(opSpecA, opSpecB) {
     return operationTransformMatrix.transformOpspecVsOpspec(opSpecA, opSpecB)
   }
@@ -17767,9 +18644,6 @@ ops.OperationTransformer = function OperationTransformer() {
     }
     return{opSpecsA:transformedOpspecsA, opSpecsB:transformedOpspecsB}
   }
-  this.setOperationFactory = function(f) {
-    operationFactory = f
-  };
   this.getOperationTransformMatrix = function() {
     return operationTransformMatrix
   };
@@ -17783,59 +18657,8 @@ ops.OperationTransformer = function OperationTransformer() {
       opSpecsA = transformResult.opSpecsA;
       transformedOpspecsB = transformedOpspecsB.concat(transformResult.opSpecsB)
     }
-    return{opsA:operations(opSpecsA), opsB:operations(transformedOpspecsB)}
+    return{opSpecsA:(opSpecsA), opSpecsB:(transformedOpspecsB)}
   }
 };
-/*
-
- Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
-
- @licstart
- The JavaScript code in this page is free software: you can redistribute it
- and/or modify it under the terms of the GNU Affero General Public License
- (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- the License, or (at your option) any later version.  The code is distributed
- WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
-
- You should have received a copy of the GNU Affero General Public License
- along with this code.  If not, see <http://www.gnu.org/licenses/>.
-
- As additional permission under GNU AGPL version 3 section 7, you
- may distribute non-source (e.g., minimized or compacted) forms of
- that code without the copy of the GNU GPL normally required by
- section 4, provided you include this license notice and a URL
- through which recipients can access the Corresponding Source.
-
- As a special exception to the AGPL, any HTML file which merely makes function
- calls to this code, and for that purpose includes it by reference shall be
- deemed a separate work for copyright law purposes. In addition, the copyright
- holders of this code give you permission to combine this code with free
- software libraries that are released under the GNU LGPL. You may copy and
- distribute such a system following the terms of the GNU AGPL for this code
- and the LGPL for the libraries. If you modify this code, you may extend this
- exception to your version of the code, but you are not obligated to do so.
- If you do not wish to do so, delete this exception statement from your
- version.
-
- This license applies to this entire compilation.
- @licend
- @source: http://www.webodf.org/
- @source: https://github.com/kogmbh/WebODF/
-*/
-ops.Server = function Server() {
-};
-ops.Server.prototype.connect = function(timeout, cb) {
-};
-ops.Server.prototype.networkStatus = function() {
-};
-ops.Server.prototype.login = function(login, password, successCb, failCb) {
-};
-ops.Server.prototype.joinSession = function(userId, sessionId, successCb, failCb) {
-};
-ops.Server.prototype.leaveSession = function(sessionId, memberId, successCb, failCb) {
-};
-ops.Server.prototype.getGenesisUrl = function(sessionId) {
-};
-var webodf_css = '@namespace draw url(urn:oasis:names:tc:opendocument:xmlns:drawing:1.0);\n@namespace fo url(urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0);\n@namespace office url(urn:oasis:names:tc:opendocument:xmlns:office:1.0);\n@namespace presentation url(urn:oasis:names:tc:opendocument:xmlns:presentation:1.0);\n@namespace style url(urn:oasis:names:tc:opendocument:xmlns:style:1.0);\n@namespace svg url(urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0);\n@namespace table url(urn:oasis:names:tc:opendocument:xmlns:table:1.0);\n@namespace text url(urn:oasis:names:tc:opendocument:xmlns:text:1.0);\n@namespace webodfhelper url(urn:webodf:names:helper);\n@namespace cursor url(urn:webodf:names:cursor);\n@namespace editinfo url(urn:webodf:names:editinfo);\n@namespace annotation url(urn:webodf:names:annotation);\n@namespace dc url(http://purl.org/dc/elements/1.1/);\n@namespace svgns url(http://www.w3.org/2000/svg);\n\noffice|document > *, office|document-content > * {\n  display: none;\n}\noffice|body, office|document {\n  display: inline-block;\n  position: relative;\n}\n\ntext|p, text|h {\n  display: block;\n  padding: 0;\n  margin: 0;\n  line-height: normal;\n  position: relative;\n  min-height: 1.3em; /* prevent empty paragraphs and headings from collapsing if they are empty */\n}\n*[webodfhelper|containsparagraphanchor] {\n  position: relative;\n}\ntext|s {\n    white-space: pre;\n}\ntext|tab {\n  display: inline;\n  white-space: pre;\n}\ntext|tracked-changes {\n  /*Consumers that do not support change tracking, should ignore changes.*/\n  display: none;\n}\noffice|binary-data {\n  display: none;\n}\noffice|text {\n  display: block;\n  text-align: left;\n  overflow: visible;\n  word-wrap: break-word;\n}\n\noffice|text::selection {\n  /** Let\'s not draw selection highlight that overflows into the office|text\n   * node when selecting content across several paragraphs\n   */\n  background: transparent;\n}\n\noffice|document *::selection {\n  background: transparent;\n}\noffice|document *::-moz-selection {\n  background: transparent;\n}\n\noffice|text * draw|text-box {\n/** only for text documents */\n    display: block;\n    border: 1px solid #d3d3d3;\n}\ndraw|frame {\n  /** make sure frames are above the main body. */\n  z-index: 1;\n}\noffice|spreadsheet {\n  display: block;\n  border-collapse: collapse;\n  empty-cells: show;\n  font-family: sans-serif;\n  font-size: 10pt;\n  text-align: left;\n  page-break-inside: avoid;\n  overflow: hidden;\n}\noffice|presentation {\n  display: inline-block;\n  text-align: left;\n}\n#shadowContent {\n  display: inline-block;\n  text-align: left;\n}\ndraw|page {\n  display: block;\n  position: relative;\n  overflow: hidden;\n}\npresentation|notes, presentation|footer-decl, presentation|date-time-decl {\n    display: none;\n}\n@media print {\n  draw|page {\n    border: 1pt solid black;\n    page-break-inside: avoid;\n  }\n  presentation|notes {\n    /*TODO*/\n  }\n}\noffice|spreadsheet text|p {\n  border: 0px;\n  padding: 1px;\n  margin: 0px;\n}\noffice|spreadsheet table|table {\n  margin: 3px;\n}\noffice|spreadsheet table|table:after {\n  /* show sheet name the end of the sheet */\n  /*content: attr(table|name);*/ /* gives parsing error in opera */\n}\noffice|spreadsheet table|table-row {\n  counter-increment: row;\n}\noffice|spreadsheet table|table-row:before {\n  width: 3em;\n  background: #cccccc;\n  border: 1px solid black;\n  text-align: center;\n  content: counter(row);\n  display: table-cell;\n}\noffice|spreadsheet table|table-cell {\n  border: 1px solid #cccccc;\n}\ntable|table {\n  display: table;\n}\ndraw|frame table|table {\n  width: 100%;\n  height: 100%;\n  background: white;\n}\ntable|table-header-rows {\n  display: table-header-group;\n}\ntable|table-row {\n  display: table-row;\n}\ntable|table-column {\n  display: table-column;\n}\ntable|table-cell {\n  width: 0.889in;\n  display: table-cell;\n  word-break: break-all; /* prevent long words from extending out the table cell */\n}\ndraw|frame {\n  display: block;\n}\ndraw|image {\n  display: block;\n  width: 100%;\n  height: 100%;\n  top: 0px;\n  left: 0px;\n  background-repeat: no-repeat;\n  background-size: 100% 100%;\n  -moz-background-size: 100% 100%;\n}\n/* only show the first image in frame */\ndraw|frame > draw|image:nth-of-type(n+2) {\n  display: none;\n}\ntext|list:before {\n    display: none;\n    content:"";\n}\ntext|list {\n    counter-reset: list;\n}\ntext|list-item {\n    display: block;\n}\ntext|number {\n    display:none;\n}\n\ntext|a {\n    color: blue;\n    text-decoration: underline;\n    cursor: pointer;\n}\noffice|text[webodfhelper|links="inactive"] text|a {\n    cursor: text;\n}\ntext|note-citation {\n    vertical-align: super;\n    font-size: smaller;\n}\ntext|note-body {\n    display: none;\n}\ntext|note:hover text|note-citation {\n    background: #dddddd;\n}\ntext|note:hover text|note-body {\n    display: block;\n    left:1em;\n    max-width: 80%;\n    position: absolute;\n    background: #ffffaa;\n}\nsvg|title, svg|desc {\n    display: none;\n}\nvideo {\n    width: 100%;\n    height: 100%\n}\n\n/* below set up the cursor */\ncursor|cursor {\n    display: inline;\n    width: 0;\n    height: 1em;\n    /* making the position relative enables the avatar to use\n       the cursor as reference for its absolute position */\n    position: relative;\n    z-index: 1;\n    pointer-events: none;\n}\n\ncursor|cursor > .caret {\n    /* IMPORTANT: when changing these values ensure DEFAULT_CARET_TOP and DEFAULT_CARET_HEIGHT\n        in Caret.js remain in sync */\n    display: inline;\n    position: absolute;\n    top: 5%; /* push down the caret; 0px can do the job, 5% looks better, 10% is a bit over */\n    height: 1em;\n    border-left: 2px solid black;\n    outline: none;\n}\n\ncursor|cursor > .handle {\n    padding: 3px;\n    box-shadow: 0px 0px 5px rgba(50, 50, 50, 0.75);\n    border: none !important;\n    border-radius: 5px;\n    opacity: 0.3;\n}\n\ncursor|cursor > .handle > img {\n    border-radius: 5px;\n}\n\ncursor|cursor > .handle.active {\n    opacity: 0.8;\n}\n\ncursor|cursor > .handle:after {\n    content: \' \';\n    position: absolute;\n    width: 0px;\n    height: 0px;\n    border-style: solid;\n    border-width: 8.7px 5px 0 5px;\n    border-color: black transparent transparent transparent;\n\n    top: 100%;\n    left: 43%;\n}\n\n/** Input Method Editor input pane & behaviours */\n/* not within a cursor */\n#eventTrap {\n    height: auto;\n    display: block;\n    position: absolute;\n    width: 1px;\n    outline: none;\n    opacity: 0;\n    color: rgba(255, 255, 255, 0); /* hide the blinking caret by setting the colour to fully transparent */\n    overflow: hidden; /* The overflow visibility is used to hide and show characters being entered */\n    pointer-events: none;\n}\n\n/* within a cursor */\ncursor|cursor > #composer {\n    text-decoration: underline;\n}\n\ncursor|cursor[cursor|composing="true"] > #composer {\n    display: inline-block;\n    height: auto;\n    width: auto;\n}\n\ncursor|cursor[cursor|composing="true"] {\n    display: inline-block;\n    width: auto;\n    height: inherit;\n}\n\ncursor|cursor[cursor|composing="true"] > .caret {\n    /* during composition, the caret should be pushed along by the composition text, inline with the text */\n    position: static;\n    /* as it is now part of an inline-block, it will no longer need correct to top or height values to align properly */\n    height: auto !important;\n    top: auto !important;\n}\n\neditinfo|editinfo {\n    /* Empty or invisible display:inline elements respond very badly to mouse selection.\n       Inline blocks are much more reliably selectable in Chrome & friends */\n    display: inline-block;\n}\n\n.editInfoMarker {\n    position: absolute;\n    width: 10px;\n    height: 100%;\n    left: -20px;\n    opacity: 0.8;\n    top: 0;\n    border-radius: 5px;\n    background-color: transparent;\n    box-shadow: 0px 0px 5px rgba(50, 50, 50, 0.75);\n}\n.editInfoMarker:hover {\n    box-shadow: 0px 0px 8px rgba(0, 0, 0, 1);\n}\n\n.editInfoHandle {\n    position: absolute;\n    background-color: black;\n    padding: 5px;\n    border-radius: 5px;\n    opacity: 0.8;\n    box-shadow: 0px 0px 5px rgba(50, 50, 50, 0.75);\n    bottom: 100%;\n    margin-bottom: 10px;\n    z-index: 3;\n    left: -25px;\n}\n.editInfoHandle:after {\n    content: \' \';\n    position: absolute;\n    width: 0px;\n    height: 0px;\n    border-style: solid;\n    border-width: 8.7px 5px 0 5px;\n    border-color: black transparent transparent transparent;\n\n    top: 100%;\n    left: 5px;\n}\n.editInfo {\n    font-family: sans-serif;\n    font-weight: normal;\n    font-style: normal;\n    text-decoration: none;\n    color: white;\n    width: 100%;\n    height: 12pt;\n}\n.editInfoColor {\n    float: left;\n    width: 10pt;\n    height: 10pt;\n    border: 1px solid white;\n}\n.editInfoAuthor {\n    float: left;\n    margin-left: 5pt;\n    font-size: 10pt;\n    text-align: left;\n    height: 12pt;\n    line-height: 12pt;\n}\n.editInfoTime {\n    float: right;\n    margin-left: 30pt;\n    font-size: 8pt;\n    font-style: italic;\n    color: yellow;\n    height: 12pt;\n    line-height: 12pt;\n}\n\n.annotationWrapper {\n    display: inline;\n    position: relative;\n}\n\n.annotationRemoveButton:before {\n    content: \'\u00d7\';\n    color: white;\n    padding: 5px;\n    line-height: 1em;\n}\n\n.annotationRemoveButton {\n    width: 20px;\n    height: 20px;\n    border-radius: 10px;\n    background-color: black;\n    box-shadow: 0px 0px 5px rgba(50, 50, 50, 0.75);\n    position: absolute;\n    top: -10px;\n    left: -10px;\n    z-index: 3;\n    text-align: center;\n    font-family: sans-serif;\n    font-style: normal;\n    font-weight: normal;\n    text-decoration: none;\n    font-size: 15px;\n}\n.annotationRemoveButton:hover {\n    cursor: pointer;\n    box-shadow: 0px 0px 5px rgba(0, 0, 0, 1);\n}\n\n.annotationNote {\n    width: 4cm;\n    position: absolute;\n    display: inline;\n    z-index: 10;\n}\n.annotationNote > office|annotation {\n    display: block;\n    text-align: left;\n}\n\n.annotationConnector {\n    position: absolute;\n    display: inline;\n    z-index: 2;\n    border-top: 1px dashed brown;\n}\n.annotationConnector.angular {\n    -moz-transform-origin: left top;\n    -webkit-transform-origin: left top;\n    -ms-transform-origin: left top;\n    transform-origin: left top;\n}\n.annotationConnector.horizontal {\n    left: 0;\n}\n.annotationConnector.horizontal:before {\n    content: \'\';\n    display: inline;\n    position: absolute;\n    width: 0px;\n    height: 0px;\n    border-style: solid;\n    border-width: 8.7px 5px 0 5px;\n    border-color: brown transparent transparent transparent;\n    top: -1px;\n    left: -5px;\n}\n\noffice|annotation {\n    width: 100%;\n    height: 100%;\n    display: none;\n    background: rgb(198, 238, 184);\n    background: -moz-linear-gradient(90deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);\n    background: -webkit-linear-gradient(90deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);\n    background: -o-linear-gradient(90deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);\n    background: -ms-linear-gradient(90deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);\n    background: linear-gradient(180deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);\n    box-shadow: 0 3px 4px -3px #ccc;\n}\n\noffice|annotation > dc|creator {\n    display: block;\n    font-size: 10pt;\n    font-weight: normal;\n    font-style: normal;\n    font-family: sans-serif;\n    color: white;\n    background-color: brown;\n    padding: 4px;\n}\noffice|annotation > dc|date {\n    display: block;\n    font-size: 10pt;\n    font-weight: normal;\n    font-style: normal;\n    font-family: sans-serif;\n    border: 4px solid transparent;\n    color: black;\n}\noffice|annotation > text|list {\n    display: block;\n    padding: 5px;\n}\n\n/* This is very temporary CSS. This must go once\n * we start bundling webodf-default ODF styles for annotations.\n */\noffice|annotation text|p {\n    font-size: 10pt;\n    color: black;\n    font-weight: normal;\n    font-style: normal;\n    text-decoration: none;\n    font-family: sans-serif;\n}\n\ndc|*::selection {\n    background: transparent;\n}\ndc|*::-moz-selection {\n    background: transparent;\n}\n\n#annotationsPane {\n    background-color: #EAEAEA;\n    width: 4cm;\n    height: 100%;\n    display: none;\n    position: absolute;\n    outline: 1px solid #ccc;\n}\n\n.annotationHighlight {\n    background-color: yellow;\n    position: relative;\n}\n\n.selectionOverlay {\n    position: absolute;\n    pointer-events: none;\n    top: 0;\n    left: 0;\n    top: 0;\n    left: 0;\n    width: 100%;\n    height: 100%;\n    z-index: 15;\n}\n.selectionOverlay > polygon {\n    fill-opacity: 0.3;\n    stroke-opacity: 0.8;\n    stroke-width: 1;\n    fill-rule: evenodd;\n}\n\n.selectionOverlay > .draggable {\n    fill-opacity: 0.8;\n    stroke-opacity: 0;\n    stroke-width: 8;\n    pointer-events: all;\n    display: none;\n\n    -moz-transform-origin: center center;\n    -webkit-transform-origin: center center;\n    -ms-transform-origin: center center;\n    transform-origin: center center;\n}\n\n#imageSelector {\n    display: none;\n    position: absolute;\n    border-style: solid;\n    border-color: black;\n}\n\n#imageSelector > div {\n    width: 5px;\n    height: 5px;\n    display: block;\n    position: absolute;\n    border: 1px solid black;\n    background-color: #ffffff;\n}\n\n#imageSelector > .topLeft {\n    top: -4px;\n    left: -4px;\n}\n\n#imageSelector > .topRight {\n    top: -4px;\n    right: -4px;\n}\n\n#imageSelector > .bottomRight {\n    right: -4px;\n    bottom: -4px;\n}\n\n#imageSelector > .bottomLeft {\n    bottom: -4px;\n    left: -4px;\n}\n\n#imageSelector > .topMiddle {\n    top: -4px;\n    left: 50%;\n    margin-left: -2.5px; /* half of the width defined in #imageSelector > div */\n}\n\n#imageSelector > .rightMiddle {\n    top: 50%;\n    right: -4px;\n    margin-top: -2.5px; /* half of the height defined in #imageSelector > div */\n}\n\n#imageSelector > .bottomMiddle {\n    bottom: -4px;\n    left: 50%;\n    margin-left: -2.5px; /* half of the width defined in #imageSelector > div */\n}\n\n#imageSelector > .leftMiddle {\n    top: 50%;\n    left: -4px;\n    margin-top: -2.5px; /* half of the height defined in #imageSelector > div */\n}\n\ndiv.customScrollbars::-webkit-scrollbar\n{\n    width: 8px;\n    height: 8px;\n    background-color: transparent;\n}\n\ndiv.customScrollbars::-webkit-scrollbar-track\n{\n    background-color: transparent;\n}\n\ndiv.customScrollbars::-webkit-scrollbar-thumb\n{\n    background-color: #444;\n    border-radius: 4px;\n}\n';
+var webodf_css = "/**\n * Copyright (C) 2010-2014 KO GmbH <copyright@kogmbh.com>\n *\n * @licstart\n * This file is part of WebODF.\n *\n * WebODF is free software: you can redistribute it and/or modify it\n * under the terms of the GNU Affero General Public License (GNU AGPL)\n * as published by the Free Software Foundation, either version 3 of\n * the License, or (at your option) any later version.\n *\n * WebODF is distributed in the hope that it will be useful, but\n * WITHOUT ANY WARRANTY; without even the implied warranty of\n * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n * GNU Affero General Public License for more details.\n *\n * You should have received a copy of the GNU Affero General Public License\n * along with WebODF.  If not, see <http://www.gnu.org/licenses/>.\n * @licend\n *\n * @source: http://www.webodf.org/\n * @source: https://github.com/kogmbh/WebODF/\n */\n\n@namespace draw url(urn:oasis:names:tc:opendocument:xmlns:drawing:1.0);\n@namespace fo url(urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0);\n@namespace office url(urn:oasis:names:tc:opendocument:xmlns:office:1.0);\n@namespace presentation url(urn:oasis:names:tc:opendocument:xmlns:presentation:1.0);\n@namespace style url(urn:oasis:names:tc:opendocument:xmlns:style:1.0);\n@namespace svg url(urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0);\n@namespace table url(urn:oasis:names:tc:opendocument:xmlns:table:1.0);\n@namespace text url(urn:oasis:names:tc:opendocument:xmlns:text:1.0);\n@namespace webodfhelper url(urn:webodf:names:helper);\n@namespace cursor url(urn:webodf:names:cursor);\n@namespace editinfo url(urn:webodf:names:editinfo);\n@namespace annotation url(urn:webodf:names:annotation);\n@namespace dc url(http://purl.org/dc/elements/1.1/);\n@namespace svgns url(http://www.w3.org/2000/svg);\n\noffice|document > *, office|document-content > * {\n  display: none;\n}\noffice|body, office|document {\n  display: inline-block;\n  position: relative;\n}\n\ntext|p, text|h {\n  display: block;\n  padding: 0;\n  margin: 0;\n  line-height: normal;\n  position: relative;\n}\n\ntext|p::after, text|h::after {\n    /* prevent empty paragraphs and headings from collapsing */\n    content: '\\200B'; /* ZERO WIDTH SPACE */\n    white-space: pre;\n}\n\n*[webodfhelper|containsparagraphanchor] {\n  position: relative;\n}\ntext|s {\n    white-space: pre;\n}\ntext|tab {\n  display: inline;\n  white-space: pre;\n}\ntext|tracked-changes {\n  /*Consumers that do not support change tracking, should ignore changes.*/\n  display: none;\n}\noffice|binary-data {\n  display: none;\n}\noffice|text {\n  display: block;\n  text-align: left;\n  overflow: visible;\n  word-wrap: break-word;\n}\n\noffice|text::selection {\n  /** Let's not draw selection highlight that overflows into the office|text\n   * node when selecting content across several paragraphs\n   */\n  background: transparent;\n}\n\n.webodf-virtualSelections *::selection {\n  background: transparent;\n}\n.webodf-virtualSelections *::-moz-selection {\n  background: transparent;\n}\n\noffice|text * draw|text-box {\n/** only for text documents */\n    display: block;\n    border: 1px solid #d3d3d3;\n}\noffice|text draw|frame {\n  /** make sure frames are above the main text. */\n  z-index: 1;\n}\noffice|spreadsheet {\n  display: block;\n  border-collapse: collapse;\n  empty-cells: show;\n  font-family: sans-serif;\n  font-size: 10pt;\n  text-align: left;\n  page-break-inside: avoid;\n  overflow: hidden;\n}\noffice|presentation {\n  display: inline-block;\n  text-align: left;\n}\n#shadowContent {\n  display: inline-block;\n  text-align: left;\n}\ndraw|page {\n  display: block;\n  position: relative;\n  overflow: hidden;\n}\npresentation|notes, presentation|footer-decl, presentation|date-time-decl {\n    display: none;\n}\n@media print {\n  draw|page {\n    border: 1pt solid black;\n    page-break-inside: avoid;\n  }\n  presentation|notes {\n    /*TODO*/\n  }\n}\noffice|spreadsheet text|p {\n  border: 0px;\n  padding: 1px;\n  margin: 0px;\n}\noffice|spreadsheet table|table {\n  margin: 3px;\n}\noffice|spreadsheet table|table:after {\n  /* show sheet name the end of the sheet */\n  /*content: attr(table|name);*/ /* gives parsing error in opera */\n}\noffice|spreadsheet table|table-row {\n  counter-increment: row;\n}\noffice|spreadsheet table|table-row:before {\n  width: 3em;\n  background: #cccccc;\n  border: 1px solid black;\n  text-align: center;\n  content: counter(row);\n  display: table-cell;\n}\noffice|spreadsheet table|table-cell {\n  border: 1px solid #cccccc;\n}\ntable|table {\n  display: table;\n}\ndraw|frame table|table {\n  width: 100%;\n  height: 100%;\n  background: white;\n}\ntable|table-header-rows {\n  display: table-header-group;\n}\ntable|table-row {\n  display: table-row;\n}\ntable|table-column {\n  display: table-column;\n}\ntable|table-cell {\n  width: 0.889in;\n  display: table-cell;\n  word-break: break-all; /* prevent long words from extending out the table cell */\n}\ndraw|frame {\n  display: block;\n}\ndraw|image {\n  display: block;\n  width: 100%;\n  height: 100%;\n  top: 0px;\n  left: 0px;\n  background-repeat: no-repeat;\n  background-size: 100% 100%;\n  -moz-background-size: 100% 100%;\n}\n/* only show the first image in frame */\ndraw|frame > draw|image:nth-of-type(n+2) {\n  display: none;\n}\ntext|list:before {\n    display: none;\n    content:\"\";\n}\ntext|list {\n    display: block;\n}\ntext|list-item {\n    display: block;\n}\ntext|number {\n    display:none;\n}\n\ntext|a {\n    color: blue;\n    text-decoration: underline;\n    cursor: pointer;\n}\n.webodf-inactiveLinks text|a {\n    cursor: text;\n}\ntext|note-citation {\n    vertical-align: super;\n    font-size: smaller;\n}\ntext|note-body {\n    display: none;\n}\ntext|note:hover text|note-citation {\n    background: #dddddd;\n}\ntext|note:hover text|note-body {\n    display: block;\n    left:1em;\n    max-width: 80%;\n    position: absolute;\n    background: #ffffaa;\n}\ntext|bibliography-source {\n  display: none;\n}\nsvg|title, svg|desc {\n    display: none;\n}\nvideo {\n    width: 100%;\n    height: 100%\n}\n\n/* below set up the cursor */\ncursor|anchor {\n    display: none;\n}\n\ncursor|cursor {\n    display: none;\n}\n\n.webodf-caretOverlay {\n    position: absolute;\n    top: 5%; /* push down the caret; 0px can do the job, 5% looks better, 10% is a bit over */\n    height: 1em;\n    z-index: 10;\n    padding-left: 1px; /* centre 2px caret into middle of overlay */\n    pointer-events: none;\n}\n\n.webodf-caretOverlay .caret {\n    position: absolute;\n    border-left: 2px solid black;\n    top: 0;\n    bottom: 0;\n    right: 0;\n}\n\n.webodf-caretOverlay .handle {\n    position: absolute;\n    margin-top: 5px;\n    padding-top: 3px;\n    margin-left: auto;\n    margin-right: auto;\n    width: 64px;\n    height: 68px;\n    border-radius: 5px;\n    opacity: 0.3;\n    text-align: center;\n    background-color: black;\n    box-shadow: 0px 0px 5px rgb(90, 90, 90);\n    border: 1px solid black;\n\n    top: -85px;\n    right: -32px;\n}\n\n.webodf-caretOverlay .handle > img {\n    box-shadow: 0px 0px 5px rgb(90, 90, 90) inset;\n    background-color: rgb(200, 200, 200);\n    border-radius: 5px;\n    border: 2px solid;\n    height: 60px;\n    width: 60px;\n    display: block;\n    margin: auto;\n}\n\n.webodf-caretOverlay .handle.active {\n    opacity: 0.8;\n}\n\n.webodf-caretOverlay .handle:after {\n    content: ' ';\n    position: absolute;\n    width: 0px;\n    height: 0px;\n    border-style: solid;\n    border-width: 8.7px 5px 0 5px;\n    border-color: black transparent transparent transparent;\n\n    top: 100%;\n    left: 43%;\n}\n\n.webodf-caretSizer {\n    display: inline-block; /* inline-block is necessary so the width can be set to 0 */\n    width: 0; /* the caret sizer shouldn't take up any horizontal space */\n    visibility: hidden; /* \"hidden\" means the client rects are still calculated, but the node content is not shown */\n}\n\n/** Input Method Editor input pane & behaviours */\n/* not within a cursor */\n#eventTrap {\n    display: block;\n    position: absolute;\n    bottom: 0;\n    left: 0;\n    outline: none;\n    opacity: 0;\n    color: rgba(255, 255, 255, 0); /* hide the blinking caret by setting the colour to fully transparent */\n    pointer-events: none;\n    /* prevent any text wrapping from occurring within the text area */\n    white-space: pre;\n    overflow: hidden;\n}\n\n/* within a cursor */\ncursor|cursor > #composer {\n    text-decoration: underline;\n}\n\ncursor|cursor[cursor|caret-sizer-active=\"true\"],\ncursor|cursor[cursor|composing=\"true\"] {\n    display: inline;\n}\n\neditinfo|editinfo {\n    /* Empty or invisible display:inline elements respond very badly to mouse selection.\n       Inline blocks are much more reliably selectable in Chrome & friends */\n    display: inline-block;\n}\n\n.editInfoMarker {\n    position: absolute;\n    width: 10px;\n    height: 100%;\n    left: -20px;\n    opacity: 0.8;\n    top: 0;\n    border-radius: 5px;\n    background-color: transparent;\n    box-shadow: 0px 0px 5px rgba(50, 50, 50, 0.75);\n}\n.editInfoMarker:hover {\n    box-shadow: 0px 0px 8px rgba(0, 0, 0, 1);\n}\n\n.editInfoHandle {\n    position: absolute;\n    background-color: black;\n    padding: 5px;\n    border-radius: 5px;\n    opacity: 0.8;\n    box-shadow: 0px 0px 5px rgba(50, 50, 50, 0.75);\n    bottom: 100%;\n    margin-bottom: 10px;\n    z-index: 3;\n    left: -25px;\n}\n.editInfoHandle:after {\n    content: ' ';\n    position: absolute;\n    width: 0px;\n    height: 0px;\n    border-style: solid;\n    border-width: 8.7px 5px 0 5px;\n    border-color: black transparent transparent transparent;\n\n    top: 100%;\n    left: 5px;\n}\n.editInfo {\n    font-family: sans-serif;\n    font-weight: normal;\n    font-style: normal;\n    text-decoration: none;\n    color: white;\n    width: 100%;\n    height: 12pt;\n}\n.editInfoColor {\n    float: left;\n    width: 10pt;\n    height: 10pt;\n    border: 1px solid white;\n}\n.editInfoAuthor {\n    float: left;\n    margin-left: 5pt;\n    font-size: 10pt;\n    text-align: left;\n    height: 12pt;\n    line-height: 12pt;\n}\n.editInfoTime {\n    float: right;\n    margin-left: 30pt;\n    font-size: 8pt;\n    font-style: italic;\n    color: yellow;\n    height: 12pt;\n    line-height: 12pt;\n}\n\n.annotationWrapper {\n    display: inline;\n    position: relative;\n}\n\n.annotationRemoveButton:before {\n    content: '\u00d7';\n    color: white;\n    padding: 5px;\n    line-height: 1em;\n}\n\n.annotationRemoveButton {\n    width: 20px;\n    height: 20px;\n    border-radius: 10px;\n    background-color: black;\n    box-shadow: 0px 0px 5px rgba(50, 50, 50, 0.75);\n    position: absolute;\n    top: -10px;\n    left: -10px;\n    z-index: 3;\n    text-align: center;\n    font-family: sans-serif;\n    font-style: normal;\n    font-weight: normal;\n    text-decoration: none;\n    font-size: 15px;\n}\n.annotationRemoveButton:hover {\n    cursor: pointer;\n    box-shadow: 0px 0px 5px rgba(0, 0, 0, 1);\n}\n\n.annotationNote {\n    width: 4cm;\n    position: absolute;\n    display: inline;\n    z-index: 10;\n    top: 0;\n}\n.annotationNote > office|annotation {\n    display: block;\n    text-align: left;\n}\n\n.annotationConnector {\n    position: absolute;\n    display: inline;\n    top: 0;\n    z-index: 2;\n    border-top: 1px dashed brown;\n}\n.annotationConnector.angular {\n    -moz-transform-origin: left top;\n    -webkit-transform-origin: left top;\n    -ms-transform-origin: left top;\n    transform-origin: left top;\n}\n.annotationConnector.horizontal {\n    left: 0;\n}\n.annotationConnector.horizontal:before {\n    content: '';\n    display: inline;\n    position: absolute;\n    width: 0px;\n    height: 0px;\n    border-style: solid;\n    border-width: 8.7px 5px 0 5px;\n    border-color: brown transparent transparent transparent;\n    top: -1px;\n    left: -5px;\n}\n\noffice|annotation {\n    width: 100%;\n    height: 100%;\n    display: none;\n    background: rgb(198, 238, 184);\n    background: -moz-linear-gradient(90deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);\n    background: -webkit-linear-gradient(90deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);\n    background: -o-linear-gradient(90deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);\n    background: -ms-linear-gradient(90deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);\n    background: linear-gradient(180deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);\n    box-shadow: 0 3px 4px -3px #ccc;\n}\n\noffice|annotation > dc|creator {\n    display: block;\n    font-size: 10pt;\n    font-weight: normal;\n    font-style: normal;\n    font-family: sans-serif;\n    color: white;\n    background-color: brown;\n    padding: 4px;\n}\noffice|annotation > dc|date {\n    display: block;\n    font-size: 10pt;\n    font-weight: normal;\n    font-style: normal;\n    font-family: sans-serif;\n    border: 4px solid transparent;\n    color: black;\n}\noffice|annotation > text|list {\n    display: block;\n    padding: 5px;\n}\n\n/* This is very temporary CSS. This must go once\n * we start bundling webodf-default ODF styles for annotations.\n */\noffice|annotation text|p {\n    font-size: 10pt;\n    color: black;\n    font-weight: normal;\n    font-style: normal;\n    text-decoration: none;\n    font-family: sans-serif;\n}\n\n#annotationsPane {\n    background-color: #EAEAEA;\n    width: 4cm;\n    height: 100%;\n    display: none;\n    position: absolute;\n    outline: 1px solid #ccc;\n}\n\n.webodf-annotationHighlight {\n    background-color: yellow;\n    position: relative;\n}\n\n.webodf-selectionOverlay {\n    position: absolute;\n    pointer-events: none;\n    top: 0;\n    left: 0;\n    top: 0;\n    left: 0;\n    width: 100%;\n    height: 100%;\n    z-index: 15;\n}\n.webodf-selectionOverlay > polygon {\n    fill-opacity: 0.3;\n    stroke-opacity: 0.8;\n    stroke-width: 1;\n    fill-rule: evenodd;\n}\n\n.webodf-selectionOverlay > .webodf-draggable {\n    fill-opacity: 0.8;\n    stroke-opacity: 0;\n    stroke-width: 8;\n    pointer-events: all;\n    display: none;\n\n    -moz-transform-origin: center center;\n    -webkit-transform-origin: center center;\n    -ms-transform-origin: center center;\n    transform-origin: center center;\n}\n\n#imageSelector {\n    display: none;\n    position: absolute;\n    border-style: solid;\n    border-color: black;\n}\n\n#imageSelector > div {\n    width: 5px;\n    height: 5px;\n    display: block;\n    position: absolute;\n    border: 1px solid black;\n    background-color: #ffffff;\n}\n\n#imageSelector > .topLeft {\n    top: -4px;\n    left: -4px;\n}\n\n#imageSelector > .topRight {\n    top: -4px;\n    right: -4px;\n}\n\n#imageSelector > .bottomRight {\n    right: -4px;\n    bottom: -4px;\n}\n\n#imageSelector > .bottomLeft {\n    bottom: -4px;\n    left: -4px;\n}\n\n#imageSelector > .topMiddle {\n    top: -4px;\n    left: 50%;\n    margin-left: -2.5px; /* half of the width defined in #imageSelector > div */\n}\n\n#imageSelector > .rightMiddle {\n    top: 50%;\n    right: -4px;\n    margin-top: -2.5px; /* half of the height defined in #imageSelector > div */\n}\n\n#imageSelector > .bottomMiddle {\n    bottom: -4px;\n    left: 50%;\n    margin-left: -2.5px; /* half of the width defined in #imageSelector > div */\n}\n\n#imageSelector > .leftMiddle {\n    top: 50%;\n    left: -4px;\n    margin-top: -2.5px; /* half of the height defined in #imageSelector > div */\n}\n\ndiv.webodf-customScrollbars::-webkit-scrollbar\n{\n    width: 8px;\n    height: 8px;\n    background-color: transparent;\n}\n\ndiv.webodf-customScrollbars::-webkit-scrollbar-track\n{\n    background-color: transparent;\n}\n\ndiv.webodf-customScrollbars::-webkit-scrollbar-thumb\n{\n    background-color: #444;\n    border-radius: 4px;\n}\n\n.webodf-hyperlinkTooltip {\n    display: none;\n    color: white;\n    background-color: black;\n    border-radius: 5px;\n    box-shadow: 2px 2px 5px gray;\n    padding: 3px;\n    position: absolute;\n    max-width: 210px;\n    text-align: left;\n    word-break: break-all;\n    z-index: 16;\n}\n\n.webodf-hyperlinkTooltipText {\n    display: block;\n    font-weight: bold;\n}\n";
 

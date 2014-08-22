@@ -94,6 +94,20 @@ define("webodf/editor/Editor", [
             function fireEvent(eventid, args) {
                 eventNotifier.emit(eventid, args);
             }
+			
+            /**
+            * Returns true if either all features are wanted and this one is not explicitely disabled
+            * or if not all features are wanted by default and it is explicitely enabled
+            * @param {?boolean|undefined} isFeatureEnabled explicit flag which enables a feature
+            * @param {!boolean=} isUnstable set to true if the feature is not stable (in collab mode)
+            * @return {!boolean}
+            */
+            function isEnabled(isFeatureEnabled, isUnstable) {
+                if (isUnstable && ! args.unstableFeaturesEnabled) {
+                    return false;
+                }
+                return args.allFeaturesEnabled ? (isFeatureEnabled !== false) : isFeatureEnabled;
+            }
 
             function getFileBlob(cbSuccess, cbError) {
                 var odfContainer = odfCanvas.odfContainer();
@@ -451,13 +465,18 @@ define("webodf/editor/Editor", [
                     container = document.getElementById('container'),
                     memberListElement = document.getElementById('memberList'),
                     collabEditing = Boolean(server),
-                    directParagraphStylingEnabled = (! collabEditing) || args.unstableFeaturesEnabled,
+                    directTextStylingEnabled = isEnabled(args.directTextStylingEnabled),
+                    paragraphStyleSelectingEnabled = isEnabled(args.paragraphStyleSelectingEnabled),
+                    paragraphStyleEditingEnabled = isEnabled(args.paragraphStyleEditingEnabled),
+                    directParagraphStylingEnabled = isEnabled(args.directParagraphStylingEnabled),
                     imageInsertingEnabled = (! collabEditing) || args.unstableFeaturesEnabled,
+                    imageEditingEnabled = (! collabEditing) || args.unstableFeaturesEnabled,
                     hyperlinkEditingEnabled = (! collabEditing) || args.unstableFeaturesEnabled,
                     // annotations not yet properly supported for OT
                     annotationsEnabled = (! collabEditing) || args.unstableFeaturesEnabled,
                      // undo manager is not yet integrated with collaboration
                     undoRedoEnabled = (! collabEditing),
+                    zoomingEnabled = isEnabled(args.zoomingEnabled),
                     closeCallback;
 
                 // Extend runtime with a convenient translation function
@@ -513,16 +532,19 @@ define("webodf/editor/Editor", [
                     inviteButton.onclick = window.inviteButtonProxy.clicked;
                 }
 
-                tools = new Tools({
+                tools = new Tools('toolbar-inner', {
                     onToolDone: setFocusToOdfCanvas,
-                    loadOdtFile: loadOdtFile,
                     saveOdtFile: saveOdtFile,
                     close: close,
+                    directTextStylingEnabled: directTextStylingEnabled,
                     directParagraphStylingEnabled: directParagraphStylingEnabled,
-                    imageInsertingEnabled: imageInsertingEnabled,
+                    paragraphStyleSelectingEnabled: paragraphStyleSelectingEnabled,
+                    paragraphStyleEditingEnabled: paragraphStyleEditingEnabled,
+                    imageInsertingEnabled: imageEditingEnabled,
                     hyperlinkEditingEnabled: hyperlinkEditingEnabled,
                     annotationsEnabled: annotationsEnabled,
-                    undoRedoEnabled: undoRedoEnabled
+                    undoRedoEnabled: undoRedoEnabled,
+                    zoomingEnabled: zoomingEnabled
                 });
 
                 odfCanvas = new odf.OdfCanvas(canvasElement);

@@ -255,24 +255,24 @@
 	background-color: #ddd !important;
 }
 
-.memberListButton {
+.webodfeditor-memberListButton {
 	background-color: transparent !important;
 	box-shadow: none !important;
 	border: none !important;
 }
 
-.memberListButton span {
+.webodfeditor-memberListButton span {
 	display: block;
     border-radius: 3px;
     display: block;
     margin: auto;
 }
 
-.memberListButton img{
+.webodfeditor-memberListButton img{
     border: 0 none !important;
 }
 
-.memberListButton input{
+.webodfeditor-memberListButton input{
 	width:46px;
 }
 

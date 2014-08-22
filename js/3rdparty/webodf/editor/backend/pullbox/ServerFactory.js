@@ -1,5 +1,4 @@
 /**
- * @license
  * Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
  *
  * @licstart
@@ -25,11 +24,11 @@
 
 /*global define, document, require, runtime, ops */
 
-define("webodf/editor/server/pullbox/ServerFactory", [
-    "webodf/editor/server/pullbox/Server",
-    "webodf/editor/server/pullbox/OperationRouter",
-    "webodf/editor/server/pullbox/SessionList"],
-    function (PullBoxServer, PullBoxOperationRouter, PullBoxSessionList) {
+define("webodf/editor/backend/pullbox/ServerFactory", [
+    "webodf/editor/backend/pullbox/Server",
+    "webodf/editor/backend/pullbox/SessionBackend",
+    "webodf/editor/backend/pullbox/SessionList"],
+    function (PullBoxServer, PullBoxSessionBackend, PullBoxSessionList) {
         "use strict";
 
         /**
@@ -40,8 +39,8 @@ define("webodf/editor/server/pullbox/ServerFactory", [
             this.createServer = function (args) {
                 return new PullBoxServer(args);
             };
-            this.createOperationRouter = function (sid, mid, server, odfContainer, errorCallback) {
-                return new PullBoxOperationRouter(sid, mid, server, odfContainer, errorCallback);
+            this.createSessionBackend = function (sid, mid, server) {
+                return new PullBoxSessionBackend(sid, mid, server);
             };
             this.createSessionList = function (server) {
                 return new PullBoxSessionList(server);
