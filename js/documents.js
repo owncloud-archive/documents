@@ -348,7 +348,17 @@ var documentsMain = {
 
 				documentsMain.webodfServerInstance = serverFactory.createServer();
 				documentsMain.webodfServerInstance.setToken(oc_requesttoken);
-				documentsMain.webodfEditorInstance = new Editor({unstableFeaturesEnabled: documentsMain.useUnstable}, documentsMain.webodfServerInstance, serverFactory);
+				documentsMain.webodfEditorInstance = new Editor(
+						{
+							unstableFeaturesEnabled: documentsMain.useUnstable,
+							zoomingEnabled: true,
+							directTextStylingEnabled: true,
+							directParagraphStylingEnabled: true,
+							paragraphStyleSelectingEnabled: true,
+							paragraphStyleEditingEnabled: true
+						},
+						documentsMain.webodfServerInstance, serverFactory
+				);
 				documentsMain.webodfEditorInstance.addEventListener(Editor.EVENT_BEFORESAVETOFILE, documentsMain.UI.showSave);
 				documentsMain.webodfEditorInstance.addEventListener(Editor.EVENT_SAVEDTOFILE, documentsMain.UI.hideSave);
 				documentsMain.webodfEditorInstance.addEventListener(Editor.EVENT_ERROR, documentsMain.onEditorShutdown);
