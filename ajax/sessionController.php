@@ -23,7 +23,12 @@ class SessionController extends Controller{
 		try {
 			$token = Helper::getArrayValueByKey($args, 'token');
 			$file = File::getByShareToken($token);
-			$session = Db_Session::start($uid, $file, true);
+
+			if ($file->isPasswordProtected() && !$file->checkPassword('')){
+				throw new \Exception('Not authorized');
+			}
+			$session = Db_Session::start($uid, $file);
+
 			\OCP\JSON::success($session);
 		} catch (\Exception $e){
 			Helper::warnLog('Starting a session failed. Reason: ' . $e->getMessage());
