@@ -182,20 +182,4 @@ class SessionController extends Controller{
 			"info" => $info
 		));
 	}
-	
-	public static function listAll(){
-		self::preDispatch();
-		$session = new Db_Session();
-		$sessions = $session->getCollection();
-
-		$preparedSessions = array_map(
-				function($x){
-					return ($x['es_id']);
-				}, $sessions
-		);
-		\OCP\JSON::success(array(
-			"session_list" => $preparedSessions
-		));
-	}
-
 }
