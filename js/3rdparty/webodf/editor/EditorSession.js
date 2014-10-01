@@ -25,7 +25,7 @@
 /*global define, runtime, core, gui, ops, document */
 
 define("webodf/editor/EditorSession", [
-    "dojo/text!" + OC.filePath('documents', 'css', 'fonts.css')
+    "dojo/text!resources/fonts/fonts.css"
 ], function (fontsCSS) { // fontsCSS is retrieved as a string, using dojo's text retrieval AMD plugin
     "use strict";
 
@@ -40,6 +40,7 @@ define("webodf/editor/EditorSession", [
     runtime.loadClass("odf.OdfUtils");
     runtime.loadClass("gui.CaretManager");
     runtime.loadClass("gui.Caret");
+    runtime.loadClass("gui.OdfFieldView");
     runtime.loadClass("gui.SessionController");
     runtime.loadClass("gui.SessionView");
     runtime.loadClass("gui.HyperlinkTooltipView");
@@ -52,10 +53,11 @@ define("webodf/editor/EditorSession", [
 
     /**
      * Instantiate a new editor session attached to an existing operation session
+     * @constructor
+     * @implements {core.EventSource}
      * @param {!ops.Session} session
      * @param {!string} localMemberId
      * @param {{viewOptions:gui.SessionViewOptions,directParagraphStylingEnabled:boolean,annotationsEnabled:boolean}} config
-     * @constructor
      */
     var EditorSession = function EditorSession(session, localMemberId, config) {
         var self = this,
@@ -69,8 +71,9 @@ define("webodf/editor/EditorSession", [
             textns = odf.Namespaces.textns,
             fontStyles = document.createElement('style'),
             formatting = odtDocument.getFormatting(),
-            domUtils = new core.DomUtils(),
-            odfUtils = new odf.OdfUtils(),
+            domUtils = core.DomUtils,
+            odfUtils = odf.OdfUtils,
+            odfFieldView,
             eventNotifier = new core.EventNotifier([
                 EditorSession.signalMemberAdded,
                 EditorSession.signalMemberUpdated,
@@ -576,6 +579,7 @@ define("webodf/editor/EditorSession", [
                     selectionViewManager.destroy,
                     self.sessionController.destroy,
                     hyperlinkTooltipView.destroy,
+                    odfFieldView.destroy,
                     destroy
                 ];
 
@@ -593,6 +597,8 @@ define("webodf/editor/EditorSession", [
             fontStyles.appendChild(document.createTextNode(fontsCSS));
             head.appendChild(fontStyles);
 
+            odfFieldView = new gui.OdfFieldView(odfCanvas);
+            odfFieldView.showFieldHighlight();
             self.sessionController = new gui.SessionController(session, localMemberId, shadowCursor, {
                 annotationsEnabled: config.annotationsEnabled,
                 directTextStylingEnabled: config.directTextStylingEnabled,

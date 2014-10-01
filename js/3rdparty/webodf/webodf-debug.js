@@ -24,7 +24,7 @@
  @source: http://www.webodf.org/
  @source: https://github.com/kogmbh/WebODF/
 */
-var webodf_version = "0.5.2-114-g2ab94c5";
+var webodf_version = "0.5.4-17-g556e58e";
 function Runtime() {
 }
 Runtime.prototype.getVariable = function(name) {
@@ -46,10 +46,6 @@ Runtime.prototype.readFileSync = function(path, encoding) {
 Runtime.prototype.loadXML = function(path, callback) {
 };
 Runtime.prototype.writeFile = function(path, data, callback) {
-};
-Runtime.prototype.isFile = function(path, callback) {
-};
-Runtime.prototype.getFileSize = function(path, callback) {
 };
 Runtime.prototype.deleteFile = function(path, callback) {
 };
@@ -163,7 +159,7 @@ Runtime.assert = function(condition, message) {
   }
 };
 function BrowserRuntime(logoutput) {
-  var self = this, cache = {};
+  var self = this;
   function getUtf8LengthForString(string) {
     var l = string.length, i, n, j = 0;
     for(i = 0;i < l;i += 1) {
@@ -330,7 +326,6 @@ function BrowserRuntime(logoutput) {
             data = xhr.responseText
           }
         }
-        cache[path] = data;
         r = {err:null, data:data}
       }else {
         r = {err:xhr.responseText || xhr.statusText, data:null}
@@ -351,10 +346,6 @@ function BrowserRuntime(logoutput) {
     return xhr
   }
   function readFile(path, encoding, callback) {
-    if(cache.hasOwnProperty(path)) {
-      callback(null, cache[path]);
-      return
-    }
     var xhr = createXHR(path, encoding, true);
     function handleResult() {
       var r;
@@ -399,7 +390,6 @@ function BrowserRuntime(logoutput) {
     return r.data
   }
   function writeFile(path, data, callback) {
-    cache[path] = data;
     var xhr = new XMLHttpRequest, d;
     function handleResult() {
       if(xhr.readyState === 4) {
@@ -433,7 +423,6 @@ function BrowserRuntime(logoutput) {
     }
   }
   function deleteFile(path, callback) {
-    delete cache[path];
     var xhr = new XMLHttpRequest;
     xhr.open("DELETE", path, true);
     xhr.onreadystatechange = function() {
@@ -473,45 +462,12 @@ function BrowserRuntime(logoutput) {
       callback(e.message, null)
     }
   }
-  function isFile(path, callback) {
-    self.getFileSize(path, function(size) {
-      callback(size !== -1)
-    })
-  }
-  function getFileSize(path, callback) {
-    if(cache.hasOwnProperty(path) && typeof cache[path] !== "string") {
-      callback(cache[path].length);
-      return
-    }
-    var xhr = new XMLHttpRequest;
-    xhr.open("HEAD", path, true);
-    xhr.onreadystatechange = function() {
-      if(xhr.readyState !== 4) {
-        return
-      }
-      var cl = xhr.getResponseHeader("Content-Length");
-      if(cl) {
-        callback(parseInt(cl, 10))
-      }else {
-        readFile(path, "binary", function(err, data) {
-          if(!err) {
-            callback(data.length)
-          }else {
-            callback(-1)
-          }
-        })
-      }
-    };
-    xhr.send(null)
-  }
   this.readFile = readFile;
   this.read = read;
   this.readFileSync = readFileSync;
   this.writeFile = writeFile;
   this.deleteFile = deleteFile;
   this.loadXML = loadXML;
-  this.isFile = isFile;
-  this.getFileSize = getFileSize;
   this.log = log;
   this.enableAlerts = true;
   this.assert = Runtime.assert;
@@ -587,12 +543,6 @@ function NodeJSRuntime() {
   this.getVariable = Runtime.getVariable;
   this.fromJson = Runtime.fromJson;
   this.toJson = Runtime.toJson;
-  function isFile(path, callback) {
-    path = pathmod.resolve(currentDirectory, path);
-    fs.stat(path, function(err, stats) {
-      callback(!err && stats.isFile())
-    })
-  }
   function readFile(path, encoding, callback) {
     function convert(err, data) {
       if(err) {
@@ -667,17 +617,6 @@ function NodeJSRuntime() {
       s = (r)
     }
     return s
-  };
-  this.isFile = isFile;
-  this.getFileSize = function(path, callback) {
-    path = pathmod.resolve(currentDirectory, path);
-    fs.stat(path, function(err, stats) {
-      if(err) {
-        callback(-1)
-      }else {
-        callback(stats.size)
-      }
-    })
   };
   function log(msgOrCategory, msg) {
     var category;
@@ -802,13 +741,6 @@ function RhinoRuntime() {
     }
     return readFile(path, encoding)
   }
-  function isFile(path, callback) {
-    if(currentDirectory) {
-      path = currentDirectory + "/" + path
-    }
-    var file = new Packages.java.io.File(path);
-    callback(file.isFile())
-  }
   this.loadXML = loadXML;
   this.readFile = runtimeReadFile;
   this.writeFile = function(path, data, callback) {
@@ -854,14 +786,6 @@ function RhinoRuntime() {
       throw"File could not be read.";
     }
     return s
-  };
-  this.isFile = isFile;
-  this.getFileSize = function(path, callback) {
-    if(currentDirectory) {
-      path = currentDirectory + "/" + path
-    }
-    var file = new Packages.java.io.File(path);
-    callback(file.length())
   };
   function log(msgOrCategory, msg) {
     var category;
@@ -1216,7 +1140,7 @@ function makeBase64() {
   }
   function convertBase64ToUTF8Array(b64) {
     b64 = b64.replace(/[^A-Za-z0-9+\/]+/g, "");
-    var l = b64.length, bin = new Uint8Array(new ArrayBuffer(3 * l)), padlen = b64.length % 4, o = 0, i, n;
+    var l = b64.length, bin = new Uint8Array(new ArrayBuffer(3 * l)), padlen = b64.length % 4, o = 0, i, n, a = [0, 0, 2, 1];
     for(i = 0;i < l;i += 4) {
       n = (b64tab[b64.charAt(i)] || 0) << 18 | (b64tab[b64.charAt(i + 1)] || 0) << 12 | (b64tab[b64.charAt(i + 2)] || 0) << 6 | (b64tab[b64.charAt(i + 3)] || 0);
       bin[o] = n >> 16;
@@ -1224,7 +1148,7 @@ function makeBase64() {
       bin[o + 2] = n & 255;
       o += 3
     }
-    l = 3 * l - [0, 0, 2, 1][padlen];
+    l = 3 * l - a[padlen];
     return bin.subarray(0, l)
   }
   function convertUTF16ArrayToUTF8Array(uni) {
@@ -1538,7 +1462,7 @@ core.CSSUnits = function CSSUnits() {
     }
     return null
   }
-  core.DomUtils = function DomUtils() {
+  core.DomUtilsImpl = function DomUtilsImpl() {
     var sharedRange = null;
     function getSharedRange(doc) {
       var range;
@@ -1932,16 +1856,17 @@ core.CSSUnits = function CSSUnits() {
       }
       appVersion = window.navigator.appVersion.toLowerCase();
       webKitOrSafari = appVersion.indexOf("chrome") === -1 && (appVersion.indexOf("applewebkit") !== -1 || appVersion.indexOf("safari") !== -1);
-      ie = appVersion.indexOf("msie");
+      ie = appVersion.indexOf("msie") !== -1 || appVersion.indexOf("trident") !== -1;
       if(webKitOrSafari || ie) {
         self.containsNode = containsNodeForBrokenWebKit
       }
     }
     init(this)
-  }
+  };
+  core.DomUtils = new core.DomUtilsImpl
 })();
 core.Cursor = function Cursor(document, memberId) {
-  var cursorns = "urn:webodf:names:cursor", cursorNode = document.createElementNS(cursorns, "cursor"), anchorNode = document.createElementNS(cursorns, "anchor"), forwardSelection, recentlyModifiedNodes = [], selectedRange = (document.createRange()), isCollapsed, domUtils = new core.DomUtils;
+  var cursorns = "urn:webodf:names:cursor", cursorNode = document.createElementNS(cursorns, "cursor"), anchorNode = document.createElementNS(cursorns, "anchor"), forwardSelection, recentlyModifiedNodes = [], selectedRange = (document.createRange()), isCollapsed, domUtils = core.DomUtils;
   function putIntoTextNode(node, container, offset) {
     runtime.assert(Boolean(container), "putCursorIntoTextNode: invalid container");
     var parent = container.parentNode;
@@ -2036,6 +1961,12 @@ core.Destroyable = function Destroyable() {
 };
 core.Destroyable.prototype.destroy = function(callback) {
 };
+core.EventSource = function() {
+};
+core.EventSource.prototype.subscribe = function(eventId, cb) {
+};
+core.EventSource.prototype.unsubscribe = function(eventId, cb) {
+};
 core.EventNotifier = function EventNotifier(eventIds) {
   var eventListener = {};
   this.emit = function(eventId, args) {
@@ -2071,6 +2002,147 @@ core.EventNotifier = function EventNotifier(eventIds) {
   }
   init()
 };
+core.ScheduledTask = function ScheduledTask(fn, scheduleTask, cancelTask) {
+  var timeoutId, scheduled = false, args = [], destroyed = false;
+  function cancel() {
+    if(scheduled) {
+      cancelTask(timeoutId);
+      scheduled = false
+    }
+  }
+  function execute() {
+    cancel();
+    fn.apply(undefined, args);
+    args = null
+  }
+  this.trigger = function() {
+    runtime.assert(destroyed === false, "Can't trigger destroyed ScheduledTask instance");
+    args = Array.prototype.slice.call(arguments);
+    if(!scheduled) {
+      scheduled = true;
+      timeoutId = scheduleTask(execute)
+    }
+  };
+  this.triggerImmediate = function() {
+    runtime.assert(destroyed === false, "Can't trigger destroyed ScheduledTask instance");
+    args = Array.prototype.slice.call(arguments);
+    execute()
+  };
+  this.processRequests = function() {
+    if(scheduled) {
+      execute()
+    }
+  };
+  this.cancel = cancel;
+  this.restart = function() {
+    runtime.assert(destroyed === false, "Can't trigger destroyed ScheduledTask instance");
+    cancel();
+    scheduled = true;
+    timeoutId = scheduleTask(execute)
+  };
+  this.destroy = function(callback) {
+    cancel();
+    destroyed = true;
+    callback()
+  }
+};
+(function() {
+  var redrawTasks;
+  function RedrawTasks() {
+    var callbacks = {};
+    this.requestRedrawTask = function(callback) {
+      var id = runtime.requestAnimationFrame(function() {
+        callback();
+        delete callbacks[id]
+      });
+      callbacks[id] = callback;
+      return id
+    };
+    this.performRedraw = function() {
+      Object.keys(callbacks).forEach(function(id) {
+        callbacks[id]();
+        runtime.cancelAnimationFrame(parseInt(id, 10))
+      });
+      callbacks = {}
+    };
+    this.cancelRedrawTask = function(id) {
+      runtime.cancelAnimationFrame(id);
+      delete callbacks[id]
+    }
+  }
+  core.Task = {};
+  core.Task.SUPPRESS_MANUAL_PROCESSING = false;
+  core.Task.processTasks = function() {
+    if(!core.Task.SUPPRESS_MANUAL_PROCESSING) {
+      redrawTasks.performRedraw()
+    }
+  };
+  core.Task.createRedrawTask = function(callback) {
+    return new core.ScheduledTask(callback, redrawTasks.requestRedrawTask, redrawTasks.cancelRedrawTask)
+  };
+  core.Task.createTimeoutTask = function(callback, delay) {
+    return new core.ScheduledTask(callback, function(callback) {
+      return runtime.setTimeout(callback, delay)
+    }, runtime.clearTimeout)
+  };
+  function init() {
+    redrawTasks = new RedrawTasks
+  }
+  init()
+})();
+core.EventSubscriptions = function() {
+  var subscriptions = [], frameEventNotifier = new core.EventNotifier, frameSubscriptions = {}, nextFrameEventId = 0;
+  function addSubscription(eventSource, eventid, callback) {
+    eventSource.subscribe(eventid, callback);
+    subscriptions.push({eventSource:eventSource, eventid:eventid, callback:callback})
+  }
+  this.addSubscription = addSubscription;
+  this.addFrameSubscription = function(eventSource, eventid, callback) {
+    var frameSubscription, frameEventId, eventFrameSubscriptions, i;
+    if(!frameSubscriptions.hasOwnProperty(eventid)) {
+      frameSubscriptions[eventid] = []
+    }
+    eventFrameSubscriptions = frameSubscriptions[eventid];
+    for(i = 0;i < eventFrameSubscriptions.length;i += 1) {
+      if(eventFrameSubscriptions[i].eventSource === eventSource) {
+        frameSubscription = eventFrameSubscriptions[i];
+        break
+      }
+    }
+    if(!frameSubscription) {
+      frameEventId = "s" + nextFrameEventId;
+      nextFrameEventId += 1;
+      frameEventNotifier.register(frameEventId);
+      frameSubscription = {frameEventId:frameEventId, eventSource:eventSource, task:core.Task.createRedrawTask(function() {
+        frameEventNotifier.emit(frameEventId, undefined)
+      })};
+      eventFrameSubscriptions.push(frameSubscription);
+      addSubscription(eventSource, eventid, frameSubscription.task.trigger)
+    }
+    frameEventNotifier.subscribe(frameSubscription.frameEventId, callback)
+  };
+  function unsubscribeAll() {
+    var cleanup = [];
+    subscriptions.forEach(function(subscription) {
+      subscription.eventSource.unsubscribe(subscription.eventid, subscription.callback)
+    });
+    subscriptions.length = 0;
+    Object.keys(frameSubscriptions).forEach(function(eventId) {
+      frameSubscriptions[eventId].forEach(function(subscriber) {
+        cleanup.push(subscriber.task.destroy)
+      });
+      delete frameSubscriptions[eventId]
+    });
+    core.Async.destroyAll(cleanup, function() {
+    });
+    frameEventNotifier = new core.EventNotifier
+  }
+  this.unsubscribeAll = unsubscribeAll;
+  this.destroy = function(callback) {
+    unsubscribeAll();
+    callback()
+  }
+};
 core.LazyProperty = function(valueLoader) {
   var cachedValue, valueLoaded = false;
   this.value = function() {
@@ -2104,6 +2176,18 @@ core.LoopWatchDog = function LoopWatchDog(timeout, maxChecks) {
     }
   }
   this.check = check
+};
+core.NodeFilterChain = function(filters) {
+  var FILTER_REJECT = NodeFilter.FILTER_REJECT, FILTER_ACCEPT = NodeFilter.FILTER_ACCEPT;
+  this.acceptNode = function(node) {
+    var i;
+    for(i = 0;i < filters.length;i += 1) {
+      if(filters[i].acceptNode(node) === FILTER_REJECT) {
+        return FILTER_REJECT
+      }
+    }
+    return FILTER_ACCEPT
+  }
 };
 core.PositionIterator = function PositionIterator(root, whatToShow, filter, expandEntityReferences) {
   var self = this, walker, currentPos, nodeFilter, TEXT_NODE = Node.TEXT_NODE, ELEMENT_NODE = Node.ELEMENT_NODE, FILTER_ACCEPT = NodeFilter.FILTER_ACCEPT, FILTER_REJECT = NodeFilter.FILTER_REJECT;
@@ -2275,7 +2359,7 @@ core.PositionIterator = function PositionIterator(root, whatToShow, filter, expa
       }
     }
     if(filterResult === FILTER_REJECT) {
-      currentPos = 1;
+      currentPos = walker.currentNode.nodeType === TEXT_NODE ? (node).length : 1;
       moveResult = self.nextPosition()
     }else {
       if(filterResult === FILTER_ACCEPT) {
@@ -2315,13 +2399,13 @@ core.PositionIterator = function PositionIterator(root, whatToShow, filter, expa
           }
         }
       }
-      return true
-    }
-    if(offset < container.childNodes.length) {
-      walker.currentNode = (container.childNodes.item(offset));
-      currentPos = 0
     }else {
-      currentPos = 1
+      if(offset < container.childNodes.length) {
+        walker.currentNode = (container.childNodes.item(offset));
+        currentPos = 0
+      }else {
+        currentPos = 1
+      }
     }
     return moveToAcceptedNode()
   };
@@ -4422,50 +4506,6 @@ core.PositionFilterChain = function PositionFilterChain() {
   }
   core.RawInflate = createRawInflateSingleton()
 })();
-core.ScheduledTask = function ScheduledTask(fn, scheduleTask, cancelTask) {
-  var timeoutId, scheduled = false, args = [], destroyed = false;
-  function cancel() {
-    if(scheduled) {
-      cancelTask(timeoutId);
-      scheduled = false
-    }
-  }
-  function execute() {
-    cancel();
-    fn.apply(undefined, args);
-    args = null
-  }
-  this.trigger = function() {
-    runtime.assert(destroyed === false, "Can't trigger destroyed ScheduledTask instance");
-    args = Array.prototype.slice.call(arguments);
-    if(!scheduled) {
-      scheduled = true;
-      timeoutId = scheduleTask(execute)
-    }
-  };
-  this.triggerImmediate = function() {
-    runtime.assert(destroyed === false, "Can't trigger destroyed ScheduledTask instance");
-    args = Array.prototype.slice.call(arguments);
-    execute()
-  };
-  this.processRequests = function() {
-    if(scheduled) {
-      execute()
-    }
-  };
-  this.cancel = cancel;
-  this.restart = function() {
-    runtime.assert(destroyed === false, "Can't trigger destroyed ScheduledTask instance");
-    cancel();
-    scheduled = true;
-    timeoutId = scheduleTask(execute)
-  };
-  this.destroy = function(callback) {
-    cancel();
-    destroyed = true;
-    callback()
-  }
-};
 core.StepDirection = {PREVIOUS:1, NEXT:2};
 core.StepIterator = function StepIterator(filter, iterator) {
   var FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT, NEXT = core.StepDirection.NEXT, cachedContainer, cachedOffset, cachedFilterResult;
@@ -4566,50 +4606,6 @@ core.StepIterator.StepSnapshot = function(container, offset) {
   this.container = container;
   this.offset = offset
 };
-(function() {
-  var redrawTasks;
-  function RedrawTasks() {
-    var callbacks = {};
-    this.requestRedrawTask = function(callback) {
-      var id = runtime.requestAnimationFrame(function() {
-        callback();
-        delete callbacks[id]
-      });
-      callbacks[id] = callback;
-      return id
-    };
-    this.performRedraw = function() {
-      Object.keys(callbacks).forEach(function(id) {
-        callbacks[id]();
-        runtime.cancelAnimationFrame(parseInt(id, 10))
-      });
-      callbacks = {}
-    };
-    this.cancelRedrawTask = function(id) {
-      runtime.cancelAnimationFrame(id);
-      delete callbacks[id]
-    }
-  }
-  core.Task = {};
-  core.Task.SUPPRESS_MANUAL_PROCESSING = false;
-  core.Task.processTasks = function() {
-    if(!core.Task.SUPPRESS_MANUAL_PROCESSING) {
-      redrawTasks.performRedraw()
-    }
-  };
-  core.Task.createRedrawTask = function(callback) {
-    return new core.ScheduledTask(callback, redrawTasks.requestRedrawTask, redrawTasks.cancelRedrawTask)
-  };
-  core.Task.createTimeoutTask = function(callback, delay) {
-    return new core.ScheduledTask(callback, function(callback) {
-      return runtime.setTimeout(callback, delay)
-    }, runtime.clearTimeout)
-  };
-  function init() {
-    redrawTasks = new RedrawTasks
-  }
-  init()
-})();
 core.TestData;
 core.AsyncTestData;
 core.UnitTest = function UnitTest() {
@@ -4919,7 +4915,7 @@ core.UnitTester = function UnitTester() {
   var self = this, failedTests = 0, logger = new core.UnitTestLogger, results = {}, inBrowser = runtime.type() === "BrowserRuntime";
   this.resourcePrefix = "";
   function link(text, code) {
-    return"<span style='color:blue;cursor:pointer' onclick='" + code + "'>" + text + "</span>"
+    return"<span style='color:blue;cursor:pointer' onclick='" + code + "'>" + text.replace(/</g, "&lt;") + "</span>"
   }
   this.reporter = function(r) {
     var i, m;
@@ -4949,7 +4945,7 @@ core.UnitTester = function UnitTester() {
     if(inBrowser) {
       runtime.log("<span>Running " + link(testName, 'runSuite("' + testName + '");') + ": " + test.description() + "</span>")
     }else {
-      runtime.log("Running " + testName + ": " + test.description)
+      runtime.log("Running " + testName + ": " + test.description())
     }
     tests = test.tests();
     for(i = 0;i < tests.length;i += 1) {
@@ -5067,7 +5063,14 @@ core.Utils = function Utils() {
   this.mergeObjects = mergeObjects
 };
 core.Zip = function Zip(url, entriesReadCallback) {
-  var entries, filesize, nEntries, inflate = core.RawInflate.inflate, zip = this, base64 = new core.Base64;
+  var entries, fileData, filesize, nEntries, inflate = core.RawInflate.inflate, zip = this, base64 = new core.Base64;
+  function read(offset, length, callback) {
+    if(fileData) {
+      callback(null, fileData.subarray(offset, offset + length))
+    }else {
+      callback("File data not loaded", null)
+    }
+  }
   function crc32(data) {
     var table = [0, 1996959894, 3993919788, 2567524794, 124634137, 1886057615, 3915621685, 2657392035, 249268274, 2044508324, 3772115230, 2547177864, 162941995, 2125561021, 3887607047, 2428444049, 498536548, 1789927666, 4089016648, 2227061214, 450548861, 1843258603, 4107580753, 2211677639, 325883990, 1684777152, 4251122042, 2321926636, 335633487, 1661365465, 4195302755, 2366115317, 997073096, 1281953886, 3579855332, 2724688242, 1006888145, 1258607687, 3524101629, 2768942443, 901097722, 1119000684, 
     3686517206, 2898065728, 853044451, 1172266101, 3705015759, 2882616665, 651767980, 1373503546, 3369554304, 3218104598, 565507253, 1454621731, 3485111705, 3099436303, 671266974, 1594198024, 3322730930, 2970347812, 795835527, 1483230225, 3244367275, 3060149565, 1994146192, 31158534, 2563907772, 4023717930, 1907459465, 112637215, 2680153253, 3904427059, 2013776290, 251722036, 2517215374, 3775830040, 2137656763, 141376813, 2439277719, 3865271297, 1802195444, 476864866, 2238001368, 4066508878, 1812370925, 
@@ -5130,7 +5133,7 @@ core.Zip = function Zip(url, entriesReadCallback) {
       if(size + offset > filesize) {
         size = filesize - offset
       }
-      runtime.read(url, offset, size, function(err, data) {
+      read(offset, size, function(err, data) {
         if(err || data === null) {
           callback(err, data)
         }else {
@@ -5213,7 +5216,7 @@ core.Zip = function Zip(url, entriesReadCallback) {
     cdsSize = stream.readUInt32LE();
     cdsOffset = stream.readUInt16LE();
     cdsOffset = filesize - 22 - cdsSize;
-    runtime.read(url, cdsOffset, filesize - cdsOffset, function(err, data) {
+    read(cdsOffset, filesize - cdsOffset, function(err, data) {
       if(err || data === null) {
         callback(err, zip)
       }else {
@@ -5400,7 +5403,13 @@ core.Zip = function Zip(url, entriesReadCallback) {
   }
   function writeAs(newurl, callback) {
     createByteArray(function(data) {
-      runtime.writeFile(newurl, data, callback)
+      runtime.writeFile(newurl, data, function(err) {
+        if(!err) {
+          fileData = data;
+          filesize = fileData.length
+        }
+        callback(err)
+      })
     }, callback)
   }
   function write(callback) {
@@ -5424,16 +5433,20 @@ core.Zip = function Zip(url, entriesReadCallback) {
     entries = [];
     return
   }
-  runtime.getFileSize(url, function(size) {
-    filesize = size;
-    if(filesize < 0) {
-      entriesReadCallback("File '" + url + "' cannot be read.", zip)
+  runtime.readFile(url, "binary", function(err, result) {
+    if(typeof result === "string") {
+      err = "file was read as a string. Should be Uint8Array."
+    }
+    if(err || (!result || result.length === 0)) {
+      entriesReadCallback("File '" + url + "' cannot be read. Err: " + (err || "[none]"), zip)
     }else {
-      runtime.read(url, filesize - 22, 22, function(err, data) {
-        if(err || (entriesReadCallback === null || data === null)) {
+      fileData = (result);
+      filesize = fileData.length;
+      read(filesize - 22, 22, function(err, data) {
+        if(err || data === null) {
           entriesReadCallback(err, zip)
         }else {
-          handleCentralDirectoryEnd(data, entriesReadCallback)
+          handleCentralDirectoryEnd(data, (entriesReadCallback))
         }
       })
     }
@@ -5470,12 +5483,12 @@ gui.SessionConstraints = function SessionConstraints() {
   }
 };
 gui.BlacklistNamespaceNodeFilter = function(excludedNamespaces) {
-  var excludedNamespacesObj = {};
+  var excludedNamespacesObj = {}, FILTER_REJECT = NodeFilter.FILTER_REJECT, FILTER_ACCEPT = NodeFilter.FILTER_ACCEPT;
   this.acceptNode = function(node) {
     if(!node || excludedNamespacesObj.hasOwnProperty(node.namespaceURI)) {
-      return NodeFilter.FILTER_REJECT
+      return FILTER_REJECT
     }
-    return NodeFilter.FILTER_ACCEPT
+    return FILTER_ACCEPT
   };
   function init() {
     excludedNamespaces.forEach(function(ns) {
@@ -5484,29 +5497,11 @@ gui.BlacklistNamespaceNodeFilter = function(excludedNamespaces) {
   }
   init()
 };
-xmldom.LSSerializerFilter = function LSSerializerFilter() {
-};
-xmldom.LSSerializerFilter.prototype.acceptNode = function(node) {
-};
-odf.OdfNodeFilter = function OdfNodeFilter() {
-  this.acceptNode = function(node) {
-    var result;
-    if(node.namespaceURI === "http://www.w3.org/1999/xhtml") {
-      result = NodeFilter.FILTER_SKIP
-    }else {
-      if(node.namespaceURI && node.namespaceURI.match(/^urn:webodf:/)) {
-        result = NodeFilter.FILTER_REJECT
-      }else {
-        result = NodeFilter.FILTER_ACCEPT
-      }
-    }
-    return result
-  }
-};
-odf.Namespaces = {namespaceMap:{db:"urn:oasis:names:tc:opendocument:xmlns:database:1.0", dc:"http://purl.org/dc/elements/1.1/", dr3d:"urn:oasis:names:tc:opendocument:xmlns:dr3d:1.0", draw:"urn:oasis:names:tc:opendocument:xmlns:drawing:1.0", chart:"urn:oasis:names:tc:opendocument:xmlns:chart:1.0", fo:"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0", form:"urn:oasis:names:tc:opendocument:xmlns:form:1.0", meta:"urn:oasis:names:tc:opendocument:xmlns:meta:1.0", number:"urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0", 
-office:"urn:oasis:names:tc:opendocument:xmlns:office:1.0", presentation:"urn:oasis:names:tc:opendocument:xmlns:presentation:1.0", style:"urn:oasis:names:tc:opendocument:xmlns:style:1.0", svg:"urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0", table:"urn:oasis:names:tc:opendocument:xmlns:table:1.0", text:"urn:oasis:names:tc:opendocument:xmlns:text:1.0", xlink:"http://www.w3.org/1999/xlink", xml:"http://www.w3.org/XML/1998/namespace"}, prefixMap:{}, dbns:"urn:oasis:names:tc:opendocument:xmlns:database:1.0", 
-dcns:"http://purl.org/dc/elements/1.1/", dr3dns:"urn:oasis:names:tc:opendocument:xmlns:dr3d:1.0", drawns:"urn:oasis:names:tc:opendocument:xmlns:drawing:1.0", chartns:"urn:oasis:names:tc:opendocument:xmlns:chart:1.0", fons:"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0", formns:"urn:oasis:names:tc:opendocument:xmlns:form:1.0", metans:"urn:oasis:names:tc:opendocument:xmlns:meta:1.0", numberns:"urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0", officens:"urn:oasis:names:tc:opendocument:xmlns:office:1.0", 
-presentationns:"urn:oasis:names:tc:opendocument:xmlns:presentation:1.0", stylens:"urn:oasis:names:tc:opendocument:xmlns:style:1.0", svgns:"urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0", tablens:"urn:oasis:names:tc:opendocument:xmlns:table:1.0", textns:"urn:oasis:names:tc:opendocument:xmlns:text:1.0", xlinkns:"http://www.w3.org/1999/xlink", xmlns:"http://www.w3.org/XML/1998/namespace"};
+odf.Namespaces = {namespaceMap:{config:"urn:oasis:names:tc:opendocument:xmlns:config:1.0", db:"urn:oasis:names:tc:opendocument:xmlns:database:1.0", dc:"http://purl.org/dc/elements/1.1/", dr3d:"urn:oasis:names:tc:opendocument:xmlns:dr3d:1.0", draw:"urn:oasis:names:tc:opendocument:xmlns:drawing:1.0", chart:"urn:oasis:names:tc:opendocument:xmlns:chart:1.0", fo:"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0", form:"urn:oasis:names:tc:opendocument:xmlns:form:1.0", math:"http://www.w3.org/1998/Math/MathML", 
+meta:"urn:oasis:names:tc:opendocument:xmlns:meta:1.0", number:"urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0", office:"urn:oasis:names:tc:opendocument:xmlns:office:1.0", presentation:"urn:oasis:names:tc:opendocument:xmlns:presentation:1.0", style:"urn:oasis:names:tc:opendocument:xmlns:style:1.0", svg:"urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0", table:"urn:oasis:names:tc:opendocument:xmlns:table:1.0", text:"urn:oasis:names:tc:opendocument:xmlns:text:1.0", xforms:"http://www.w3.org/2002/xforms", 
+xlink:"http://www.w3.org/1999/xlink", xml:"http://www.w3.org/XML/1998/namespace"}, prefixMap:{}, configns:"urn:oasis:names:tc:opendocument:xmlns:config:1.0", dbns:"urn:oasis:names:tc:opendocument:xmlns:database:1.0", dcns:"http://purl.org/dc/elements/1.1/", dr3dns:"urn:oasis:names:tc:opendocument:xmlns:dr3d:1.0", drawns:"urn:oasis:names:tc:opendocument:xmlns:drawing:1.0", chartns:"urn:oasis:names:tc:opendocument:xmlns:chart:1.0", fons:"urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0", 
+formns:"urn:oasis:names:tc:opendocument:xmlns:form:1.0", mathns:"http://www.w3.org/1998/Math/MathML", metans:"urn:oasis:names:tc:opendocument:xmlns:meta:1.0", numberns:"urn:oasis:names:tc:opendocument:xmlns:datastyle:1.0", officens:"urn:oasis:names:tc:opendocument:xmlns:office:1.0", presentationns:"urn:oasis:names:tc:opendocument:xmlns:presentation:1.0", stylens:"urn:oasis:names:tc:opendocument:xmlns:style:1.0", svgns:"urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0", tablens:"urn:oasis:names:tc:opendocument:xmlns:table:1.0", 
+textns:"urn:oasis:names:tc:opendocument:xmlns:text:1.0", xformsns:"http://www.w3.org/2002/xforms", xlinkns:"http://www.w3.org/1999/xlink", xmlns:"http://www.w3.org/XML/1998/namespace"};
 (function() {
   var map = odf.Namespaces.namespaceMap, pmap = odf.Namespaces.prefixMap, prefix;
   for(prefix in map) {
@@ -5535,6 +5530,620 @@ odf.Namespaces.lookupPrefix = function lookupPrefix(namespaceURI) {
   return map.hasOwnProperty(namespaceURI) ? map[namespaceURI] : null
 };
 odf.Namespaces.lookupNamespaceURI.lookupNamespaceURI = odf.Namespaces.lookupNamespaceURI;
+(function() {
+  odf.OdfSchemaImpl = function() {
+    var TEXT = "text", FIELD = "field", OBJECT = "object", STYLE = "style", DEPRECATED = "deprecated", UNKNOWN = "uncategorized", containers = [["config:config-item", UNKNOWN], ["form:item", OBJECT], ["form:option", UNKNOWN], ["math:math", FIELD], ["meta:user-defined", UNKNOWN], ["number:currency-symbol", UNKNOWN], ["number:embedded-text", UNKNOWN], ["number:text", UNKNOWN], ["presentation:date-time-decl", UNKNOWN], ["presentation:footer-decl", UNKNOWN], ["presentation:header-decl", UNKNOWN], ["svg:desc", 
+    TEXT], ["svg:title", TEXT], ["table:desc", UNKNOWN], ["table:title", UNKNOWN], ["text:a", TEXT], ["text:author-initials", FIELD], ["text:author-name", FIELD], ["text:bibliography-mark", FIELD], ["text:bookmark-ref", FIELD], ["text:chapter", FIELD], ["text:character-count", FIELD], ["text:conditional-text", FIELD], ["text:creation-date", FIELD], ["text:creation-time", FIELD], ["text:creator", FIELD], ["text:database-display", FIELD], ["text:database-name", FIELD], ["text:database-row-number", 
+    FIELD], ["text:date", FIELD], ["text:dde-connection", FIELD], ["text:description", FIELD], ["text:editing-cycles", FIELD], ["text:editing-duration", FIELD], ["text:execute-macro", UNKNOWN], ["text:expression", UNKNOWN], ["text:file-name", FIELD], ["text:h", TEXT], ["text:hidden-paragraph", TEXT], ["text:hidden-text", TEXT], ["text:image-count", FIELD], ["text:index-entry-span", UNKNOWN], ["text:index-title-template", UNKNOWN], ["text:initial-creator", FIELD], ["text:keywords", FIELD], ["text:linenumbering-separator", 
+    STYLE], ["text:measure", UNKNOWN], ["text:meta", UNKNOWN], ["text:meta-field", UNKNOWN], ["text:modification-date", FIELD], ["text:modification-time", FIELD], ["text:note-citation", FIELD], ["text:note-continuation-notice-backward", STYLE], ["text:note-continuation-notice-forward", STYLE], ["text:note-ref", FIELD], ["text:object-count", FIELD], ["text:p", TEXT], ["text:page-continuation", UNKNOWN], ["text:page-count", FIELD], ["text:page-number", FIELD], ["text:page-variable-get", FIELD], ["text:page-variable-set", 
+    FIELD], ["text:paragraph-count", FIELD], ["text:placeholder", FIELD], ["text:print-date", FIELD], ["text:print-time", FIELD], ["text:printed-by", FIELD], ["text:reference-ref", FIELD], ["text:ruby-base", TEXT], ["text:ruby-text", TEXT], ["text:script", TEXT], ["text:sender-city", FIELD], ["text:sender-company", FIELD], ["text:sender-country", FIELD], ["text:sender-email", FIELD], ["text:sender-fax", FIELD], ["text:sender-firstname", FIELD], ["text:sender-initials", FIELD], ["text:sender-lastname", 
+    FIELD], ["text:sender-phone-private", FIELD], ["text:sender-phone-work", FIELD], ["text:sender-position", FIELD], ["text:sender-postal-code", FIELD], ["text:sender-state-or-province", FIELD], ["text:sender-street", FIELD], ["text:sender-title", FIELD], ["text:sequence", UNKNOWN], ["text:sequence-ref", UNKNOWN], ["text:sheet-name", UNKNOWN], ["text:span", TEXT], ["text:subject", FIELD], ["text:table-count", FIELD], ["text:table-formula", DEPRECATED], ["text:template-name", UNKNOWN], ["text:text-input", 
+    FIELD], ["text:time", FIELD], ["text:title", FIELD], ["text:user-defined", FIELD], ["text:user-field-get", FIELD], ["text:user-field-input", FIELD], ["text:variable-get", FIELD], ["text:variable-input", FIELD], ["text:variable-set", FIELD], ["text:word-count", FIELD], ["xforms:model", UNKNOWN]], cache = {};
+    this.isTextContainer = function(namespaceURI, localName) {
+      return cache[namespaceURI + ":" + localName] === TEXT
+    };
+    this.isField = function(namespaceURI, localName) {
+      return cache[namespaceURI + ":" + localName] === FIELD
+    };
+    this.getFields = function() {
+      return containers.filter(function(containerInfo) {
+        return containerInfo[1] === FIELD
+      }).map(function(containerInfo) {
+        return containerInfo[0]
+      })
+    };
+    function init() {
+      containers.forEach(function(containerInfo) {
+        var name = containerInfo[0], type = containerInfo[1], nameParts = name.split(":"), prefix = nameParts[0], localName = nameParts[1], namespaceURI = odf.Namespaces.lookupNamespaceURI(prefix);
+        if(namespaceURI) {
+          cache[namespaceURI + ":" + localName] = type
+        }else {
+          runtime.log("DEBUG: OdfSchema - unknown prefix '" + prefix + "'")
+        }
+      })
+    }
+    init()
+  };
+  odf.OdfSchema = new odf.OdfSchemaImpl
+})();
+odf.OdfUtilsImpl = function OdfUtilsImpl() {
+  var textns = odf.Namespaces.textns, drawns = odf.Namespaces.drawns, xlinkns = odf.Namespaces.xlinkns, domUtils = core.DomUtils, odfNodeNamespaceMap = [odf.Namespaces.dbns, odf.Namespaces.dcns, odf.Namespaces.dr3dns, odf.Namespaces.drawns, odf.Namespaces.chartns, odf.Namespaces.formns, odf.Namespaces.numberns, odf.Namespaces.officens, odf.Namespaces.presentationns, odf.Namespaces.stylens, odf.Namespaces.svgns, odf.Namespaces.tablens, odf.Namespaces.textns], odfSchema = odf.OdfSchema;
+  function isImage(e) {
+    var name = e && e.localName;
+    return name === "image" && e.namespaceURI === drawns
+  }
+  this.isImage = isImage;
+  function isCharacterFrame(e) {
+    return e !== null && (e.nodeType === Node.ELEMENT_NODE && (e.localName === "frame" && (e.namespaceURI === drawns && (e).getAttributeNS(textns, "anchor-type") === "as-char")))
+  }
+  this.isCharacterFrame = isCharacterFrame;
+  function isAnnotation(e) {
+    var name = e && e.localName;
+    return name === "annotation" && e.namespaceURI === odf.Namespaces.officens
+  }
+  function isAnnotationWrapper(e) {
+    var name = e && e.localName;
+    return name === "div" && (e).className === "annotationWrapper"
+  }
+  function isInlineRoot(e) {
+    return isAnnotation(e) || isAnnotationWrapper(e)
+  }
+  this.isInlineRoot = isInlineRoot;
+  this.isTextSpan = function(e) {
+    var name = e && e.localName;
+    return name === "span" && e.namespaceURI === textns
+  };
+  function isHyperlink(node) {
+    var name = node && node.localName;
+    return name === "a" && node.namespaceURI === textns
+  }
+  this.isHyperlink = isHyperlink;
+  this.getHyperlinkTarget = function(element) {
+    return element.getAttributeNS(xlinkns, "href") || ""
+  };
+  function isParagraph(e) {
+    var name = e && e.localName;
+    return(name === "p" || name === "h") && e.namespaceURI === textns
+  }
+  this.isParagraph = isParagraph;
+  function getParagraphElement(node, offset) {
+    if(node && (offset !== undefined && (!isParagraph(node) && node.childNodes.item(offset)))) {
+      node = node.childNodes.item(offset)
+    }
+    while(node && !isParagraph(node)) {
+      node = node.parentNode
+    }
+    return(node)
+  }
+  this.getParagraphElement = getParagraphElement;
+  function getParentAnnotation(node, container) {
+    while(node && node !== container) {
+      if(node.namespaceURI === odf.Namespaces.officens && node.localName === "annotation") {
+        return(node)
+      }
+      node = node.parentNode
+    }
+    return null
+  }
+  this.getParentAnnotation = getParentAnnotation;
+  this.isWithinAnnotation = function(node, container) {
+    return Boolean(getParentAnnotation(node, container))
+  };
+  this.getAnnotationCreator = function(annotationElement) {
+    var creatorElement = (annotationElement.getElementsByTagNameNS(odf.Namespaces.dcns, "creator")[0]);
+    return creatorElement.textContent
+  };
+  this.isListItem = function(e) {
+    var name = e && e.localName;
+    return name === "list-item" && e.namespaceURI === textns
+  };
+  this.isLineBreak = function(e) {
+    var name = e && e.localName;
+    return name === "line-break" && e.namespaceURI === textns
+  };
+  function isODFWhitespace(text) {
+    return/^[ \t\r\n]+$/.test(text)
+  }
+  this.isODFWhitespace = isODFWhitespace;
+  function isGroupingElement(n) {
+    if(n === null || n.nodeType !== Node.ELEMENT_NODE) {
+      return false
+    }
+    var e = (n), localName = e.localName;
+    return odfSchema.isTextContainer(e.namespaceURI, localName) || localName === "span" && e.className === "webodf-annotationHighlight"
+  }
+  this.isGroupingElement = isGroupingElement;
+  function isFieldElement(n) {
+    if(n === null || n.nodeType !== Node.ELEMENT_NODE) {
+      return false
+    }
+    var e = (n), localName = e.localName;
+    return odfSchema.isField(e.namespaceURI, localName)
+  }
+  this.isFieldElement = isFieldElement;
+  function isCharacterElement(e) {
+    var n = e && e.localName, ns, r = false;
+    if(n) {
+      ns = e.namespaceURI;
+      if(ns === textns) {
+        r = n === "s" || (n === "tab" || n === "line-break")
+      }
+    }
+    return r
+  }
+  this.isCharacterElement = isCharacterElement;
+  function isAnchoredAsCharacterElement(e) {
+    return isCharacterElement(e) || (isFieldElement(e) || (isCharacterFrame(e) || isInlineRoot(e)))
+  }
+  this.isAnchoredAsCharacterElement = isAnchoredAsCharacterElement;
+  function isSpaceElement(e) {
+    var n = e && e.localName, ns, r = false;
+    if(n) {
+      ns = e.namespaceURI;
+      if(ns === textns) {
+        r = n === "s"
+      }
+    }
+    return r
+  }
+  this.isSpaceElement = isSpaceElement;
+  function isODFNode(node) {
+    return odfNodeNamespaceMap.indexOf(node.namespaceURI) !== -1
+  }
+  this.isODFNode = isODFNode;
+  function hasNoODFContent(node) {
+    var childNode;
+    if(isCharacterElement(node) || isFieldElement(node)) {
+      return false
+    }
+    if(isGroupingElement((node.parentNode)) && node.nodeType === Node.TEXT_NODE) {
+      return node.textContent.length === 0
+    }
+    childNode = node.firstChild;
+    while(childNode) {
+      if(isODFNode(childNode) || !hasNoODFContent(childNode)) {
+        return false
+      }
+      childNode = childNode.nextSibling
+    }
+    return true
+  }
+  this.hasNoODFContent = hasNoODFContent;
+  function firstChild(node) {
+    while(node.firstChild !== null && isGroupingElement(node)) {
+      node = node.firstChild
+    }
+    return node
+  }
+  this.firstChild = firstChild;
+  function lastChild(node) {
+    while(node.lastChild !== null && isGroupingElement(node)) {
+      node = node.lastChild
+    }
+    return node
+  }
+  this.lastChild = lastChild;
+  function previousNode(node) {
+    while(!isParagraph(node) && node.previousSibling === null) {
+      node = (node.parentNode)
+    }
+    return isParagraph(node) ? null : lastChild((node.previousSibling))
+  }
+  this.previousNode = previousNode;
+  function nextNode(node) {
+    while(!isParagraph(node) && node.nextSibling === null) {
+      node = (node.parentNode)
+    }
+    return isParagraph(node) ? null : firstChild((node.nextSibling))
+  }
+  this.nextNode = nextNode;
+  function scanLeftForNonSpace(node) {
+    var r = false, text;
+    while(node) {
+      if(node.nodeType === Node.TEXT_NODE) {
+        text = (node);
+        if(text.length === 0) {
+          node = previousNode(text)
+        }else {
+          return!isODFWhitespace(text.data.substr(text.length - 1, 1))
+        }
+      }else {
+        if(isAnchoredAsCharacterElement(node)) {
+          r = isSpaceElement(node) === false;
+          node = null
+        }else {
+          node = previousNode(node)
+        }
+      }
+    }
+    return r
+  }
+  this.scanLeftForNonSpace = scanLeftForNonSpace;
+  function lookLeftForCharacter(node) {
+    var text, r = 0, tl = 0;
+    if(node.nodeType === Node.TEXT_NODE) {
+      tl = (node).length
+    }
+    if(tl > 0) {
+      text = (node).data;
+      if(!isODFWhitespace(text.substr(tl - 1, 1))) {
+        r = 1
+      }else {
+        if(tl === 1) {
+          r = scanLeftForNonSpace(previousNode(node)) ? 2 : 0
+        }else {
+          r = isODFWhitespace(text.substr(tl - 2, 1)) ? 0 : 2
+        }
+      }
+    }else {
+      if(isAnchoredAsCharacterElement(node)) {
+        r = 1
+      }
+    }
+    return r
+  }
+  this.lookLeftForCharacter = lookLeftForCharacter;
+  function lookRightForCharacter(node) {
+    var r = false, l = 0;
+    if(node && node.nodeType === Node.TEXT_NODE) {
+      l = (node).length
+    }
+    if(l > 0) {
+      r = !isODFWhitespace((node).data.substr(0, 1))
+    }else {
+      if(isAnchoredAsCharacterElement(node)) {
+        r = true
+      }
+    }
+    return r
+  }
+  this.lookRightForCharacter = lookRightForCharacter;
+  function scanLeftForAnyCharacter(node) {
+    var r = false, l;
+    node = node && lastChild(node);
+    while(node) {
+      if(node.nodeType === Node.TEXT_NODE) {
+        l = (node).length
+      }else {
+        l = 0
+      }
+      if(l > 0 && !isODFWhitespace((node).data)) {
+        r = true;
+        break
+      }
+      if(isAnchoredAsCharacterElement(node)) {
+        r = true;
+        break
+      }
+      node = previousNode(node)
+    }
+    return r
+  }
+  this.scanLeftForAnyCharacter = scanLeftForAnyCharacter;
+  function scanRightForAnyCharacter(node) {
+    var r = false, l;
+    node = node && firstChild(node);
+    while(node) {
+      if(node.nodeType === Node.TEXT_NODE) {
+        l = (node).length
+      }else {
+        l = 0
+      }
+      if(l > 0 && !isODFWhitespace((node).data)) {
+        r = true;
+        break
+      }
+      if(isAnchoredAsCharacterElement(node)) {
+        r = true;
+        break
+      }
+      node = nextNode(node)
+    }
+    return r
+  }
+  this.scanRightForAnyCharacter = scanRightForAnyCharacter;
+  function isTrailingWhitespace(textnode, offset) {
+    if(!isODFWhitespace(textnode.data.substr(offset))) {
+      return false
+    }
+    return!scanRightForAnyCharacter(nextNode(textnode))
+  }
+  this.isTrailingWhitespace = isTrailingWhitespace;
+  function isSignificantWhitespace(textNode, offset) {
+    var text = textNode.data, result;
+    if(!isODFWhitespace(text[offset])) {
+      return false
+    }
+    if(isAnchoredAsCharacterElement(textNode.parentNode)) {
+      return false
+    }
+    if(offset > 0) {
+      if(!isODFWhitespace(text[offset - 1])) {
+        result = true
+      }
+    }else {
+      if(scanLeftForNonSpace(previousNode(textNode))) {
+        result = true
+      }
+    }
+    if(result === true) {
+      return isTrailingWhitespace(textNode, offset) ? false : true
+    }
+    return false
+  }
+  this.isSignificantWhitespace = isSignificantWhitespace;
+  this.isDowngradableSpaceElement = function(node) {
+    if(isSpaceElement(node)) {
+      return scanLeftForNonSpace(previousNode(node)) && scanRightForAnyCharacter(nextNode(node))
+    }
+    return false
+  };
+  function parseLength(length) {
+    var re = /(-?[0-9]*[0-9][0-9]*(\.[0-9]*)?|0+\.[0-9]*[1-9][0-9]*|\.[0-9]*[1-9][0-9]*)((cm)|(mm)|(in)|(pt)|(pc)|(px)|(%))/, m = re.exec(length);
+    if(!m) {
+      return null
+    }
+    return{value:parseFloat(m[1]), unit:m[3]}
+  }
+  this.parseLength = parseLength;
+  function parsePositiveLength(length) {
+    var result = parseLength(length);
+    if(result && (result.value <= 0 || result.unit === "%")) {
+      return null
+    }
+    return result
+  }
+  function parseNonNegativeLength(length) {
+    var result = parseLength(length);
+    if(result && (result.value < 0 || result.unit === "%")) {
+      return null
+    }
+    return result
+  }
+  this.parseNonNegativeLength = parseNonNegativeLength;
+  function parsePercentage(length) {
+    var result = parseLength(length);
+    if(result && result.unit !== "%") {
+      return null
+    }
+    return result
+  }
+  function parseFoFontSize(fontSize) {
+    return parsePositiveLength(fontSize) || parsePercentage(fontSize)
+  }
+  this.parseFoFontSize = parseFoFontSize;
+  function parseFoLineHeight(lineHeight) {
+    return parseNonNegativeLength(lineHeight) || parsePercentage(lineHeight)
+  }
+  this.parseFoLineHeight = parseFoLineHeight;
+  function isTextContentContainingNode(node) {
+    switch(node.namespaceURI) {
+      case odf.Namespaces.drawns:
+      ;
+      case odf.Namespaces.svgns:
+      ;
+      case odf.Namespaces.dr3dns:
+        return false;
+      case odf.Namespaces.textns:
+        switch(node.localName) {
+          case "note-body":
+          ;
+          case "ruby-text":
+            return false
+        }
+        break;
+      case odf.Namespaces.officens:
+        switch(node.localName) {
+          case "annotation":
+          ;
+          case "binary-data":
+          ;
+          case "event-listeners":
+            return false
+        }
+        break;
+      default:
+        switch(node.localName) {
+          case "cursor":
+          ;
+          case "editinfo":
+            return false
+        }
+        break
+    }
+    return true
+  }
+  this.isTextContentContainingNode = isTextContentContainingNode;
+  function isSignificantTextContent(textNode) {
+    return Boolean(getParagraphElement(textNode) && (!isODFWhitespace(textNode.textContent) || isSignificantWhitespace(textNode, 0)))
+  }
+  function removePartiallyContainedNodes(range, nodes) {
+    while(nodes.length > 0 && !domUtils.rangeContainsNode(range, (nodes[0]))) {
+      nodes.shift()
+    }
+    while(nodes.length > 0 && !domUtils.rangeContainsNode(range, (nodes[nodes.length - 1]))) {
+      nodes.pop()
+    }
+  }
+  function getTextNodes(range, includePartial) {
+    var textNodes;
+    function nodeFilter(node) {
+      var result = NodeFilter.FILTER_REJECT;
+      if(node.nodeType === Node.TEXT_NODE) {
+        if(isSignificantTextContent((node))) {
+          result = NodeFilter.FILTER_ACCEPT
+        }
+      }else {
+        if(isTextContentContainingNode(node)) {
+          result = NodeFilter.FILTER_SKIP
+        }
+      }
+      return result
+    }
+    textNodes = domUtils.getNodesInRange(range, nodeFilter, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+    if(!includePartial) {
+      removePartiallyContainedNodes(range, textNodes)
+    }
+    return textNodes
+  }
+  this.getTextNodes = getTextNodes;
+  function getTextElements(range, includePartial, includeInsignificantWhitespace) {
+    var elements;
+    function nodeFilter(node) {
+      var result = NodeFilter.FILTER_REJECT;
+      if(isCharacterElement(node.parentNode) || (isFieldElement(node.parentNode) || isInlineRoot(node))) {
+        result = NodeFilter.FILTER_REJECT
+      }else {
+        if(node.nodeType === Node.TEXT_NODE) {
+          if(includeInsignificantWhitespace || isSignificantTextContent((node))) {
+            result = NodeFilter.FILTER_ACCEPT
+          }
+        }else {
+          if(isAnchoredAsCharacterElement(node)) {
+            result = NodeFilter.FILTER_ACCEPT
+          }else {
+            if(isTextContentContainingNode(node) || isGroupingElement(node)) {
+              result = NodeFilter.FILTER_SKIP
+            }
+          }
+        }
+      }
+      return result
+    }
+    elements = domUtils.getNodesInRange(range, nodeFilter, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+    if(!includePartial) {
+      removePartiallyContainedNodes(range, elements)
+    }
+    return elements
+  }
+  this.getTextElements = getTextElements;
+  function prependParentContainers(startContainer, elements, filter) {
+    var container = startContainer;
+    while(container) {
+      if(filter(container)) {
+        if(elements[0] !== container) {
+          elements.unshift(container)
+        }
+        break
+      }
+      if(isInlineRoot(container)) {
+        break
+      }
+      container = container.parentNode
+    }
+  }
+  this.getParagraphElements = function(range) {
+    var elements;
+    function nodeFilter(node) {
+      var result = NodeFilter.FILTER_REJECT;
+      if(isParagraph(node)) {
+        result = NodeFilter.FILTER_ACCEPT
+      }else {
+        if(isTextContentContainingNode(node) || isGroupingElement(node)) {
+          result = NodeFilter.FILTER_SKIP
+        }
+      }
+      return result
+    }
+    elements = domUtils.getNodesInRange(range, nodeFilter, NodeFilter.SHOW_ELEMENT);
+    prependParentContainers((range.startContainer), elements, isParagraph);
+    return elements
+  };
+  this.getImageElements = function(range) {
+    var elements;
+    function nodeFilter(node) {
+      var result = NodeFilter.FILTER_SKIP;
+      if(isImage(node)) {
+        result = NodeFilter.FILTER_ACCEPT
+      }
+      return result
+    }
+    elements = domUtils.getNodesInRange(range, nodeFilter, NodeFilter.SHOW_ELEMENT);
+    prependParentContainers((range.startContainer), elements, isImage);
+    return elements
+  };
+  function getRightNode(container, offset) {
+    var node = container;
+    if(offset < node.childNodes.length - 1) {
+      node = (node.childNodes[offset + 1])
+    }else {
+      while(!node.nextSibling) {
+        node = node.parentNode
+      }
+      node = node.nextSibling
+    }
+    while(node.firstChild) {
+      node = node.firstChild
+    }
+    return node
+  }
+  this.getHyperlinkElements = function(range) {
+    var links = [], newRange = (range.cloneRange()), node, textNodes;
+    if(range.collapsed && range.endContainer.nodeType === Node.ELEMENT_NODE) {
+      node = getRightNode(range.endContainer, range.endOffset);
+      if(node.nodeType === Node.TEXT_NODE) {
+        newRange.setEnd(node, 1)
+      }
+    }
+    textNodes = getTextElements(newRange, true, false);
+    textNodes.forEach(function(node) {
+      var parent = node.parentNode;
+      while(!isParagraph(parent)) {
+        if(isHyperlink(parent) && links.indexOf(parent) === -1) {
+          links.push(parent);
+          break
+        }
+        parent = parent.parentNode
+      }
+    });
+    newRange.detach();
+    return links
+  };
+  this.getNormalizedFontFamilyName = function(fontFamilyName) {
+    if(!/^(["'])(?:.|[\n\r])*?\1$/.test(fontFamilyName)) {
+      fontFamilyName = fontFamilyName.replace(/^[ \t\r\n\f]*((?:.|[\n\r])*?)[ \t\r\n\f]*$/, "$1");
+      if(/[ \t\r\n\f]/.test(fontFamilyName)) {
+        fontFamilyName = "'" + fontFamilyName.replace(/[ \t\r\n\f]+/g, " ") + "'"
+      }
+    }
+    return fontFamilyName
+  }
+};
+odf.OdfUtils = new odf.OdfUtilsImpl;
+gui.OdfTextBodyNodeFilter = function() {
+  var odfUtils = odf.OdfUtils, TEXT_NODE = Node.TEXT_NODE, FILTER_REJECT = NodeFilter.FILTER_REJECT, FILTER_ACCEPT = NodeFilter.FILTER_ACCEPT, textns = odf.Namespaces.textns;
+  this.acceptNode = function(node) {
+    if(node.nodeType === TEXT_NODE) {
+      if(!odfUtils.isGroupingElement(node.parentNode)) {
+        return FILTER_REJECT
+      }
+    }else {
+      if(node.namespaceURI === textns && node.localName === "tracked-changes") {
+        return FILTER_REJECT
+      }
+    }
+    return FILTER_ACCEPT
+  }
+};
+xmldom.LSSerializerFilter = function LSSerializerFilter() {
+};
+xmldom.LSSerializerFilter.prototype.acceptNode = function(node) {
+};
+odf.OdfNodeFilter = function OdfNodeFilter() {
+  this.acceptNode = function(node) {
+    var result;
+    if(node.namespaceURI === "http://www.w3.org/1999/xhtml") {
+      result = NodeFilter.FILTER_SKIP
+    }else {
+      if(node.namespaceURI && node.namespaceURI.match(/^urn:webodf:/)) {
+        result = NodeFilter.FILTER_REJECT
+      }else {
+        result = NodeFilter.FILTER_ACCEPT
+      }
+    }
+    return result
+  }
+};
 xmldom.XPathIterator = function XPathIterator() {
 };
 xmldom.XPathIterator.prototype.next = function() {
@@ -6269,8 +6878,8 @@ xmldom.LSSerializer = function LSSerializer() {
   }
 };
 (function() {
-  var styleInfo = new odf.StyleInfo, domUtils = new core.DomUtils, officens = "urn:oasis:names:tc:opendocument:xmlns:office:1.0", manifestns = "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0", webodfns = "urn:webodf:names:scope", stylens = odf.Namespaces.stylens, nodeorder = ["meta", "settings", "scripts", "font-face-decls", "styles", "automatic-styles", "master-styles", "body"], automaticStylePrefix = Date.now() + "_webodf_", base64 = new core.Base64, documentStylesScope = "document-styles", 
-  documentContentScope = "document-content";
+  var styleInfo = new odf.StyleInfo, domUtils = core.DomUtils, officens = "urn:oasis:names:tc:opendocument:xmlns:office:1.0", manifestns = "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0", webodfns = "urn:webodf:names:scope", stylens = odf.Namespaces.stylens, nodeorder = ["meta", "settings", "scripts", "font-face-decls", "styles", "automatic-styles", "master-styles", "body"], automaticStylePrefix = Date.now() + "_webodf_", base64 = new core.Base64, documentStylesScope = "document-styles", documentContentScope = 
+  "document-content";
   function getNodePosition(child) {
     var i, l = nodeorder.length;
     for(i = 0;i < l;i += 1) {
@@ -7046,550 +7655,6 @@ xmldom.LSSerializer = function LSSerializer() {
   }
 })();
 odf.OdfContainer.DocumentType = {TEXT:1, TEXT_TEMPLATE:2, PRESENTATION:3, PRESENTATION_TEMPLATE:4, SPREADSHEET:5, SPREADSHEET_TEMPLATE:6};
-odf.OdfUtils = function OdfUtils() {
-  var textns = odf.Namespaces.textns, drawns = odf.Namespaces.drawns, xlinkns = odf.Namespaces.xlinkns, domUtils = new core.DomUtils, odfNodeNamespaceMap = [odf.Namespaces.dbns, odf.Namespaces.dcns, odf.Namespaces.dr3dns, odf.Namespaces.drawns, odf.Namespaces.chartns, odf.Namespaces.formns, odf.Namespaces.numberns, odf.Namespaces.officens, odf.Namespaces.presentationns, odf.Namespaces.stylens, odf.Namespaces.svgns, odf.Namespaces.tablens, odf.Namespaces.textns];
-  function isImage(e) {
-    var name = e && e.localName;
-    return name === "image" && e.namespaceURI === drawns
-  }
-  this.isImage = isImage;
-  function isCharacterFrame(e) {
-    return e !== null && (e.nodeType === Node.ELEMENT_NODE && (e.localName === "frame" && (e.namespaceURI === drawns && (e).getAttributeNS(textns, "anchor-type") === "as-char")))
-  }
-  this.isCharacterFrame = isCharacterFrame;
-  function isAnnotation(e) {
-    var name = e && e.localName;
-    return name === "annotation" && e.namespaceURI === odf.Namespaces.officens
-  }
-  function isAnnotationWrapper(e) {
-    var name = e && e.localName;
-    return name === "div" && (e).className === "annotationWrapper"
-  }
-  function isInlineRoot(e) {
-    return isAnnotation(e) || isAnnotationWrapper(e)
-  }
-  this.isInlineRoot = isInlineRoot;
-  this.isTextSpan = function(e) {
-    var name = e && e.localName;
-    return name === "span" && e.namespaceURI === textns
-  };
-  function isHyperlink(node) {
-    var name = node && node.localName;
-    return name === "a" && node.namespaceURI === textns
-  }
-  this.isHyperlink = isHyperlink;
-  this.getHyperlinkTarget = function(element) {
-    return element.getAttributeNS(xlinkns, "href") || ""
-  };
-  function isParagraph(e) {
-    var name = e && e.localName;
-    return(name === "p" || name === "h") && e.namespaceURI === textns
-  }
-  this.isParagraph = isParagraph;
-  function getParagraphElement(node, offset) {
-    if(node && (offset !== undefined && (!isParagraph(node) && node.childNodes.item(offset)))) {
-      node = node.childNodes.item(offset)
-    }
-    while(node && !isParagraph(node)) {
-      node = node.parentNode
-    }
-    return(node)
-  }
-  this.getParagraphElement = getParagraphElement;
-  this.isWithinTrackedChanges = function(node, container) {
-    while(node && node !== container) {
-      if(node.namespaceURI === textns && node.localName === "tracked-changes") {
-        return true
-      }
-      node = node.parentNode
-    }
-    return false
-  };
-  function getParentAnnotation(node, container) {
-    while(node && node !== container) {
-      if(node.namespaceURI === odf.Namespaces.officens && node.localName === "annotation") {
-        return(node)
-      }
-      node = node.parentNode
-    }
-    return null
-  }
-  this.getParentAnnotation = getParentAnnotation;
-  this.isWithinAnnotation = function(node, container) {
-    return Boolean(getParentAnnotation(node, container))
-  };
-  this.getAnnotationCreator = function(annotationElement) {
-    var creatorElement = (annotationElement.getElementsByTagNameNS(odf.Namespaces.dcns, "creator")[0]);
-    return creatorElement.textContent
-  };
-  this.isListItem = function(e) {
-    var name = e && e.localName;
-    return name === "list-item" && e.namespaceURI === textns
-  };
-  this.isLineBreak = function(e) {
-    var name = e && e.localName;
-    return name === "line-break" && e.namespaceURI === textns
-  };
-  function isODFWhitespace(text) {
-    return/^[ \t\r\n]+$/.test(text)
-  }
-  this.isODFWhitespace = isODFWhitespace;
-  function isGroupingElement(n) {
-    if(n === null || n.nodeType !== Node.ELEMENT_NODE) {
-      return false
-    }
-    var e = (n), localName = e.localName;
-    return/^(span|p|h|a|meta)$/.test(localName) && e.namespaceURI === textns || localName === "span" && e.className === "webodf-annotationHighlight"
-  }
-  this.isGroupingElement = isGroupingElement;
-  function isCharacterElement(e) {
-    var n = e && e.localName, ns, r = false;
-    if(n) {
-      ns = e.namespaceURI;
-      if(ns === textns) {
-        r = n === "s" || (n === "tab" || n === "line-break")
-      }
-    }
-    return r
-  }
-  this.isCharacterElement = isCharacterElement;
-  function isAnchoredAsCharacterElement(e) {
-    return isCharacterElement(e) || (isCharacterFrame(e) || isInlineRoot(e))
-  }
-  this.isAnchoredAsCharacterElement = isAnchoredAsCharacterElement;
-  function isSpaceElement(e) {
-    var n = e && e.localName, ns, r = false;
-    if(n) {
-      ns = e.namespaceURI;
-      if(ns === textns) {
-        r = n === "s"
-      }
-    }
-    return r
-  }
-  this.isSpaceElement = isSpaceElement;
-  function isODFNode(node) {
-    return odfNodeNamespaceMap.indexOf(node.namespaceURI) !== -1
-  }
-  this.isODFNode = isODFNode;
-  function hasNoODFContent(node) {
-    var childNode;
-    if(isCharacterElement(node)) {
-      return false
-    }
-    if(isGroupingElement((node.parentNode)) && node.nodeType === Node.TEXT_NODE) {
-      return node.textContent.length === 0
-    }
-    childNode = node.firstChild;
-    while(childNode) {
-      if(isODFNode(childNode) || !hasNoODFContent(childNode)) {
-        return false
-      }
-      childNode = childNode.nextSibling
-    }
-    return true
-  }
-  this.hasNoODFContent = hasNoODFContent;
-  function firstChild(node) {
-    while(node.firstChild !== null && isGroupingElement(node)) {
-      node = node.firstChild
-    }
-    return node
-  }
-  this.firstChild = firstChild;
-  function lastChild(node) {
-    while(node.lastChild !== null && isGroupingElement(node)) {
-      node = node.lastChild
-    }
-    return node
-  }
-  this.lastChild = lastChild;
-  function previousNode(node) {
-    while(!isParagraph(node) && node.previousSibling === null) {
-      node = (node.parentNode)
-    }
-    return isParagraph(node) ? null : lastChild((node.previousSibling))
-  }
-  this.previousNode = previousNode;
-  function nextNode(node) {
-    while(!isParagraph(node) && node.nextSibling === null) {
-      node = (node.parentNode)
-    }
-    return isParagraph(node) ? null : firstChild((node.nextSibling))
-  }
-  this.nextNode = nextNode;
-  function scanLeftForNonSpace(node) {
-    var r = false, text;
-    while(node) {
-      if(node.nodeType === Node.TEXT_NODE) {
-        text = (node);
-        if(text.length === 0) {
-          node = previousNode(text)
-        }else {
-          return!isODFWhitespace(text.data.substr(text.length - 1, 1))
-        }
-      }else {
-        if(isAnchoredAsCharacterElement(node)) {
-          r = isSpaceElement(node) === false;
-          node = null
-        }else {
-          node = previousNode(node)
-        }
-      }
-    }
-    return r
-  }
-  this.scanLeftForNonSpace = scanLeftForNonSpace;
-  function lookLeftForCharacter(node) {
-    var text, r = 0, tl = 0;
-    if(node.nodeType === Node.TEXT_NODE) {
-      tl = (node).length
-    }
-    if(tl > 0) {
-      text = (node).data;
-      if(!isODFWhitespace(text.substr(tl - 1, 1))) {
-        r = 1
-      }else {
-        if(tl === 1) {
-          r = scanLeftForNonSpace(previousNode(node)) ? 2 : 0
-        }else {
-          r = isODFWhitespace(text.substr(tl - 2, 1)) ? 0 : 2
-        }
-      }
-    }else {
-      if(isAnchoredAsCharacterElement(node)) {
-        r = 1
-      }
-    }
-    return r
-  }
-  this.lookLeftForCharacter = lookLeftForCharacter;
-  function lookRightForCharacter(node) {
-    var r = false, l = 0;
-    if(node && node.nodeType === Node.TEXT_NODE) {
-      l = (node).length
-    }
-    if(l > 0) {
-      r = !isODFWhitespace((node).data.substr(0, 1))
-    }else {
-      if(isAnchoredAsCharacterElement(node)) {
-        r = true
-      }
-    }
-    return r
-  }
-  this.lookRightForCharacter = lookRightForCharacter;
-  function scanLeftForAnyCharacter(node) {
-    var r = false, l;
-    node = node && lastChild(node);
-    while(node) {
-      if(node.nodeType === Node.TEXT_NODE) {
-        l = (node).length
-      }else {
-        l = 0
-      }
-      if(l > 0 && !isODFWhitespace((node).data)) {
-        r = true;
-        break
-      }
-      if(isAnchoredAsCharacterElement(node)) {
-        r = true;
-        break
-      }
-      node = previousNode(node)
-    }
-    return r
-  }
-  this.scanLeftForAnyCharacter = scanLeftForAnyCharacter;
-  function scanRightForAnyCharacter(node) {
-    var r = false, l;
-    node = node && firstChild(node);
-    while(node) {
-      if(node.nodeType === Node.TEXT_NODE) {
-        l = (node).length
-      }else {
-        l = 0
-      }
-      if(l > 0 && !isODFWhitespace((node).data)) {
-        r = true;
-        break
-      }
-      if(isAnchoredAsCharacterElement(node)) {
-        r = true;
-        break
-      }
-      node = nextNode(node)
-    }
-    return r
-  }
-  this.scanRightForAnyCharacter = scanRightForAnyCharacter;
-  function isTrailingWhitespace(textnode, offset) {
-    if(!isODFWhitespace(textnode.data.substr(offset))) {
-      return false
-    }
-    return!scanRightForAnyCharacter(nextNode(textnode))
-  }
-  this.isTrailingWhitespace = isTrailingWhitespace;
-  function isSignificantWhitespace(textNode, offset) {
-    var text = textNode.data, result;
-    if(!isODFWhitespace(text[offset])) {
-      return false
-    }
-    if(isAnchoredAsCharacterElement(textNode.parentNode)) {
-      return false
-    }
-    if(offset > 0) {
-      if(!isODFWhitespace(text[offset - 1])) {
-        result = true
-      }
-    }else {
-      if(scanLeftForNonSpace(previousNode(textNode))) {
-        result = true
-      }
-    }
-    if(result === true) {
-      return isTrailingWhitespace(textNode, offset) ? false : true
-    }
-    return false
-  }
-  this.isSignificantWhitespace = isSignificantWhitespace;
-  this.isDowngradableSpaceElement = function(node) {
-    if(isSpaceElement(node)) {
-      return scanLeftForNonSpace(previousNode(node)) && scanRightForAnyCharacter(nextNode(node))
-    }
-    return false
-  };
-  function parseLength(length) {
-    var re = /(-?[0-9]*[0-9][0-9]*(\.[0-9]*)?|0+\.[0-9]*[1-9][0-9]*|\.[0-9]*[1-9][0-9]*)((cm)|(mm)|(in)|(pt)|(pc)|(px)|(%))/, m = re.exec(length);
-    if(!m) {
-      return null
-    }
-    return{value:parseFloat(m[1]), unit:m[3]}
-  }
-  this.parseLength = parseLength;
-  function parsePositiveLength(length) {
-    var result = parseLength(length);
-    if(result && (result.value <= 0 || result.unit === "%")) {
-      return null
-    }
-    return result
-  }
-  function parseNonNegativeLength(length) {
-    var result = parseLength(length);
-    if(result && (result.value < 0 || result.unit === "%")) {
-      return null
-    }
-    return result
-  }
-  this.parseNonNegativeLength = parseNonNegativeLength;
-  function parsePercentage(length) {
-    var result = parseLength(length);
-    if(result && result.unit !== "%") {
-      return null
-    }
-    return result
-  }
-  function parseFoFontSize(fontSize) {
-    return parsePositiveLength(fontSize) || parsePercentage(fontSize)
-  }
-  this.parseFoFontSize = parseFoFontSize;
-  function parseFoLineHeight(lineHeight) {
-    return parseNonNegativeLength(lineHeight) || parsePercentage(lineHeight)
-  }
-  this.parseFoLineHeight = parseFoLineHeight;
-  function isTextContentContainingNode(node) {
-    switch(node.namespaceURI) {
-      case odf.Namespaces.drawns:
-      ;
-      case odf.Namespaces.svgns:
-      ;
-      case odf.Namespaces.dr3dns:
-        return false;
-      case odf.Namespaces.textns:
-        switch(node.localName) {
-          case "note-body":
-          ;
-          case "ruby-text":
-            return false
-        }
-        break;
-      case odf.Namespaces.officens:
-        switch(node.localName) {
-          case "annotation":
-          ;
-          case "binary-data":
-          ;
-          case "event-listeners":
-            return false
-        }
-        break;
-      default:
-        switch(node.localName) {
-          case "cursor":
-          ;
-          case "editinfo":
-            return false
-        }
-        break
-    }
-    return true
-  }
-  this.isTextContentContainingNode = isTextContentContainingNode;
-  function isSignificantTextContent(textNode) {
-    return Boolean(getParagraphElement(textNode) && (!isODFWhitespace(textNode.textContent) || isSignificantWhitespace(textNode, 0)))
-  }
-  function removePartiallyContainedNodes(range, nodes) {
-    while(nodes.length > 0 && !domUtils.rangeContainsNode(range, (nodes[0]))) {
-      nodes.shift()
-    }
-    while(nodes.length > 0 && !domUtils.rangeContainsNode(range, (nodes[nodes.length - 1]))) {
-      nodes.pop()
-    }
-  }
-  function getTextNodes(range, includePartial) {
-    var textNodes;
-    function nodeFilter(node) {
-      var result = NodeFilter.FILTER_REJECT;
-      if(node.nodeType === Node.TEXT_NODE) {
-        if(isSignificantTextContent((node))) {
-          result = NodeFilter.FILTER_ACCEPT
-        }
-      }else {
-        if(isTextContentContainingNode(node)) {
-          result = NodeFilter.FILTER_SKIP
-        }
-      }
-      return result
-    }
-    textNodes = domUtils.getNodesInRange(range, nodeFilter, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
-    if(!includePartial) {
-      removePartiallyContainedNodes(range, textNodes)
-    }
-    return textNodes
-  }
-  this.getTextNodes = getTextNodes;
-  function getTextElements(range, includePartial, includeInsignificantWhitespace) {
-    var elements;
-    function nodeFilter(node) {
-      var result = NodeFilter.FILTER_REJECT;
-      if(isCharacterElement(node.parentNode) || isInlineRoot(node)) {
-        result = NodeFilter.FILTER_REJECT
-      }else {
-        if(node.nodeType === Node.TEXT_NODE) {
-          if(includeInsignificantWhitespace || isSignificantTextContent((node))) {
-            result = NodeFilter.FILTER_ACCEPT
-          }
-        }else {
-          if(isAnchoredAsCharacterElement(node)) {
-            result = NodeFilter.FILTER_ACCEPT
-          }else {
-            if(isTextContentContainingNode(node) || isGroupingElement(node)) {
-              result = NodeFilter.FILTER_SKIP
-            }
-          }
-        }
-      }
-      return result
-    }
-    elements = domUtils.getNodesInRange(range, nodeFilter, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
-    if(!includePartial) {
-      removePartiallyContainedNodes(range, elements)
-    }
-    return elements
-  }
-  this.getTextElements = getTextElements;
-  function prependParentContainers(startContainer, elements, filter) {
-    var container = startContainer;
-    while(container) {
-      if(filter(container)) {
-        if(elements[0] !== container) {
-          elements.unshift(container)
-        }
-        break
-      }
-      if(isInlineRoot(container)) {
-        break
-      }
-      container = container.parentNode
-    }
-  }
-  this.getParagraphElements = function(range) {
-    var elements;
-    function nodeFilter(node) {
-      var result = NodeFilter.FILTER_REJECT;
-      if(isParagraph(node)) {
-        result = NodeFilter.FILTER_ACCEPT
-      }else {
-        if(isTextContentContainingNode(node) || isGroupingElement(node)) {
-          result = NodeFilter.FILTER_SKIP
-        }
-      }
-      return result
-    }
-    elements = domUtils.getNodesInRange(range, nodeFilter, NodeFilter.SHOW_ELEMENT);
-    prependParentContainers((range.startContainer), elements, isParagraph);
-    return elements
-  };
-  this.getImageElements = function(range) {
-    var elements;
-    function nodeFilter(node) {
-      var result = NodeFilter.FILTER_SKIP;
-      if(isImage(node)) {
-        result = NodeFilter.FILTER_ACCEPT
-      }
-      return result
-    }
-    elements = domUtils.getNodesInRange(range, nodeFilter, NodeFilter.SHOW_ELEMENT);
-    prependParentContainers((range.startContainer), elements, isImage);
-    return elements
-  };
-  function getRightNode(container, offset) {
-    var node = container;
-    if(offset < node.childNodes.length - 1) {
-      node = (node.childNodes[offset + 1])
-    }else {
-      while(!node.nextSibling) {
-        node = node.parentNode
-      }
-      node = node.nextSibling
-    }
-    while(node.firstChild) {
-      node = node.firstChild
-    }
-    return node
-  }
-  this.getHyperlinkElements = function(range) {
-    var links = [], newRange = (range.cloneRange()), node, textNodes;
-    if(range.collapsed && range.endContainer.nodeType === Node.ELEMENT_NODE) {
-      node = getRightNode(range.endContainer, range.endOffset);
-      if(node.nodeType === Node.TEXT_NODE) {
-        newRange.setEnd(node, 1)
-      }
-    }
-    textNodes = getTextElements(newRange, true, false);
-    textNodes.forEach(function(node) {
-      var parent = node.parentNode;
-      while(!isParagraph(parent)) {
-        if(isHyperlink(parent) && links.indexOf(parent) === -1) {
-          links.push(parent);
-          break
-        }
-        parent = parent.parentNode
-      }
-    });
-    newRange.detach();
-    return links
-  };
-  this.getNormalizedFontFamilyName = function(fontFamilyName) {
-    if(!/^(["'])(?:.|[\n\r])*?\1$/.test(fontFamilyName)) {
-      fontFamilyName = fontFamilyName.replace(/^[ \t\r\n\f]*((?:.|[\n\r])*?)[ \t\r\n\f]*$/, "$1");
-      if(/[ \t\r\n\f]/.test(fontFamilyName)) {
-        fontFamilyName = "'" + fontFamilyName.replace(/[ \t\r\n\f]+/g, " ") + "'"
-      }
-    }
-    return fontFamilyName
-  }
-};
 gui.AnnotatableCanvas = function AnnotatableCanvas() {
 };
 gui.AnnotatableCanvas.prototype.refreshSize = function() {
@@ -7599,7 +7664,7 @@ gui.AnnotatableCanvas.prototype.getZoomLevel = function() {
 gui.AnnotatableCanvas.prototype.getSizer = function() {
 };
 gui.AnnotationViewManager = function AnnotationViewManager(canvas, odfFragment, annotationsPane, showAnnotationRemoveButton) {
-  var annotations = [], doc = odfFragment.ownerDocument, odfUtils = new odf.OdfUtils, CONNECTOR_MARGIN = 30, NOTE_MARGIN = 20, window = runtime.getWindow(), htmlns = "http://www.w3.org/1999/xhtml";
+  var annotations = [], doc = odfFragment.ownerDocument, odfUtils = odf.OdfUtils, CONNECTOR_MARGIN = 30, NOTE_MARGIN = 20, window = runtime.getWindow(), htmlns = "http://www.w3.org/1999/xhtml";
   runtime.assert(Boolean(window), "Expected to be run in an environment which has a global window, like a browser.");
   function wrapAnnotation(annotation) {
     var annotationWrapper = doc.createElement("div"), annotationNote = doc.createElement("div"), connectorHorizontal = doc.createElement("div"), connectorAngular = doc.createElement("div"), removeButton;
@@ -7808,7 +7873,7 @@ gui.SingleScrollViewport = function(scrollPane) {
   }
 };
 (function() {
-  var xpath = xmldom.XPath, odfUtils = new odf.OdfUtils, base64 = new core.Base64;
+  var xpath = xmldom.XPath, odfUtils = odf.OdfUtils, base64 = new core.Base64;
   function getEmbeddedFontDeclarations(fontFaceDecls) {
     var decls = {}, fonts, i, font, name, uris, href, family;
     if(!fontFaceDecls) {
@@ -7882,7 +7947,7 @@ gui.SingleScrollViewport = function(scrollPane) {
   }
 })();
 odf.Formatting = function Formatting() {
-  var odfContainer, styleInfo = new odf.StyleInfo, svgns = odf.Namespaces.svgns, stylens = odf.Namespaces.stylens, textns = odf.Namespaces.textns, numberns = odf.Namespaces.numberns, fons = odf.Namespaces.fons, odfUtils = new odf.OdfUtils, domUtils = new core.DomUtils, utils = new core.Utils, cssUnits = new core.CSSUnits, builtInDefaultStyleAttributesByFamily = {"paragraph":{"style:paragraph-properties":{"fo:text-align":"left"}}}, defaultPageFormatSettings = {width:"21.001cm", height:"29.7cm", margin:"2cm", 
+  var odfContainer, styleInfo = new odf.StyleInfo, svgns = odf.Namespaces.svgns, stylens = odf.Namespaces.stylens, textns = odf.Namespaces.textns, numberns = odf.Namespaces.numberns, fons = odf.Namespaces.fons, odfUtils = odf.OdfUtils, domUtils = core.DomUtils, utils = new core.Utils, cssUnits = new core.CSSUnits, builtInDefaultStyleAttributesByFamily = {"paragraph":{"style:paragraph-properties":{"fo:text-align":"left"}}}, defaultPageFormatSettings = {width:"21.001cm", height:"29.7cm", margin:"2cm", 
   padding:"0cm"};
   function getSystemDefaultStyleAttributes(styleFamily) {
     var result, builtInDefaultStyleAttributes = builtInDefaultStyleAttributesByFamily[styleFamily];
@@ -8173,11 +8238,11 @@ odf.Formatting = function Formatting() {
       }
       if(node) {
         layoutName = node.getAttributeNS(stylens, "page-layout-name");
-        pageLayoutElements = domUtils.getElementsByTagNameNS(odfContainer.rootElement.automaticStyles, stylens, "page-layout");
+        pageLayoutElements = odfContainer.rootElement.automaticStyles.getElementsByTagNameNS(stylens, "page-layout");
         for(i = 0;i < pageLayoutElements.length;i += 1) {
-          node = pageLayoutElements[i];
+          node = (pageLayoutElements.item(i));
           if(node.getAttributeNS(stylens, "name") === layoutName) {
-            return(node)
+            return node
           }
         }
       }
@@ -8437,7 +8502,7 @@ odf.StyleTree.Tree;
     }
   }
   odf.ListStyleToCss = function ListStyleToCss() {
-    var cssUnits = new core.CSSUnits, odfUtils = new odf.OdfUtils;
+    var cssUnits = new core.CSSUnits, odfUtils = odf.OdfUtils;
     function convertToPxValue(value) {
       var parsedLength = odfUtils.parseLength(value);
       if(!parsedLength) {
@@ -8735,7 +8800,7 @@ odf.StyleParseUtils = function() {
   this.parseAttributeList = parseAttributeList
 };
 odf.Style2CSS = function Style2CSS() {
-  var drawns = odf.Namespaces.drawns, fons = odf.Namespaces.fons, officens = odf.Namespaces.officens, stylens = odf.Namespaces.stylens, svgns = odf.Namespaces.svgns, tablens = odf.Namespaces.tablens, xlinkns = odf.Namespaces.xlinkns, presentationns = odf.Namespaces.presentationns, webodfhelperns = "urn:webodf:names:helper", domUtils = new core.DomUtils, styleParseUtils = new odf.StyleParseUtils, familynamespaceprefixes = {"graphic":"draw", "drawing-page":"draw", "paragraph":"text", "presentation":"presentation", 
+  var drawns = odf.Namespaces.drawns, fons = odf.Namespaces.fons, officens = odf.Namespaces.officens, stylens = odf.Namespaces.stylens, svgns = odf.Namespaces.svgns, tablens = odf.Namespaces.tablens, xlinkns = odf.Namespaces.xlinkns, presentationns = odf.Namespaces.presentationns, webodfhelperns = "urn:webodf:names:helper", domUtils = core.DomUtils, styleParseUtils = new odf.StyleParseUtils, familynamespaceprefixes = {"graphic":"draw", "drawing-page":"draw", "paragraph":"text", "presentation":"presentation", 
   "ruby":"text", "section":"text", "table":"table", "table-cell":"table", "table-column":"table", "table-row":"table", "text":"text", "list":"text", "page":"office"}, familytagnames = {"graphic":["circle", "connected", "control", "custom-shape", "ellipse", "frame", "g", "line", "measure", "page", "page-thumbnail", "path", "polygon", "polyline", "rect", "regular-polygon"], "paragraph":["alphabetical-index-entry-template", "h", "illustration-index-entry-template", "index-source-style", "object-index-entry-template", 
   "p", "table-index-entry-template", "table-of-content-entry-template", "user-index-entry-template"], "presentation":["caption", "circle", "connector", "control", "custom-shape", "ellipse", "frame", "g", "line", "measure", "page-thumbnail", "path", "polygon", "polyline", "rect", "regular-polygon"], "drawing-page":["caption", "circle", "connector", "control", "page", "custom-shape", "ellipse", "frame", "g", "line", "measure", "page-thumbnail", "path", "polygon", "polyline", "rect", "regular-polygon"], 
   "ruby":["ruby", "ruby-text"], "section":["alphabetical-index", "bibliography", "illustration-index", "index-title", "object-index", "section", "table-of-content", "table-index", "user-index"], "table":["background", "table"], "table-cell":["body", "covered-table-cell", "even-columns", "even-rows", "first-column", "first-row", "last-column", "last-row", "odd-columns", "odd-rows", "table-cell"], "table-column":["table-column"], "table-row":["table-row"], "text":["a", "index-entry-chapter", "index-entry-link-end", 
@@ -8745,7 +8810,7 @@ odf.Style2CSS = function Style2CSS() {
   "border-left"], [fons, "border-right", "border-right"], [fons, "border-top", "border-top"], [fons, "border-bottom", "border-bottom"]], tablecellPropertySimpleMapping = [[fons, "background-color", "background-color"], [fons, "border-left", "border-left"], [fons, "border-right", "border-right"], [fons, "border-top", "border-top"], [fons, "border-bottom", "border-bottom"], [fons, "border", "border"]], tablecolumnPropertySimpleMapping = [[stylens, "column-width", "width"]], tablerowPropertySimpleMapping = 
   [[stylens, "row-height", "height"], [fons, "keep-together", null]], tablePropertySimpleMapping = [[stylens, "width", "width"], [fons, "margin-left", "margin-left"], [fons, "margin-right", "margin-right"], [fons, "margin-top", "margin-top"], [fons, "margin-bottom", "margin-bottom"]], pageContentPropertySimpleMapping = [[fons, "background-color", "background-color"], [fons, "padding", "padding"], [fons, "padding-left", "padding-left"], [fons, "padding-right", "padding-right"], [fons, "padding-top", 
   "padding-top"], [fons, "padding-bottom", "padding-bottom"], [fons, "border", "border"], [fons, "border-left", "border-left"], [fons, "border-right", "border-right"], [fons, "border-top", "border-top"], [fons, "border-bottom", "border-bottom"], [fons, "margin", "margin"], [fons, "margin-left", "margin-left"], [fons, "margin-right", "margin-right"], [fons, "margin-top", "margin-top"], [fons, "margin-bottom", "margin-bottom"]], pageSizePropertySimpleMapping = [[fons, "page-width", "width"], [fons, 
-  "page-height", "height"]], borderPropertyMap = {"border":true, "border-left":true, "border-right":true, "border-top":true, "border-bottom":true, "stroke-width":true}, fontFaceDeclsMap = {}, utils = new odf.OdfUtils, documentType, odfRoot, defaultFontSize, xpath = xmldom.XPath, cssUnits = new core.CSSUnits;
+  "page-height", "height"]], borderPropertyMap = {"border":true, "border-left":true, "border-right":true, "border-top":true, "border-bottom":true, "stroke-width":true}, marginPropertyMap = {"margin":true, "margin-left":true, "margin-right":true, "margin-top":true, "margin-bottom":true}, fontFaceDeclsMap = {}, utils = odf.OdfUtils, documentType, odfRoot, defaultFontSize, xpath = xmldom.XPath, cssUnits = new core.CSSUnits;
   function createSelector(family, name) {
     var prefix = familynamespaceprefixes[family], namepart, selector;
     if(prefix === undefined) {
@@ -8796,30 +8861,6 @@ odf.Style2CSS = function Style2CSS() {
     }
     return value
   }
-  function applySimpleMapping(props, mapping) {
-    var rule = "", i, r, value;
-    for(i = 0;i < mapping.length;i += 1) {
-      r = mapping[i];
-      value = props.getAttributeNS(r[0], r[1]);
-      if(value) {
-        value = value.trim();
-        if(borderPropertyMap.hasOwnProperty(r[1])) {
-          value = fixBorderWidth(value)
-        }
-        if(r[2]) {
-          rule += r[2] + ":" + value + ";"
-        }
-      }
-    }
-    return rule
-  }
-  function getFontSize(styleNode) {
-    var props = domUtils.getDirectChild(styleNode, stylens, "text-properties");
-    if(props) {
-      return utils.parseFoFontSize(props.getAttributeNS(fons, "font-size"))
-    }
-    return null
-  }
   function getParentStyleNode(styleNode) {
     var parentStyleName = "", parentStyleFamily = "", parentStyleNode = null, xp;
     if(styleNode.localName === "default-style") {
@@ -8834,6 +8875,58 @@ odf.Style2CSS = function Style2CSS() {
     }
     parentStyleNode = xpath.getODFElementsWithXPath((odfRoot), xp, odf.Namespaces.lookupNamespaceURI)[0];
     return parentStyleNode
+  }
+  function fixMargin(props, namespace, name, value) {
+    var length = utils.parseLength(value), multiplier, parentStyle, parentLength, result, properties;
+    if(!length || length.unit !== "%") {
+      return value
+    }
+    multiplier = length.value / 100;
+    parentStyle = getParentStyleNode((props.parentNode));
+    result = "0";
+    while(parentStyle) {
+      properties = domUtils.getDirectChild(parentStyle, stylens, "paragraph-properties");
+      if(properties) {
+        parentLength = utils.parseLength(properties.getAttributeNS(namespace, name));
+        if(parentLength) {
+          if(parentLength.unit !== "%") {
+            result = parentLength.value * multiplier + parentLength.unit;
+            break
+          }
+          multiplier *= parentLength.value / 100
+        }
+      }
+      parentStyle = getParentStyleNode(parentStyle)
+    }
+    return result
+  }
+  function applySimpleMapping(props, mapping) {
+    var rule = "", i, r, value;
+    for(i = 0;i < mapping.length;i += 1) {
+      r = mapping[i];
+      value = props.getAttributeNS(r[0], r[1]);
+      if(value) {
+        value = value.trim();
+        if(borderPropertyMap.hasOwnProperty(r[1])) {
+          value = fixBorderWidth(value)
+        }else {
+          if(marginPropertyMap.hasOwnProperty(r[1])) {
+            value = fixMargin(props, r[0], r[1], value)
+          }
+        }
+        if(r[2]) {
+          rule += r[2] + ":" + value + ";"
+        }
+      }
+    }
+    return rule
+  }
+  function getFontSize(styleNode) {
+    var props = domUtils.getDirectChild(styleNode, stylens, "text-properties");
+    if(props) {
+      return utils.parseFoFontSize(props.getAttributeNS(fons, "font-size"))
+    }
+    return null
   }
   function parseTextPosition(position) {
     var parts = styleParseUtils.parseAttributeList(position);
@@ -9447,7 +9540,7 @@ ops.Canvas.prototype.getZoomHelper = function() {
       }
     }
   }
-  var drawns = odf.Namespaces.drawns, fons = odf.Namespaces.fons, officens = odf.Namespaces.officens, stylens = odf.Namespaces.stylens, svgns = odf.Namespaces.svgns, tablens = odf.Namespaces.tablens, textns = odf.Namespaces.textns, xlinkns = odf.Namespaces.xlinkns, presentationns = odf.Namespaces.presentationns, webodfhelperns = "urn:webodf:names:helper", xpath = xmldom.XPath, domUtils = new core.DomUtils;
+  var drawns = odf.Namespaces.drawns, fons = odf.Namespaces.fons, officens = odf.Namespaces.officens, stylens = odf.Namespaces.stylens, svgns = odf.Namespaces.svgns, tablens = odf.Namespaces.tablens, textns = odf.Namespaces.textns, xlinkns = odf.Namespaces.xlinkns, presentationns = odf.Namespaces.presentationns, webodfhelperns = "urn:webodf:names:helper", xpath = xmldom.XPath, domUtils = core.DomUtils;
   function clear(element) {
     while(element.firstChild) {
       element.removeChild(element.firstChild)
@@ -9493,7 +9586,7 @@ ops.Canvas.prototype.getZoomHelper = function() {
   }
   function setContainerValue(rootElement, ns, localName, value) {
     var i, containerList, document = rootElement.ownerDocument, e;
-    containerList = rootElement.getElementsByTagNameNS(ns, localName);
+    containerList = domUtils.getElementsByTagNameNS(rootElement, ns, localName);
     for(i = 0;i < containerList.length;i += 1) {
       clear(containerList[i]);
       if(value) {
@@ -9595,9 +9688,9 @@ ops.Canvas.prototype.getZoomHelper = function() {
         node.setAttributeNS(documentns, "rowspan", node.getAttributeNS(tablens, "number-rows-spanned"))
       }
     }
-    tableCells = odffragment.getElementsByTagNameNS(tablens, "table-cell");
+    tableCells = domUtils.getElementsByTagNameNS(odffragment, tablens, "table-cell");
     for(i = 0;i < tableCells.length;i += 1) {
-      node = (tableCells.item(i));
+      node = (tableCells[i]);
       modifyTableCell(node)
     }
   }
@@ -9683,7 +9776,7 @@ ops.Canvas.prototype.getZoomHelper = function() {
           i += 1
         }
         dropTemplateDrawFrames(clonedPageElement);
-        clonedDrawElements = clonedPageElement.getElementsByTagNameNS(drawns, "*");
+        clonedDrawElements = domUtils.getElementsByTagNameNS(clonedPageElement, drawns, "*");
         for(i = 0;i < clonedDrawElements.length;i += 1) {
           setDrawElementPosition(styleId + "_" + i, clonedDrawElements[i], stylesheet)
         }
@@ -10293,7 +10386,7 @@ ops.OdtCursor.signalCursorUpdated = "cursorUpdated";
 (function() {
   var nextNodeId = 0;
   ops.StepsCache = function StepsCache(rootElement, bucketSize, restoreBookmarkPosition) {
-    var coordinatens = "urn:webodf:names:steps", stepToDomPoint = {}, nodeToBookmark = {}, domUtils = new core.DomUtils, basePoint, lastUndamagedCacheStep, DOCUMENT_POSITION_FOLLOWING = Node.DOCUMENT_POSITION_FOLLOWING, DOCUMENT_POSITION_PRECEDING = Node.DOCUMENT_POSITION_PRECEDING, verifyCache;
+    var coordinatens = "urn:webodf:names:steps", stepToDomPoint = {}, nodeToBookmark = {}, domUtils = core.DomUtils, basePoint, lastUndamagedCacheStep, DOCUMENT_POSITION_FOLLOWING = Node.DOCUMENT_POSITION_FOLLOWING, DOCUMENT_POSITION_PRECEDING = Node.DOCUMENT_POSITION_PRECEDING, verifyCache;
     function NodeBookmark(nodeId, bookmarkNode) {
       var self = this;
       this.nodeId = nodeId;
@@ -10591,7 +10684,7 @@ ops.OdtCursor.signalCursorUpdated = "cursorUpdated";
 })();
 (function() {
   ops.OdtStepsTranslator = function OdtStepsTranslator(getRootNode, newIterator, filter, bucketSize) {
-    var rootNode, stepsCache, odfUtils = new odf.OdfUtils, domUtils = new core.DomUtils, iterator, FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT, PREVIOUS = core.StepDirection.PREVIOUS, NEXT = core.StepDirection.NEXT;
+    var rootNode, stepsCache, odfUtils = odf.OdfUtils, domUtils = core.DomUtils, iterator, FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT, PREVIOUS = core.StepDirection.PREVIOUS, NEXT = core.StepDirection.NEXT;
     function updateCache(steps, iterator, isStep) {
       var node = iterator.getCurrentNode();
       if(iterator.isBeforeNode() && odfUtils.isParagraph(node)) {
@@ -10728,9 +10821,15 @@ ops.Operation.prototype.execute = function(document) {
 };
 ops.Operation.prototype.spec = function() {
 };
-ops.TextPositionFilter = function TextPositionFilter(getRootNode) {
-  var odfUtils = new odf.OdfUtils, ELEMENT_NODE = Node.ELEMENT_NODE, TEXT_NODE = Node.TEXT_NODE, FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT, FILTER_REJECT = core.PositionFilter.FilterResult.FILTER_REJECT;
-  function checkLeftRight(container, leftNode, rightNode) {
+ops.TextPositionFilter = function TextPositionFilter() {
+  var odfUtils = odf.OdfUtils, ELEMENT_NODE = Node.ELEMENT_NODE, TEXT_NODE = Node.TEXT_NODE, FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT, FILTER_REJECT = core.PositionFilter.FilterResult.FILTER_REJECT;
+  function previousSibling(node, nodeFilter) {
+    while(node && nodeFilter(node) !== FILTER_ACCEPT) {
+      node = node.previousSibling
+    }
+    return node
+  }
+  function checkLeftRight(container, leftNode, rightNode, nodeFilter) {
     var r, firstPos, rightOfChar;
     if(leftNode) {
       if(odfUtils.isInlineRoot(leftNode) && odfUtils.isGroupingElement(rightNode)) {
@@ -10744,7 +10843,7 @@ ops.TextPositionFilter = function TextPositionFilter(getRootNode) {
         return FILTER_ACCEPT
       }
     }else {
-      if(odfUtils.isInlineRoot(container.previousSibling) && odfUtils.isGroupingElement(container)) {
+      if(odfUtils.isGroupingElement(container) && odfUtils.isInlineRoot(previousSibling(container.previousSibling, nodeFilter))) {
         return FILTER_ACCEPT
       }
     }
@@ -10768,9 +10867,6 @@ ops.TextPositionFilter = function TextPositionFilter(getRootNode) {
       return FILTER_REJECT
     }
     if(nodeType === TEXT_NODE) {
-      if(!odfUtils.isGroupingElement(container.parentNode) || odfUtils.isWithinTrackedChanges(container.parentNode, getRootNode())) {
-        return FILTER_REJECT
-      }
       offset = iterator.unfilteredDomOffset();
       text = container.data;
       runtime.assert(offset !== text.length, "Unexpected offset.");
@@ -10806,23 +10902,23 @@ ops.TextPositionFilter = function TextPositionFilter(getRootNode) {
       leftNode = iterator.leftNode();
       rightNode = container;
       container = (container.parentNode);
-      r = checkLeftRight(container, leftNode, rightNode)
+      r = checkLeftRight(container, leftNode, rightNode, iterator.getNodeFilter())
     }else {
-      if(!odfUtils.isGroupingElement(container) || odfUtils.isWithinTrackedChanges(container, getRootNode())) {
+      if(!odfUtils.isGroupingElement(container)) {
         r = FILTER_REJECT
       }else {
         leftNode = iterator.leftNode();
         rightNode = iterator.rightNode();
-        r = checkLeftRight(container, leftNode, rightNode)
+        r = checkLeftRight(container, leftNode, rightNode, iterator.getNodeFilter())
       }
     }
     return r
   }
 };
 ops.OdtDocument = function OdtDocument(odfCanvas) {
-  var self = this, stepUtils, odfUtils, domUtils, cursors = {}, members = {}, eventNotifier = new core.EventNotifier([ops.Document.signalMemberAdded, ops.Document.signalMemberUpdated, ops.Document.signalMemberRemoved, ops.Document.signalCursorAdded, ops.Document.signalCursorRemoved, ops.Document.signalCursorMoved, ops.OdtDocument.signalParagraphChanged, ops.OdtDocument.signalParagraphStyleModified, ops.OdtDocument.signalCommonStyleCreated, ops.OdtDocument.signalCommonStyleDeleted, ops.OdtDocument.signalTableAdded, 
-  ops.OdtDocument.signalOperationStart, ops.OdtDocument.signalOperationEnd, ops.OdtDocument.signalProcessingBatchStart, ops.OdtDocument.signalProcessingBatchEnd, ops.OdtDocument.signalUndoStackChanged, ops.OdtDocument.signalStepsInserted, ops.OdtDocument.signalStepsRemoved, ops.OdtDocument.signalMetadataUpdated, ops.OdtDocument.signalAnnotationAdded]), FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT, FILTER_REJECT = core.PositionFilter.FilterResult.FILTER_REJECT, NEXT = core.StepDirection.NEXT, 
-  filter, stepsTranslator, lastEditingOp, unsupportedMetadataRemoved = false, SHOW_ALL = NodeFilter.SHOW_ALL, defaultNodeFilter = new gui.BlacklistNamespaceNodeFilter(["urn:webodf:names:cursor", "urn:webodf:names:editinfo"]);
+  var self = this, stepUtils, odfUtils = odf.OdfUtils, domUtils = core.DomUtils, cursors = {}, members = {}, eventNotifier = new core.EventNotifier([ops.Document.signalMemberAdded, ops.Document.signalMemberUpdated, ops.Document.signalMemberRemoved, ops.Document.signalCursorAdded, ops.Document.signalCursorRemoved, ops.Document.signalCursorMoved, ops.OdtDocument.signalParagraphChanged, ops.OdtDocument.signalParagraphStyleModified, ops.OdtDocument.signalCommonStyleCreated, ops.OdtDocument.signalCommonStyleDeleted, 
+  ops.OdtDocument.signalTableAdded, ops.OdtDocument.signalOperationStart, ops.OdtDocument.signalOperationEnd, ops.OdtDocument.signalProcessingBatchStart, ops.OdtDocument.signalProcessingBatchEnd, ops.OdtDocument.signalUndoStackChanged, ops.OdtDocument.signalStepsInserted, ops.OdtDocument.signalStepsRemoved, ops.OdtDocument.signalMetadataUpdated, ops.OdtDocument.signalAnnotationAdded]), FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT, FILTER_REJECT = core.PositionFilter.FilterResult.FILTER_REJECT, 
+  NEXT = core.StepDirection.NEXT, filter, stepsTranslator, lastEditingOp, unsupportedMetadataRemoved = false, SHOW_ALL = NodeFilter.SHOW_ALL, blacklistedNodes = new gui.BlacklistNamespaceNodeFilter(["urn:webodf:names:cursor", "urn:webodf:names:editinfo"]), odfTextBodyFilter = new gui.OdfTextBodyNodeFilter, defaultNodeFilter = new core.NodeFilterChain([blacklistedNodes, odfTextBodyFilter]);
   function createPositionIterator(rootNode) {
     return new core.PositionIterator(rootNode, SHOW_ALL, defaultNodeFilter, false)
   }
@@ -10834,9 +10930,6 @@ ops.OdtDocument = function OdtDocument(odfCanvas) {
   }
   this.getDocumentElement = function() {
     return odfCanvas.odfContainer().rootElement
-  };
-  this.getDOMDocument = function() {
-    return(this.getDocumentElement().ownerDocument)
   };
   this.cloneDocumentElement = function() {
     var rootElement = self.getDocumentElement(), annotationViewManager = odfCanvas.getAnnotationViewManager(), initialDoc;
@@ -11213,9 +11306,7 @@ ops.OdtDocument = function OdtDocument(odfCanvas) {
     callback()
   };
   function init() {
-    filter = new ops.TextPositionFilter(getRootNode);
-    odfUtils = new odf.OdfUtils;
-    domUtils = new core.DomUtils;
+    filter = new ops.TextPositionFilter;
     stepUtils = new odf.StepUtils;
     stepsTranslator = new ops.OdtStepsTranslator(getRootNode, createPositionIterator, filter, 500);
     eventNotifier.subscribe(ops.OdtDocument.signalStepsInserted, stepsTranslator.handleStepsInserted);
@@ -11290,7 +11381,7 @@ ops.OpAddAnnotation = function OpAddAnnotation() {
     }
   }
   this.execute = function(document) {
-    var odtDocument = (document), annotation, annotationEnd, cursor = odtDocument.getCursor(memberid), selectedRange, paragraphElement, domUtils = new core.DomUtils;
+    var odtDocument = (document), annotation, annotationEnd, cursor = odtDocument.getCursor(memberid), selectedRange, paragraphElement;
     doc = odtDocument.getDOMDocument();
     annotation = createAnnotationNode(odtDocument, new Date(timestamp));
     if(length) {
@@ -11302,7 +11393,7 @@ ops.OpAddAnnotation = function OpAddAnnotation() {
     odtDocument.emit(ops.OdtDocument.signalStepsInserted, {position:position});
     if(cursor) {
       selectedRange = doc.createRange();
-      paragraphElement = domUtils.getElementsByTagNameNS(annotation, odf.Namespaces.textns, "p")[0];
+      paragraphElement = (annotation.getElementsByTagNameNS(odf.Namespaces.textns, "p")[0]);
       selectedRange.selectNodeContents(paragraphElement);
       cursor.setSelectedRange(selectedRange, false);
       cursor.setSelectionType(ops.OdtCursor.RangeSelection);
@@ -11408,7 +11499,7 @@ ops.OpAddStyle = function OpAddStyle() {
 ops.OpAddStyle.Spec;
 ops.OpAddStyle.InitSpec;
 odf.ObjectNameGenerator = function ObjectNameGenerator(odfContainer, memberId) {
-  var stylens = odf.Namespaces.stylens, drawns = odf.Namespaces.drawns, xlinkns = odf.Namespaces.xlinkns, domUtils = new core.DomUtils, utils = new core.Utils, memberIdHash = utils.hashString(memberId), styleNameGenerator = null, frameNameGenerator = null, imageNameGenerator = null, existingFrameNames = {}, existingImageNames = {};
+  var stylens = odf.Namespaces.stylens, drawns = odf.Namespaces.drawns, xlinkns = odf.Namespaces.xlinkns, utils = new core.Utils, memberIdHash = utils.hashString(memberId), styleNameGenerator = null, frameNameGenerator = null, imageNameGenerator = null, existingFrameNames = {}, existingImageNames = {};
   function NameGenerator(prefix, findExistingNames) {
     var reportedNames = {};
     this.generateName = function() {
@@ -11444,11 +11535,13 @@ odf.ObjectNameGenerator = function ObjectNameGenerator(odfContainer, memberId) {
     return styleNameGenerator.generateName()
   };
   this.generateFrameName = function() {
+    var i, nodes, node;
     if(frameNameGenerator === null) {
-      var nodes = domUtils.getElementsByTagNameNS(odfContainer.rootElement.body, drawns, "frame");
-      nodes.forEach(function(frame) {
-        existingFrameNames[frame.getAttributeNS(drawns, "name")] = true
-      });
+      nodes = odfContainer.rootElement.body.getElementsByTagNameNS(drawns, "frame");
+      for(i = 0;i < nodes.length;i += 1) {
+        node = (nodes.item(i));
+        existingFrameNames[node.getAttributeNS(drawns, "name")] = true
+      }
       frameNameGenerator = new NameGenerator("fr" + memberIdHash + "_", function() {
         return existingFrameNames
       })
@@ -11456,13 +11549,15 @@ odf.ObjectNameGenerator = function ObjectNameGenerator(odfContainer, memberId) {
     return frameNameGenerator.generateName()
   };
   this.generateImageName = function() {
+    var i, path, nodes, node;
     if(imageNameGenerator === null) {
-      var nodes = domUtils.getElementsByTagNameNS(odfContainer.rootElement.body, drawns, "image");
-      nodes.forEach(function(image) {
-        var path = image.getAttributeNS(xlinkns, "href");
+      nodes = odfContainer.rootElement.body.getElementsByTagNameNS(drawns, "image");
+      for(i = 0;i < nodes.length;i += 1) {
+        node = (nodes.item(i));
+        path = node.getAttributeNS(xlinkns, "href");
         path = path.substring("Pictures/".length, path.lastIndexOf("."));
         existingImageNames[path] = true
-      });
+      }
       imageNameGenerator = new NameGenerator("img" + memberIdHash + "_", function() {
         return existingImageNames
       })
@@ -11471,7 +11566,7 @@ odf.ObjectNameGenerator = function ObjectNameGenerator(odfContainer, memberId) {
   }
 };
 odf.TextStyleApplicator = function TextStyleApplicator(objectNameGenerator, formatting, automaticStyles) {
-  var domUtils = new core.DomUtils, textns = odf.Namespaces.textns, stylens = odf.Namespaces.stylens, textProperties = "style:text-properties", webodfns = "urn:webodf:names:scope";
+  var domUtils = core.DomUtils, textns = odf.Namespaces.textns, stylens = odf.Namespaces.stylens, textProperties = "style:text-properties", webodfns = "urn:webodf:names:scope";
   function StyleLookup(info) {
     var cachedAppliedStyles = {};
     function compare(expected, actual) {
@@ -11572,7 +11667,7 @@ odf.TextStyleApplicator = function TextStyleApplicator(objectNameGenerator, form
   }
 };
 ops.OpApplyDirectStyling = function OpApplyDirectStyling() {
-  var memberid, timestamp, position, length, setProperties, odfUtils = new odf.OdfUtils, domUtils = new core.DomUtils;
+  var memberid, timestamp, position, length, setProperties, odfUtils = odf.OdfUtils, domUtils = core.DomUtils;
   this.init = function(data) {
     memberid = data.memberid;
     timestamp = data.timestamp;
@@ -11607,7 +11702,7 @@ ops.OpApplyDirectStyling = function OpApplyDirectStyling() {
 ops.OpApplyDirectStyling.Spec;
 ops.OpApplyDirectStyling.InitSpec;
 ops.OpApplyHyperlink = function OpApplyHyperlink() {
-  var memberid, timestamp, position, length, hyperlink, domUtils = new core.DomUtils, odfUtils = new odf.OdfUtils;
+  var memberid, timestamp, position, length, hyperlink, domUtils = core.DomUtils, odfUtils = odf.OdfUtils;
   this.init = function(data) {
     memberid = data.memberid;
     timestamp = data.timestamp;
@@ -11664,7 +11759,7 @@ ops.OpApplyHyperlink = function OpApplyHyperlink() {
 ops.OpApplyHyperlink.Spec;
 ops.OpApplyHyperlink.InitSpec;
 ops.OpInsertImage = function OpInsertImage() {
-  var memberid, timestamp, position, filename, frameWidth, frameHeight, frameStyleName, frameName, drawns = odf.Namespaces.drawns, svgns = odf.Namespaces.svgns, textns = odf.Namespaces.textns, xlinkns = odf.Namespaces.xlinkns, odfUtils = new odf.OdfUtils;
+  var memberid, timestamp, position, filename, frameWidth, frameHeight, frameStyleName, frameName, drawns = odf.Namespaces.drawns, svgns = odf.Namespaces.svgns, textns = odf.Namespaces.textns, xlinkns = odf.Namespaces.xlinkns, odfUtils = odf.OdfUtils;
   this.init = function(data) {
     memberid = data.memberid;
     timestamp = data.timestamp;
@@ -11718,7 +11813,7 @@ ops.OpInsertImage = function OpInsertImage() {
 ops.OpInsertImage.Spec;
 ops.OpInsertImage.InitSpec;
 ops.OpInsertTable = function OpInsertTable() {
-  var memberid, timestamp, initialRows, initialColumns, position, tableName, tableStyleName, tableColumnStyleName, tableCellStyleMatrix, tablens = "urn:oasis:names:tc:opendocument:xmlns:table:1.0", textns = "urn:oasis:names:tc:opendocument:xmlns:text:1.0", odfUtils = new odf.OdfUtils;
+  var memberid, timestamp, initialRows, initialColumns, position, tableName, tableStyleName, tableColumnStyleName, tableCellStyleMatrix, tablens = "urn:oasis:names:tc:opendocument:xmlns:table:1.0", textns = "urn:oasis:names:tc:opendocument:xmlns:text:1.0", odfUtils = odf.OdfUtils;
   this.init = function(data) {
     memberid = data.memberid;
     timestamp = data.timestamp;
@@ -11818,7 +11913,7 @@ ops.OpInsertTable = function OpInsertTable() {
 ops.OpInsertTable.Spec;
 ops.OpInsertTable.InitSpec;
 ops.OpInsertText = function OpInsertText() {
-  var tab = "\t", memberid, timestamp, position, moveCursor, text, odfUtils = new odf.OdfUtils;
+  var tab = "\t", memberid, timestamp, position, moveCursor, text, odfUtils = odf.OdfUtils;
   this.init = function(data) {
     memberid = data.memberid;
     timestamp = data.timestamp;
@@ -11911,7 +12006,7 @@ ops.OpInsertText = function OpInsertText() {
 ops.OpInsertText.Spec;
 ops.OpInsertText.InitSpec;
 odf.CollapsingRules = function CollapsingRules(rootNode) {
-  var odfUtils = new odf.OdfUtils, domUtils = new core.DomUtils;
+  var odfUtils = odf.OdfUtils, domUtils = core.DomUtils;
   function shouldRemove(node) {
     return odfUtils.isODFNode(node) || (node.localName === "br" && odfUtils.isLineBreak(node.parentNode) || node.nodeType === Node.TEXT_NODE && odfUtils.isODFNode((node.parentNode)))
   }
@@ -11934,7 +12029,7 @@ odf.CollapsingRules = function CollapsingRules(rootNode) {
   this.mergeChildrenIntoParent = mergeChildrenIntoParent
 };
 ops.OpMergeParagraph = function OpMergeParagraph() {
-  var memberid, timestamp, moveCursor, paragraphStyleName, sourceStartPosition, destinationStartPosition, odfUtils = new odf.OdfUtils, domUtils = new core.DomUtils, textns = odf.Namespaces.textns;
+  var memberid, timestamp, moveCursor, paragraphStyleName, sourceStartPosition, destinationStartPosition, odfUtils = odf.OdfUtils, domUtils = core.DomUtils, textns = odf.Namespaces.textns;
   this.init = function(data) {
     memberid = data.memberid;
     timestamp = data.timestamp;
@@ -11990,13 +12085,16 @@ ops.OpMergeParagraph = function OpMergeParagraph() {
       node.parentNode.removeChild(node)
     })
   }
-  function trimInsignificantWhitespace(stepIterator, paragraphElement) {
+  function trimLeadingInsignificantWhitespace(stepIterator, paragraphElement) {
     var range = paragraphElement.ownerDocument.createRange();
     stepIterator.setPosition(paragraphElement, 0);
     stepIterator.roundToNextStep();
     range.setStart(paragraphElement, 0);
     range.setEnd(stepIterator.container(), stepIterator.offset());
-    removeTextNodes(range);
+    removeTextNodes(range)
+  }
+  function trimTrailingInsignificantWhitespace(stepIterator, paragraphElement) {
+    var range = paragraphElement.ownerDocument.createRange();
     stepIterator.setPosition(paragraphElement, paragraphElement.childNodes.length);
     stepIterator.roundToPreviousStep();
     range.setStart(stepIterator.container(), stepIterator.offset());
@@ -12018,9 +12116,9 @@ ops.OpMergeParagraph = function OpMergeParagraph() {
     sourceParagraph = getParagraphAtStep(odtDocument, sourceStartPosition, stepIterator);
     stepIterator.previousStep();
     runtime.assert(domUtils.containsNode(destinationParagraph, stepIterator.container()), "Destination paragraph must be adjacent to the source paragraph");
-    trimInsignificantWhitespace(stepIterator, destinationParagraph);
+    trimTrailingInsignificantWhitespace(stepIterator, destinationParagraph);
     downgradeOffset = destinationParagraph.childNodes.length;
-    trimInsignificantWhitespace(stepIterator, sourceParagraph);
+    trimLeadingInsignificantWhitespace(stepIterator, sourceParagraph);
     mergeParagraphs(destinationParagraph, sourceParagraph);
     runtime.assert(sourceParagraph.childNodes.length === 0, "Source paragraph should be empty before it is removed");
     collapseRules.mergeChildrenIntoParent(sourceParagraph);
@@ -12081,13 +12179,12 @@ ops.OpMoveCursor = function OpMoveCursor() {
 ops.OpMoveCursor.Spec;
 ops.OpMoveCursor.InitSpec;
 ops.OpRemoveAnnotation = function OpRemoveAnnotation() {
-  var memberid, timestamp, position, length, domUtils;
+  var memberid, timestamp, position, length, domUtils = core.DomUtils;
   this.init = function(data) {
     memberid = data.memberid;
     timestamp = data.timestamp;
     position = parseInt(data.position, 10);
-    length = parseInt(data.length, 10);
-    domUtils = new core.DomUtils
+    length = parseInt(data.length, 10)
   };
   this.isEdit = true;
   this.group = undefined;
@@ -12164,7 +12261,7 @@ ops.OpRemoveCursor = function OpRemoveCursor() {
 ops.OpRemoveCursor.Spec;
 ops.OpRemoveCursor.InitSpec;
 ops.OpRemoveHyperlink = function OpRemoveHyperlink() {
-  var memberid, timestamp, position, length, domUtils = new core.DomUtils, odfUtils = new odf.OdfUtils;
+  var memberid, timestamp, position, length, domUtils = core.DomUtils, odfUtils = odf.OdfUtils;
   this.init = function(data) {
     memberid = data.memberid;
     timestamp = data.timestamp;
@@ -12240,15 +12337,13 @@ ops.OpRemoveStyle = function OpRemoveStyle() {
 ops.OpRemoveStyle.Spec;
 ops.OpRemoveStyle.InitSpec;
 ops.OpRemoveText = function OpRemoveText() {
-  var memberid, timestamp, position, length, odfUtils, domUtils;
+  var memberid, timestamp, position, length, odfUtils = odf.OdfUtils, domUtils = core.DomUtils;
   this.init = function(data) {
     runtime.assert(data.length >= 0, "OpRemoveText only supports positive lengths");
     memberid = data.memberid;
     timestamp = data.timestamp;
     position = parseInt(data.position, 10);
-    length = parseInt(data.length, 10);
-    odfUtils = new odf.OdfUtils;
-    domUtils = new core.DomUtils
+    length = parseInt(data.length, 10)
   };
   this.isEdit = true;
   this.group = undefined;
@@ -12311,7 +12406,7 @@ ops.OpSetBlob = function OpSetBlob() {
 ops.OpSetBlob.Spec;
 ops.OpSetBlob.InitSpec;
 ops.OpSetParagraphStyle = function OpSetParagraphStyle() {
-  var memberid, timestamp, position, styleName, textns = "urn:oasis:names:tc:opendocument:xmlns:text:1.0", odfUtils = new odf.OdfUtils;
+  var memberid, timestamp, position, styleName, textns = "urn:oasis:names:tc:opendocument:xmlns:text:1.0", odfUtils = odf.OdfUtils;
   this.init = function(data) {
     memberid = data.memberid;
     timestamp = data.timestamp;
@@ -12349,15 +12444,14 @@ ops.OpSetParagraphStyle = function OpSetParagraphStyle() {
 ops.OpSetParagraphStyle.Spec;
 ops.OpSetParagraphStyle.InitSpec;
 ops.OpSplitParagraph = function OpSplitParagraph() {
-  var memberid, timestamp, sourceParagraphPosition, position, moveCursor, paragraphStyleName, odfUtils, textns = odf.Namespaces.textns;
+  var memberid, timestamp, sourceParagraphPosition, position, moveCursor, paragraphStyleName, odfUtils = odf.OdfUtils, textns = odf.Namespaces.textns;
   this.init = function(data) {
     memberid = data.memberid;
     timestamp = data.timestamp;
     position = data.position;
     sourceParagraphPosition = data.sourceParagraphPosition;
     paragraphStyleName = data.paragraphStyleName;
-    moveCursor = data.moveCursor === "true" || data.moveCursor === true;
-    odfUtils = new odf.OdfUtils
+    moveCursor = data.moveCursor === "true" || data.moveCursor === true
   };
   this.isEdit = true;
   this.group = undefined;
@@ -12707,7 +12801,7 @@ ops.Session = function Session(odfCanvas) {
   init()
 };
 gui.AnnotationController = function AnnotationController(session, sessionConstraints, inputMemberId) {
-  var odtDocument = session.getOdtDocument(), isAnnotatable = false, eventNotifier = new core.EventNotifier([gui.AnnotationController.annotatableChanged]), odfUtils = new odf.OdfUtils, NEXT = core.StepDirection.NEXT;
+  var odtDocument = session.getOdtDocument(), isAnnotatable = false, eventNotifier = new core.EventNotifier([gui.AnnotationController.annotatableChanged]), odfUtils = odf.OdfUtils, NEXT = core.StepDirection.NEXT;
   function updatedCachedValues() {
     var cursor = odtDocument.getCursor(inputMemberId), cursorNode = cursor && cursor.getNode(), newIsAnnotatable = false;
     if(cursorNode) {
@@ -12846,7 +12940,7 @@ gui.VisualStepScanner.prototype.token;
 gui.VisualStepScanner.prototype.process = function(stepInfo, previousRect, nextRect) {
 };
 gui.GuiStepUtils = function GuiStepUtils() {
-  var odfUtils = new odf.OdfUtils, stepUtils = new odf.StepUtils, domUtils = new core.DomUtils, NEXT = core.StepDirection.NEXT, LEFT_TO_RIGHT = gui.StepInfo.VisualDirection.LEFT_TO_RIGHT, RIGHT_TO_LEFT = gui.StepInfo.VisualDirection.RIGHT_TO_LEFT;
+  var odfUtils = odf.OdfUtils, stepUtils = new odf.StepUtils, domUtils = core.DomUtils, NEXT = core.StepDirection.NEXT, LEFT_TO_RIGHT = gui.StepInfo.VisualDirection.LEFT_TO_RIGHT, RIGHT_TO_LEFT = gui.StepInfo.VisualDirection.RIGHT_TO_LEFT;
   function getContentRect(stepIterator) {
     var bounds = stepUtils.getContentBounds(stepIterator), range, rect = null;
     if(bounds) {
@@ -12910,7 +13004,7 @@ gui.GuiStepUtils = function GuiStepUtils() {
   this.moveToFilteredStep = moveToFilteredStep
 };
 gui.Caret = function Caret(cursor, viewport, avatarInitiallyVisible, blinkOnRangeSelect) {
-  var cursorns = "urn:webodf:names:cursor", MIN_OVERLAY_HEIGHT_PX = 8, BLINK_PERIOD_MS = 500, caretOverlay, caretElement, avatar, overlayElement, caretSizer, caretSizerRange, canvas = cursor.getDocument().getCanvas(), domUtils = new core.DomUtils, guiStepUtils = new gui.GuiStepUtils, stepIterator, redrawTask, blinkTask, shouldResetBlink = false, shouldCheckCaretVisibility = false, shouldUpdateCaretSize = false, state = {isFocused:false, isShown:true, visibility:"hidden"}, lastState = {isFocused:!state.isFocused, 
+  var cursorns = "urn:webodf:names:cursor", MIN_OVERLAY_HEIGHT_PX = 8, BLINK_PERIOD_MS = 500, caretOverlay, caretElement, avatar, overlayElement, caretSizer, caretSizerRange, canvas = cursor.getDocument().getCanvas(), domUtils = core.DomUtils, guiStepUtils = new gui.GuiStepUtils, stepIterator, redrawTask, blinkTask, shouldResetBlink = false, shouldCheckCaretVisibility = false, shouldUpdateCaretSize = false, state = {isFocused:false, isShown:true, visibility:"hidden"}, lastState = {isFocused:!state.isFocused, 
   isShown:!state.isShown, visibility:"hidden"};
   function blinkCaret() {
     caretElement.style.opacity = caretElement.style.opacity === "0" ? "1" : "0";
@@ -13117,7 +13211,7 @@ gui.Caret = function Caret(cursor, viewport, avatarInitiallyVisible, blinkOnRang
   init()
 };
 odf.TextSerializer = function TextSerializer() {
-  var self = this, odfUtils = new odf.OdfUtils;
+  var self = this, odfUtils = odf.OdfUtils;
   function serializeNode(node) {
     var s = "", accept = self.filter ? self.filter.acceptNode(node) : NodeFilter.FILTER_ACCEPT, nodeType = node.nodeType, child;
     if((accept === NodeFilter.FILTER_ACCEPT || accept === NodeFilter.FILTER_SKIP) && odfUtils.isTextContentContainingNode(node)) {
@@ -13187,7 +13281,7 @@ gui.Clipboard = function Clipboard(mimeDataExporter) {
   }
 };
 gui.SessionContext = function(session, inputMemberId) {
-  var odtDocument = session.getOdtDocument(), odfUtils = new odf.OdfUtils;
+  var odtDocument = session.getOdtDocument(), odfUtils = odf.OdfUtils;
   this.isLocalCursorWithinOwnAnnotation = function() {
     var cursor = odtDocument.getCursor(inputMemberId), cursorNode, currentUserName, parentAnnotation;
     if(!cursor) {
@@ -13251,10 +13345,14 @@ gui.StyleSummary = function StyleSummary(styles) {
   this.paragraph = {isAlignedLeft:this.isAlignedLeft, isAlignedCenter:this.isAlignedCenter, isAlignedRight:this.isAlignedRight, isAlignedJustified:this.isAlignedJustified}
 };
 gui.DirectFormattingController = function DirectFormattingController(session, sessionConstraints, sessionContext, inputMemberId, objectNameGenerator, directTextStylingEnabled, directParagraphStylingEnabled) {
-  var self = this, odtDocument = session.getOdtDocument(), utils = new core.Utils, odfUtils = new odf.OdfUtils, eventNotifier = new core.EventNotifier([gui.DirectFormattingController.enabledChanged, gui.DirectFormattingController.textStylingChanged, gui.DirectFormattingController.paragraphStylingChanged]), textns = odf.Namespaces.textns, NEXT = core.StepDirection.NEXT, directCursorStyleProperties = null, lastSignalledStyleSummary, selectionInfoCache, enabledFeatures = {directTextStyling:false, directParagraphStyling:false};
+  var self = this, odtDocument = session.getOdtDocument(), utils = new core.Utils, odfUtils = odf.OdfUtils, eventNotifier = new core.EventNotifier([gui.DirectFormattingController.enabledChanged, gui.DirectFormattingController.textStylingChanged, gui.DirectFormattingController.paragraphStylingChanged]), textns = odf.Namespaces.textns, NEXT = core.StepDirection.NEXT, directCursorStyleProperties = null, lastSignalledSelectionInfo, selectionInfoCache;
   function getCachedStyleSummary() {
     return selectionInfoCache.value().styleSummary
   }
+  function getCachedEnabledFeatures() {
+    return selectionInfoCache.value().enabledFeatures
+  }
+  this.enabledFeatures = getCachedEnabledFeatures;
   function getNodes(range) {
     var container, nodes;
     if(range.collapsed) {
@@ -13269,7 +13367,7 @@ gui.DirectFormattingController = function DirectFormattingController(session, se
     return nodes
   }
   function getSelectionInfo() {
-    var cursor = odtDocument.getCursor(inputMemberId), range = cursor && cursor.getSelectedRange(), nodes = [], selectionStyles = [], selectionContainsText = true;
+    var cursor = odtDocument.getCursor(inputMemberId), range = cursor && cursor.getSelectedRange(), nodes = [], selectionStyles = [], selectionContainsText = true, enabledFeatures = {directTextStyling:true, directParagraphStyling:true};
     if(range) {
       nodes = getNodes(range);
       if(nodes.length === 0) {
@@ -13281,7 +13379,13 @@ gui.DirectFormattingController = function DirectFormattingController(session, se
     if(selectionStyles[0] !== undefined && directCursorStyleProperties) {
       selectionStyles[0].styleProperties = utils.mergeObjects(selectionStyles[0].styleProperties, directCursorStyleProperties)
     }
-    return{containsText:selectionContainsText, appliedStyles:selectionStyles, styleSummary:new gui.StyleSummary(selectionStyles)}
+    if(sessionConstraints.getState(gui.CommonConstraints.EDIT.REVIEW_MODE) === true) {
+      enabledFeatures.directTextStyling = enabledFeatures.directParagraphStyling = (sessionContext.isLocalCursorWithinOwnAnnotation())
+    }
+    if(enabledFeatures.directTextStyling) {
+      enabledFeatures.directTextStyling = selectionContainsText && (cursor !== undefined && cursor.getSelectionType() === ops.OdtCursor.RangeSelection)
+    }
+    return({enabledFeatures:enabledFeatures, appliedStyles:selectionStyles, styleSummary:new gui.StyleSummary(selectionStyles)})
   }
   function createDiff(oldSummary, newSummary) {
     var diffMap = {};
@@ -13293,11 +13397,15 @@ gui.DirectFormattingController = function DirectFormattingController(session, se
     });
     return diffMap
   }
-  function emitStylingChanges() {
-    var textStyleDiff, paragraphStyleDiff, newSelectionStylesSummary = getCachedStyleSummary();
-    textStyleDiff = createDiff(lastSignalledStyleSummary.text, newSelectionStylesSummary.text);
-    paragraphStyleDiff = createDiff(lastSignalledStyleSummary.paragraph, newSelectionStylesSummary.paragraph);
-    lastSignalledStyleSummary = newSelectionStylesSummary;
+  function emitSelectionChanges() {
+    var textStyleDiff, paragraphStyleDiff, lastStyleSummary = lastSignalledSelectionInfo.styleSummary, newSelectionInfo = selectionInfoCache.value(), newSelectionStylesSummary = newSelectionInfo.styleSummary, lastEnabledFeatures = lastSignalledSelectionInfo.enabledFeatures, newEnabledFeatures = newSelectionInfo.enabledFeatures, enabledFeaturesChanged;
+    textStyleDiff = createDiff(lastStyleSummary.text, newSelectionStylesSummary.text);
+    paragraphStyleDiff = createDiff(lastStyleSummary.paragraph, newSelectionStylesSummary.paragraph);
+    enabledFeaturesChanged = !(newEnabledFeatures.directTextStyling === lastEnabledFeatures.directTextStyling && newEnabledFeatures.directParagraphStyling === lastEnabledFeatures.directParagraphStyling);
+    lastSignalledSelectionInfo = newSelectionInfo;
+    if(enabledFeaturesChanged) {
+      eventNotifier.emit(gui.DirectFormattingController.enabledChanged, newEnabledFeatures)
+    }
     if(Object.keys(textStyleDiff).length > 0) {
       eventNotifier.emit(gui.DirectFormattingController.textStylingChanged, textStyleDiff)
     }
@@ -13305,27 +13413,14 @@ gui.DirectFormattingController = function DirectFormattingController(session, se
       eventNotifier.emit(gui.DirectFormattingController.paragraphStylingChanged, paragraphStyleDiff)
     }
   }
-  function updateEnabledState() {
-    var newEnabledFeatures = {directTextStyling:true, directParagraphStyling:true};
-    if(sessionConstraints.getState(gui.CommonConstraints.EDIT.REVIEW_MODE) === true) {
-      newEnabledFeatures.directTextStyling = newEnabledFeatures.directParagraphStyling = (sessionContext.isLocalCursorWithinOwnAnnotation())
-    }
-    if(newEnabledFeatures.directTextStyling) {
-      newEnabledFeatures.directTextStyling = selectionInfoCache.value().containsText
-    }
-    if(!(newEnabledFeatures.directTextStyling === enabledFeatures.directTextStyling && newEnabledFeatures.directParagraphStyling === enabledFeatures.directParagraphStyling)) {
-      enabledFeatures = newEnabledFeatures;
-      eventNotifier.emit(gui.DirectFormattingController.enabledChanged, enabledFeatures)
-    }
+  function forceSelectionInfoRefresh() {
+    selectionInfoCache.reset();
+    emitSelectionChanges()
   }
-  this.enabledFeatures = function() {
-    return enabledFeatures
-  };
   function onCursorEvent(cursorOrId) {
     var cursorMemberId = typeof cursorOrId === "string" ? cursorOrId : cursorOrId.getMemberId();
     if(cursorMemberId === inputMemberId) {
-      selectionInfoCache.reset();
-      updateEnabledState()
+      selectionInfoCache.reset()
     }
   }
   function onParagraphStyleModified() {
@@ -13342,7 +13437,7 @@ gui.DirectFormattingController = function DirectFormattingController(session, se
     return true
   }
   function formatTextSelection(textProperties) {
-    if(!enabledFeatures.directTextStyling) {
+    if(!getCachedEnabledFeatures().directTextStyling) {
       return
     }
     var selection = odtDocument.getCursorSelection(inputMemberId), op, properties = {"style:text-properties":textProperties};
@@ -13461,7 +13556,7 @@ gui.DirectFormattingController = function DirectFormattingController(session, se
     return obj.hasOwnProperty(key) ? obj[key] : undefined
   }
   function applyParagraphDirectStyling(applyDirectStyling) {
-    if(!enabledFeatures.directParagraphStyling) {
+    if(!getCachedEnabledFeatures().directParagraphStyling) {
       return
     }
     var range = odtDocument.getCursor(inputMemberId).getSelectedRange(), paragraphs = odfUtils.getParagraphElements(range), formatting = odtDocument.getFormatting(), operations = [], derivedStyleNames = {}, defaultStyleName;
@@ -13557,7 +13652,7 @@ gui.DirectFormattingController = function DirectFormattingController(session, se
     })
   }
   this.createParagraphStyleOps = function(position) {
-    if(!enabledFeatures.directParagraphStyling) {
+    if(!getCachedEnabledFeatures().directParagraphStyling) {
       return[]
     }
     var cursor = odtDocument.getCursor(inputMemberId), range = cursor.getSelectedRange(), operations = [], op, startNode, endNode, paragraphNode, appliedStyles, properties, parentStyleName, styleName;
@@ -13611,14 +13706,17 @@ gui.DirectFormattingController = function DirectFormattingController(session, se
     odtDocument.unsubscribe(ops.OdtDocument.signalParagraphStyleModified, onParagraphStyleModified);
     odtDocument.unsubscribe(ops.OdtDocument.signalParagraphChanged, onParagraphChanged);
     odtDocument.unsubscribe(ops.OdtDocument.signalOperationEnd, clearCursorStyle);
-    odtDocument.unsubscribe(ops.OdtDocument.signalProcessingBatchEnd, emitStylingChanges);
-    sessionConstraints.unsubscribe(gui.CommonConstraints.EDIT.REVIEW_MODE, updateEnabledState);
+    odtDocument.unsubscribe(ops.OdtDocument.signalProcessingBatchEnd, emitSelectionChanges);
+    sessionConstraints.unsubscribe(gui.CommonConstraints.EDIT.REVIEW_MODE, forceSelectionInfoRefresh);
     callback()
   };
   function emptyFunction() {
   }
   function emptyFalseReturningFunction() {
     return false
+  }
+  function getCachedSelectionInfo() {
+    return selectionInfoCache.value()
   }
   function init() {
     odtDocument.subscribe(ops.Document.signalCursorAdded, onCursorEvent);
@@ -13627,11 +13725,10 @@ gui.DirectFormattingController = function DirectFormattingController(session, se
     odtDocument.subscribe(ops.OdtDocument.signalParagraphStyleModified, onParagraphStyleModified);
     odtDocument.subscribe(ops.OdtDocument.signalParagraphChanged, onParagraphChanged);
     odtDocument.subscribe(ops.OdtDocument.signalOperationEnd, clearCursorStyle);
-    odtDocument.subscribe(ops.OdtDocument.signalProcessingBatchEnd, emitStylingChanges);
-    sessionConstraints.subscribe(gui.CommonConstraints.EDIT.REVIEW_MODE, updateEnabledState);
+    odtDocument.subscribe(ops.OdtDocument.signalProcessingBatchEnd, emitSelectionChanges);
+    sessionConstraints.subscribe(gui.CommonConstraints.EDIT.REVIEW_MODE, forceSelectionInfoRefresh);
     selectionInfoCache = new core.LazyProperty(getSelectionInfo);
-    lastSignalledStyleSummary = getCachedStyleSummary();
-    updateEnabledState();
+    lastSignalledSelectionInfo = getCachedSelectionInfo();
     if(!directTextStylingEnabled) {
       self.formatTextSelection = emptyFunction;
       self.setBold = emptyFunction;
@@ -13662,6 +13759,11 @@ gui.DirectFormattingController = function DirectFormattingController(session, se
 gui.DirectFormattingController.enabledChanged = "enabled/changed";
 gui.DirectFormattingController.textStylingChanged = "textStyling/changed";
 gui.DirectFormattingController.paragraphStylingChanged = "paragraphStyling/changed";
+gui.DirectFormattingController.SelectionInfo = function() {
+  this.enabledFeatures;
+  this.appliedStyles;
+  this.styleSummary
+};
 gui.KeyboardHandler = function KeyboardHandler() {
   var modifier = gui.KeyboardHandler.Modifier, defaultBinding = null, bindings = {};
   function getModifiers(e) {
@@ -13741,7 +13843,7 @@ gui.KeyboardHandler = function KeyboardHandler() {
 gui.KeyboardHandler.Modifier = {None:0, Meta:1, Ctrl:2, Alt:4, CtrlAlt:6, Shift:8, MetaShift:9, CtrlShift:10, AltShift:12};
 gui.KeyboardHandler.KeyCode = {Backspace:8, Tab:9, Clear:12, Enter:13, Shift:16, Ctrl:17, Alt:18, End:35, Home:36, Left:37, Up:38, Right:39, Down:40, Delete:46, A:65, B:66, C:67, D:68, E:69, F:70, G:71, H:72, I:73, J:74, K:75, L:76, M:77, N:78, O:79, P:80, Q:81, R:82, S:83, T:84, U:85, V:86, W:87, X:88, Y:89, Z:90, LeftMeta:91, RightMeta:93, MetaInMozilla:224};
 gui.HyperlinkClickHandler = function HyperlinkClickHandler(getContainer, keyDownHandler, keyUpHandler) {
-  var inactiveLinksCssClass = "webodf-inactiveLinks", modifier = gui.KeyboardHandler.Modifier, keyCode = gui.KeyboardHandler.KeyCode, xpath = xmldom.XPath, odfUtils = new odf.OdfUtils, window = (runtime.getWindow()), activeModifier = modifier.None, activeKeyBindings = [];
+  var inactiveLinksCssClass = "webodf-inactiveLinks", modifier = gui.KeyboardHandler.Modifier, keyCode = gui.KeyboardHandler.KeyCode, xpath = xmldom.XPath, odfUtils = odf.OdfUtils, window = (runtime.getWindow()), activeModifier = modifier.None, activeKeyBindings = [];
   runtime.assert(window !== null, "Expected to be run in an environment which has a global window, like a browser.");
   function getHyperlinkElement(node) {
     while(node !== null) {
@@ -14179,7 +14281,7 @@ gui.IOSSafariSupport = function(eventManager) {
   init()
 };
 gui.HyperlinkController = function HyperlinkController(session, sessionConstraints, sessionContext, inputMemberId) {
-  var odfUtils = new odf.OdfUtils, odtDocument = session.getOdtDocument(), eventNotifier = new core.EventNotifier([gui.HyperlinkController.enabledChanged]), isEnabled = false;
+  var odfUtils = odf.OdfUtils, odtDocument = session.getOdtDocument(), eventNotifier = new core.EventNotifier([gui.HyperlinkController.enabledChanged]), isEnabled = false;
   function updateEnabledState() {
     var newIsEnabled = true;
     if(sessionConstraints.getState(gui.CommonConstraints.EDIT.REVIEW_MODE) === true) {
@@ -14281,7 +14383,7 @@ gui.HyperlinkController = function HyperlinkController(session, sessionConstrain
 };
 gui.HyperlinkController.enabledChanged = "enabled/changed";
 gui.ImageController = function ImageController(session, sessionConstraints, sessionContext, inputMemberId, objectNameGenerator) {
-  var fileExtensionByMimetype = {"image/gif":".gif", "image/jpeg":".jpg", "image/png":".png"}, textns = odf.Namespaces.textns, odtDocument = session.getOdtDocument(), odfUtils = new odf.OdfUtils, formatting = odtDocument.getFormatting(), eventNotifier = new core.EventNotifier([gui.HyperlinkController.enabledChanged]), isEnabled = false;
+  var fileExtensionByMimetype = {"image/gif":".gif", "image/jpeg":".jpg", "image/png":".png"}, textns = odf.Namespaces.textns, odtDocument = session.getOdtDocument(), odfUtils = odf.OdfUtils, formatting = odtDocument.getFormatting(), eventNotifier = new core.EventNotifier([gui.HyperlinkController.enabledChanged]), isEnabled = false;
   function updateEnabledState() {
     var newIsEnabled = true;
     if(sessionConstraints.getState(gui.CommonConstraints.EDIT.REVIEW_MODE) === true) {
@@ -14459,7 +14561,7 @@ gui.ImageSelector = function ImageSelector(odfCanvas) {
     init()
   }
   gui.InputMethodEditor = function InputMethodEditor(inputMemberId, eventManager) {
-    var cursorns = "urn:webodf:names:cursor", localCursor = null, eventTrap = eventManager.getEventTrap(), doc = (eventTrap.ownerDocument), compositionElement, processUpdates, pendingEvent = false, pendingData = "", events = new core.EventNotifier([gui.InputMethodEditor.signalCompositionStart, gui.InputMethodEditor.signalCompositionEnd]), lastCompositionData, textSerializer, filters = [], cleanup;
+    var cursorns = "urn:webodf:names:cursor", localCursor = null, eventTrap = eventManager.getEventTrap(), doc = (eventTrap.ownerDocument), compositionElement, processUpdates, pendingEvent = false, pendingData = "", events = new core.EventNotifier([gui.InputMethodEditor.signalCompositionStart, gui.InputMethodEditor.signalCompositionEnd]), lastCompositionData, textSerializer, filters = [], cleanup, processingFocusEvent = false;
     this.subscribe = events.subscribe;
     this.unsubscribe = events.unsubscribe;
     function setCursorComposing(state) {
@@ -14486,13 +14588,18 @@ gui.ImageSelector = function ImageSelector(odfCanvas) {
       processUpdates.trigger()
     }
     function synchronizeWindowSelection() {
+      if(processingFocusEvent) {
+        return
+      }
+      processingFocusEvent = true;
       flushEvent();
       if(localCursor && localCursor.getSelectedRange().collapsed) {
         eventTrap.value = ""
       }else {
         eventTrap.value = textSerializer.writeToString(localCursor.getSelectedRange().cloneContents())
       }
-      eventTrap.setSelectionRange(0, eventTrap.value.length)
+      eventTrap.setSelectionRange(0, eventTrap.value.length);
+      processingFocusEvent = false
     }
     function handleCursorUpdated() {
       if(eventManager.hasFocus()) {
@@ -14623,7 +14730,7 @@ gui.MetadataController = function MetadataController(session, inputMemberId) {
 };
 gui.MetadataController.signalMetadataChanged = "metadata/changed";
 gui.PasteController = function PasteController(session, sessionConstraints, sessionContext, inputMemberId) {
-  var odtDocument = session.getOdtDocument(), isEnabled = false, textns = odf.Namespaces.textns, NEXT = core.StepDirection.NEXT, odfUtils = new odf.OdfUtils;
+  var odtDocument = session.getOdtDocument(), isEnabled = false, textns = odf.Namespaces.textns, NEXT = core.StepDirection.NEXT, odfUtils = odf.OdfUtils;
   function updateEnabledState() {
     if(sessionConstraints.getState(gui.CommonConstraints.EDIT.REVIEW_MODE) === true) {
       isEnabled = (sessionContext.isLocalCursorWithinOwnAnnotation())
@@ -14727,18 +14834,19 @@ gui.LineBoundaryScanner = function() {
   }
   this.token = undefined;
   this.process = function(stepInfo, previousRect, nextRect) {
-    if(nextRect && isLineBoundary((nextRect))) {
-      return true
-    }
-    if(previousRect && !nextRect) {
+    var isOverLineBoundary = nextRect && isLineBoundary((nextRect));
+    if(previousRect && (!nextRect || isOverLineBoundary)) {
       self.token = stepInfo.token
+    }
+    if(isOverLineBoundary) {
+      return true
     }
     lineRect = growRect(lineRect, previousRect);
     return false
   }
 };
 gui.ParagraphBoundaryScanner = function() {
-  var self = this, isInitialised = false, lastParagraph, odfUtils = new odf.OdfUtils;
+  var self = this, isInitialised = false, lastParagraph, odfUtils = odf.OdfUtils;
   this.token = undefined;
   this.process = function(stepInfo) {
     var currentParagraph = odfUtils.getParagraphElement(stepInfo.container());
@@ -14754,7 +14862,7 @@ gui.ParagraphBoundaryScanner = function() {
   }
 };
 odf.WordBoundaryFilter = function WordBoundaryFilter(odtDocument, includeWhitespace) {
-  var TEXT_NODE = Node.TEXT_NODE, ELEMENT_NODE = Node.ELEMENT_NODE, odfUtils = new odf.OdfUtils, punctuation = /[!-#%-*,-\/:-;?-@\[-\]_{}\u00a1\u00ab\u00b7\u00bb\u00bf;\u00b7\u055a-\u055f\u0589-\u058a\u05be\u05c0\u05c3\u05c6\u05f3-\u05f4\u0609-\u060a\u060c-\u060d\u061b\u061e-\u061f\u066a-\u066d\u06d4\u0700-\u070d\u07f7-\u07f9\u0964-\u0965\u0970\u0df4\u0e4f\u0e5a-\u0e5b\u0f04-\u0f12\u0f3a-\u0f3d\u0f85\u0fd0-\u0fd4\u104a-\u104f\u10fb\u1361-\u1368\u166d-\u166e\u169b-\u169c\u16eb-\u16ed\u1735-\u1736\u17d4-\u17d6\u17d8-\u17da\u1800-\u180a\u1944-\u1945\u19de-\u19df\u1a1e-\u1a1f\u1b5a-\u1b60\u1c3b-\u1c3f\u1c7e-\u1c7f\u2000-\u206e\u207d-\u207e\u208d-\u208e\u3008-\u3009\u2768-\u2775\u27c5-\u27c6\u27e6-\u27ef\u2983-\u2998\u29d8-\u29db\u29fc-\u29fd\u2cf9-\u2cfc\u2cfe-\u2cff\u2e00-\u2e7e\u3000-\u303f\u30a0\u30fb\ua60d-\ua60f\ua673\ua67e\ua874-\ua877\ua8ce-\ua8cf\ua92e-\ua92f\ua95f\uaa5c-\uaa5f\ufd3e-\ufd3f\ufe10-\ufe19\ufe30-\ufe52\ufe54-\ufe61\ufe63\ufe68\ufe6a-\ufe6b\uff01-\uff03\uff05-\uff0a\uff0c-\uff0f\uff1a-\uff1b\uff1f-\uff20\uff3b-\uff3d\uff3f\uff5b\uff5d\uff5f-\uff65]|\ud800[\udd00-\udd01\udf9f\udfd0]|\ud802[\udd1f\udd3f\ude50-\ude58]|\ud809[\udc00-\udc7e]/, 
+  var TEXT_NODE = Node.TEXT_NODE, ELEMENT_NODE = Node.ELEMENT_NODE, odfUtils = odf.OdfUtils, punctuation = /[!-#%-*,-\/:-;?-@\[-\]_{}\u00a1\u00ab\u00b7\u00bb\u00bf;\u00b7\u055a-\u055f\u0589-\u058a\u05be\u05c0\u05c3\u05c6\u05f3-\u05f4\u0609-\u060a\u060c-\u060d\u061b\u061e-\u061f\u066a-\u066d\u06d4\u0700-\u070d\u07f7-\u07f9\u0964-\u0965\u0970\u0df4\u0e4f\u0e5a-\u0e5b\u0f04-\u0f12\u0f3a-\u0f3d\u0f85\u0fd0-\u0fd4\u104a-\u104f\u10fb\u1361-\u1368\u166d-\u166e\u169b-\u169c\u16eb-\u16ed\u1735-\u1736\u17d4-\u17d6\u17d8-\u17da\u1800-\u180a\u1944-\u1945\u19de-\u19df\u1a1e-\u1a1f\u1b5a-\u1b60\u1c3b-\u1c3f\u1c7e-\u1c7f\u2000-\u206e\u207d-\u207e\u208d-\u208e\u3008-\u3009\u2768-\u2775\u27c5-\u27c6\u27e6-\u27ef\u2983-\u2998\u29d8-\u29db\u29fc-\u29fd\u2cf9-\u2cfc\u2cfe-\u2cff\u2e00-\u2e7e\u3000-\u303f\u30a0\u30fb\ua60d-\ua60f\ua673\ua67e\ua874-\ua877\ua8ce-\ua8cf\ua92e-\ua92f\ua95f\uaa5c-\uaa5f\ufd3e-\ufd3f\ufe10-\ufe19\ufe30-\ufe52\ufe54-\ufe61\ufe63\ufe68\ufe6a-\ufe6b\uff01-\uff03\uff05-\uff0a\uff0c-\uff0f\uff1a-\uff1b\uff1f-\uff20\uff3b-\uff3d\uff3f\uff5b\uff5d\uff5f-\uff65]|\ud800[\udd00-\udd01\udf9f\udfd0]|\ud802[\udd1f\udd3f\ude50-\ude58]|\ud809[\udc00-\udc7e]/, 
   spacing = /\s/, FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT, FILTER_REJECT = core.PositionFilter.FilterResult.FILTER_REJECT, TRAILING = odf.WordBoundaryFilter.IncludeWhitespace.TRAILING, LEADING = odf.WordBoundaryFilter.IncludeWhitespace.LEADING, NeighborType = {NO_NEIGHBOUR:0, SPACE_CHAR:1, PUNCTUATION_CHAR:2, WORD_CHAR:3, OTHER:4};
   function findHigherNeighborNode(node, direction, nodeFilter) {
     var neighboringNode = null, rootNode = odtDocument.getRootNode(), unfilteredCandidate;
@@ -14819,7 +14927,7 @@ odf.WordBoundaryFilter = function WordBoundaryFilter(odtDocument, includeWhitesp
 };
 odf.WordBoundaryFilter.IncludeWhitespace = {None:0, TRAILING:1, LEADING:2};
 gui.SelectionController = function SelectionController(session, inputMemberId) {
-  var odtDocument = session.getOdtDocument(), domUtils = new core.DomUtils, odfUtils = new odf.OdfUtils, baseFilter = odtDocument.getPositionFilter(), guiStepUtils = new gui.GuiStepUtils, rootFilter = odtDocument.createRootFilter(inputMemberId), caretXPositionLocator = null, lastXPosition, resetLastXPositionTask, TRAILING_SPACE = odf.WordBoundaryFilter.IncludeWhitespace.TRAILING, LEADING_SPACE = odf.WordBoundaryFilter.IncludeWhitespace.LEADING, PREVIOUS = core.StepDirection.PREVIOUS, NEXT = core.StepDirection.NEXT, 
+  var odtDocument = session.getOdtDocument(), domUtils = core.DomUtils, odfUtils = odf.OdfUtils, baseFilter = odtDocument.getPositionFilter(), guiStepUtils = new gui.GuiStepUtils, rootFilter = odtDocument.createRootFilter(inputMemberId), caretXPositionLocator = null, lastXPosition, resetLastXPositionTask, TRAILING_SPACE = odf.WordBoundaryFilter.IncludeWhitespace.TRAILING, LEADING_SPACE = odf.WordBoundaryFilter.IncludeWhitespace.LEADING, PREVIOUS = core.StepDirection.PREVIOUS, NEXT = core.StepDirection.NEXT, 
   UPDOWN_NAVIGATION_RESET_DELAY_MS = 2E3;
   function resetLastXPosition(op) {
     var opspec = op.spec();
@@ -15183,7 +15291,7 @@ gui.SelectionController = function SelectionController(session, inputMemberId) {
   init()
 };
 gui.TextController = function TextController(session, sessionConstraints, sessionContext, inputMemberId, directStyleOp, paragraphStyleOps) {
-  var odtDocument = session.getOdtDocument(), odfUtils = new odf.OdfUtils, domUtils = new core.DomUtils, BACKWARD = false, FORWARD = true, isEnabled = false, textns = odf.Namespaces.textns, NEXT = core.StepDirection.NEXT;
+  var odtDocument = session.getOdtDocument(), odfUtils = odf.OdfUtils, domUtils = core.DomUtils, BACKWARD = false, FORWARD = true, isEnabled = false, textns = odf.Namespaces.textns, NEXT = core.StepDirection.NEXT;
   function updateEnabledState() {
     if(sessionConstraints.getState(gui.CommonConstraints.EDIT.REVIEW_MODE) === true) {
       isEnabled = (sessionContext.isLocalCursorWithinOwnAnnotation())
@@ -15393,11 +15501,11 @@ gui.SessionControllerOptions = function() {
 (function() {
   var FILTER_ACCEPT = core.PositionFilter.FilterResult.FILTER_ACCEPT;
   gui.SessionController = function SessionController(session, inputMemberId, shadowCursor, args) {
-    var window = (runtime.getWindow()), odtDocument = session.getOdtDocument(), sessionConstraints = new gui.SessionConstraints, sessionContext = new gui.SessionContext(session, inputMemberId), domUtils = new core.DomUtils, odfUtils = new odf.OdfUtils, mimeDataExporter = new gui.MimeDataExporter, clipboard = new gui.Clipboard(mimeDataExporter), keyDownHandler = new gui.KeyboardHandler, keyPressHandler = new gui.KeyboardHandler, keyUpHandler = new gui.KeyboardHandler, clickStartedWithinCanvas = false, 
-    objectNameGenerator = new odf.ObjectNameGenerator(odtDocument.getOdfCanvas().odfContainer(), inputMemberId), isMouseMoved = false, mouseDownRootFilter = null, handleMouseClickTimeoutId, undoManager = null, eventManager = new gui.EventManager(odtDocument), annotationsEnabled = args.annotationsEnabled, annotationController = new gui.AnnotationController(session, sessionConstraints, inputMemberId), directFormattingController = new gui.DirectFormattingController(session, sessionConstraints, sessionContext, 
-    inputMemberId, objectNameGenerator, args.directTextStylingEnabled, args.directParagraphStylingEnabled), createCursorStyleOp = (directFormattingController.createCursorStyleOp), createParagraphStyleOps = (directFormattingController.createParagraphStyleOps), textController = new gui.TextController(session, sessionConstraints, sessionContext, inputMemberId, createCursorStyleOp, createParagraphStyleOps), imageController = new gui.ImageController(session, sessionConstraints, sessionContext, inputMemberId, 
-    objectNameGenerator), imageSelector = new gui.ImageSelector(odtDocument.getOdfCanvas()), shadowCursorIterator = odtDocument.createPositionIterator(odtDocument.getRootNode()), drawShadowCursorTask, redrawRegionSelectionTask, pasteController = new gui.PasteController(session, sessionConstraints, sessionContext, inputMemberId), inputMethodEditor = new gui.InputMethodEditor(inputMemberId, eventManager), clickCount = 0, hyperlinkClickHandler = new gui.HyperlinkClickHandler(odtDocument.getOdfCanvas().getElement, 
-    keyDownHandler, keyUpHandler), hyperlinkController = new gui.HyperlinkController(session, sessionConstraints, sessionContext, inputMemberId), selectionController = new gui.SelectionController(session, inputMemberId), metadataController = new gui.MetadataController(session, inputMemberId), modifier = gui.KeyboardHandler.Modifier, keyCode = gui.KeyboardHandler.KeyCode, isMacOS = window.navigator.appVersion.toLowerCase().indexOf("mac") !== -1, isIOS = ["iPad", "iPod", "iPhone"].indexOf(window.navigator.platform) !== 
+    var window = (runtime.getWindow()), odtDocument = session.getOdtDocument(), sessionConstraints = new gui.SessionConstraints, sessionContext = new gui.SessionContext(session, inputMemberId), domUtils = core.DomUtils, odfUtils = odf.OdfUtils, mimeDataExporter = new gui.MimeDataExporter, clipboard = new gui.Clipboard(mimeDataExporter), keyDownHandler = new gui.KeyboardHandler, keyPressHandler = new gui.KeyboardHandler, keyUpHandler = new gui.KeyboardHandler, clickStartedWithinCanvas = false, objectNameGenerator = 
+    new odf.ObjectNameGenerator(odtDocument.getOdfCanvas().odfContainer(), inputMemberId), isMouseMoved = false, mouseDownRootFilter = null, handleMouseClickTimeoutId, undoManager = null, eventManager = new gui.EventManager(odtDocument), annotationsEnabled = args.annotationsEnabled, annotationController = new gui.AnnotationController(session, sessionConstraints, inputMemberId), directFormattingController = new gui.DirectFormattingController(session, sessionConstraints, sessionContext, inputMemberId, 
+    objectNameGenerator, args.directTextStylingEnabled, args.directParagraphStylingEnabled), createCursorStyleOp = (directFormattingController.createCursorStyleOp), createParagraphStyleOps = (directFormattingController.createParagraphStyleOps), textController = new gui.TextController(session, sessionConstraints, sessionContext, inputMemberId, createCursorStyleOp, createParagraphStyleOps), imageController = new gui.ImageController(session, sessionConstraints, sessionContext, inputMemberId, objectNameGenerator), 
+    imageSelector = new gui.ImageSelector(odtDocument.getOdfCanvas()), shadowCursorIterator = odtDocument.createPositionIterator(odtDocument.getRootNode()), drawShadowCursorTask, redrawRegionSelectionTask, pasteController = new gui.PasteController(session, sessionConstraints, sessionContext, inputMemberId), inputMethodEditor = new gui.InputMethodEditor(inputMemberId, eventManager), clickCount = 0, hyperlinkClickHandler = new gui.HyperlinkClickHandler(odtDocument.getOdfCanvas().getElement, keyDownHandler, 
+    keyUpHandler), hyperlinkController = new gui.HyperlinkController(session, sessionConstraints, sessionContext, inputMemberId), selectionController = new gui.SelectionController(session, inputMemberId), metadataController = new gui.MetadataController(session, inputMemberId), modifier = gui.KeyboardHandler.Modifier, keyCode = gui.KeyboardHandler.KeyCode, isMacOS = window.navigator.appVersion.toLowerCase().indexOf("mac") !== -1, isIOS = ["iPad", "iPod", "iPhone"].indexOf(window.navigator.platform) !== 
     -1, iOSSafariSupport;
     runtime.assert(window !== null, "Expected to be run in an environment which has a global window, like a browser.");
     function getTarget(e) {
@@ -15731,8 +15839,8 @@ gui.SessionControllerOptions = function() {
       var target = (getTarget(event)), annotationNode = null;
       if(target.className === "annotationRemoveButton") {
         runtime.assert(annotationsEnabled, "Remove buttons are displayed on annotations while annotation editing is disabled in the controller.");
-        annotationNode = domUtils.getElementsByTagNameNS((target.parentNode), odf.Namespaces.officens, "annotation")[0];
-        annotationController.removeAnnotation(annotationNode);
+        annotationNode = (target.parentNode).getElementsByTagNameNS(odf.Namespaces.officens, "annotation").item(0);
+        annotationController.removeAnnotation((annotationNode));
         eventManager.focus()
       }else {
         if(target.getAttribute("class") !== "webodf-draggable") {
@@ -16289,7 +16397,7 @@ gui.EditInfoMarker = function EditInfoMarker(editInfo, initialVisibility) {
   init()
 };
 gui.HyperlinkTooltipView = function HyperlinkTooltipView(odfCanvas, getActiveModifier) {
-  var domUtils = new core.DomUtils, odfUtils = new odf.OdfUtils, window = (runtime.getWindow()), linkSpan, textSpan, tooltipElement, offsetXPx = 15, offsetYPx = 10;
+  var domUtils = core.DomUtils, odfUtils = odf.OdfUtils, window = (runtime.getWindow()), linkSpan, textSpan, tooltipElement, offsetXPx = 15, offsetYPx = 10;
   runtime.assert(window !== null, "Expected to be run in an environment which has a global window, like a browser.");
   function getHyperlinkElement(node) {
     while(node) {
@@ -16360,6 +16468,53 @@ gui.HyperlinkTooltipView = function HyperlinkTooltipView(odfCanvas, getActiveMod
     tooltipElement.appendChild(linkSpan);
     tooltipElement.appendChild(textSpan);
     odfCanvas.getElement().appendChild(tooltipElement)
+  }
+  init()
+};
+gui.OdfFieldView = function(odfCanvas) {
+  var style, document = odfCanvas.getElement().ownerDocument;
+  function newStyleSheet() {
+    var head = document.getElementsByTagName("head").item(0), sheet = (document.createElement("style")), text = "";
+    sheet.type = "text/css";
+    sheet.media = "screen, print, handheld, projection";
+    odf.Namespaces.forEachPrefix(function(prefix, ns) {
+      text += "@namespace " + prefix + " url(" + ns + ");\n"
+    });
+    sheet.appendChild(document.createTextNode(text));
+    head.appendChild(sheet);
+    return sheet
+  }
+  function clearCSSStyleSheet(style) {
+    var stylesheet = (style.sheet), cssRules = stylesheet.cssRules;
+    while(cssRules.length) {
+      stylesheet.deleteRule(cssRules.length - 1)
+    }
+  }
+  function createRule(selectors, css) {
+    return selectors.join(",\n") + "\n" + css + "\n"
+  }
+  function generateFieldCSS() {
+    var cssSelectors = odf.OdfSchema.getFields().map(function(prefixedName) {
+      return prefixedName.replace(":", "|")
+    }), highlightFields = createRule(cssSelectors, "{ background-color: #D0D0D0; }"), emptyCssSelectors = cssSelectors.map(function(selector) {
+      return selector + ":empty::after"
+    }), highlightEmptyFields = createRule(emptyCssSelectors, "{ content:' '; white-space: pre; }");
+    return highlightFields + "\n" + highlightEmptyFields
+  }
+  this.showFieldHighlight = function() {
+    style.appendChild(document.createTextNode(generateFieldCSS()))
+  };
+  this.hideFieldHighlight = function() {
+    clearCSSStyleSheet(style)
+  };
+  this.destroy = function(callback) {
+    if(style.parentNode) {
+      style.parentNode.removeChild(style)
+    }
+    callback()
+  };
+  function init() {
+    style = newStyleSheet()
   }
   init()
 };
@@ -16724,7 +16879,7 @@ gui.SessionViewOptions = function() {
   }
 })();
 gui.SvgSelectionView = function SvgSelectionView(cursor) {
-  var document = cursor.getDocument(), documentRoot, sizer, doc = document.getDOMDocument(), svgns = "http://www.w3.org/2000/svg", overlay = doc.createElementNS(svgns, "svg"), polygon = doc.createElementNS(svgns, "polygon"), handle1 = doc.createElementNS(svgns, "circle"), handle2 = doc.createElementNS(svgns, "circle"), odfUtils = new odf.OdfUtils, domUtils = new core.DomUtils, zoomHelper = document.getCanvas().getZoomHelper(), isVisible = true, positionIterator = cursor.getDocument().createPositionIterator(document.getRootNode()), 
+  var document = cursor.getDocument(), documentRoot, sizer, doc = document.getDOMDocument(), svgns = "http://www.w3.org/2000/svg", overlay = doc.createElementNS(svgns, "svg"), polygon = doc.createElementNS(svgns, "polygon"), handle1 = doc.createElementNS(svgns, "circle"), handle2 = doc.createElementNS(svgns, "circle"), odfUtils = odf.OdfUtils, domUtils = core.DomUtils, zoomHelper = document.getCanvas().getZoomHelper(), isVisible = true, positionIterator = cursor.getDocument().createPositionIterator(document.getRootNode()), 
   FILTER_ACCEPT = NodeFilter.FILTER_ACCEPT, FILTER_REJECT = NodeFilter.FILTER_REJECT, HANDLE_RADIUS = 8, renderTask;
   function addOverlay() {
     var newDocumentRoot = document.getRootNode();
@@ -17149,7 +17304,7 @@ gui.UndoStateRules = function UndoStateRules() {
   this.isPartOfOperationSet = isPartOfOperationSet
 };
 gui.TrivialUndoManager = function TrivialUndoManager(defaultRules) {
-  var self = this, cursorns = "urn:webodf:names:cursor", domUtils = new core.DomUtils, initialDoc, initialState = [], playFunc, document, currentUndoState = [], undoStates = [], redoStates = [], eventNotifier = new core.EventNotifier([gui.UndoManager.signalUndoStackChanged, gui.UndoManager.signalUndoStateCreated, gui.UndoManager.signalUndoStateModified, gui.TrivialUndoManager.signalDocumentRootReplaced]), undoRules = defaultRules || new gui.UndoStateRules, isExecutingOps = false;
+  var self = this, cursorns = "urn:webodf:names:cursor", domUtils = core.DomUtils, initialDoc, initialState = [], playFunc, document, currentUndoState = [], undoStates = [], redoStates = [], eventNotifier = new core.EventNotifier([gui.UndoManager.signalUndoStackChanged, gui.UndoManager.signalUndoStateCreated, gui.UndoManager.signalUndoStateModified, gui.TrivialUndoManager.signalDocumentRootReplaced]), undoRules = defaultRules || new gui.UndoStateRules, isExecutingOps = false;
   function executeOperations(operations) {
     if(operations.length > 0) {
       isExecutingOps = true;
@@ -17954,7 +18109,7 @@ ops.OperationTransformMatrix = function OperationTransformMatrix() {
     return false
   }
   function dropOverruledAndUnneededProperties(minorSet, minorRem, majorSet, majorRem, propertiesName) {
-    var minorSP = minorSet ? minorSet[propertiesName] : null, minorRP = minorRem ? minorRem[propertiesName] : null, majorSP = majorSet ? majorSet[propertiesName] : null, majorRP = majorRem ? majorRem[propertiesName] : null, result;
+    var minorSP = (minorSet ? minorSet[propertiesName] : null), minorRP = minorRem ? minorRem[propertiesName] : null, majorSP = (majorSet ? majorSet[propertiesName] : null), majorRP = majorRem ? majorRem[propertiesName] : null, result;
     result = dropOverruledAndUnneededAttributes(minorSP, minorRP, majorSP, majorRP);
     if(minorSP && !hasProperties(minorSP)) {
       delete minorSet[propertiesName]
@@ -18660,5 +18815,5 @@ ops.OperationTransformer = function OperationTransformer() {
     return{opSpecsA:(opSpecsA), opSpecsB:(transformedOpspecsB)}
   }
 };
-var webodf_css = "/**\n * Copyright (C) 2010-2014 KO GmbH <copyright@kogmbh.com>\n *\n * @licstart\n * This file is part of WebODF.\n *\n * WebODF is free software: you can redistribute it and/or modify it\n * under the terms of the GNU Affero General Public License (GNU AGPL)\n * as published by the Free Software Foundation, either version 3 of\n * the License, or (at your option) any later version.\n *\n * WebODF is distributed in the hope that it will be useful, but\n * WITHOUT ANY WARRANTY; without even the implied warranty of\n * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n * GNU Affero General Public License for more details.\n *\n * You should have received a copy of the GNU Affero General Public License\n * along with WebODF.  If not, see <http://www.gnu.org/licenses/>.\n * @licend\n *\n * @source: http://www.webodf.org/\n * @source: https://github.com/kogmbh/WebODF/\n */\n\n@namespace draw url(urn:oasis:names:tc:opendocument:xmlns:drawing:1.0);\n@namespace fo url(urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0);\n@namespace office url(urn:oasis:names:tc:opendocument:xmlns:office:1.0);\n@namespace presentation url(urn:oasis:names:tc:opendocument:xmlns:presentation:1.0);\n@namespace style url(urn:oasis:names:tc:opendocument:xmlns:style:1.0);\n@namespace svg url(urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0);\n@namespace table url(urn:oasis:names:tc:opendocument:xmlns:table:1.0);\n@namespace text url(urn:oasis:names:tc:opendocument:xmlns:text:1.0);\n@namespace webodfhelper url(urn:webodf:names:helper);\n@namespace cursor url(urn:webodf:names:cursor);\n@namespace editinfo url(urn:webodf:names:editinfo);\n@namespace annotation url(urn:webodf:names:annotation);\n@namespace dc url(http://purl.org/dc/elements/1.1/);\n@namespace svgns url(http://www.w3.org/2000/svg);\n\noffice|document > *, office|document-content > * {\n  display: none;\n}\noffice|body, office|document {\n  display: inline-block;\n  position: relative;\n}\n\ntext|p, text|h {\n  display: block;\n  padding: 0;\n  margin: 0;\n  line-height: normal;\n  position: relative;\n}\n\ntext|p::after, text|h::after {\n    /* prevent empty paragraphs and headings from collapsing */\n    content: '\\200B'; /* ZERO WIDTH SPACE */\n    white-space: pre;\n}\n\n*[webodfhelper|containsparagraphanchor] {\n  position: relative;\n}\ntext|s {\n    white-space: pre;\n}\ntext|tab {\n  display: inline;\n  white-space: pre;\n}\ntext|tracked-changes {\n  /*Consumers that do not support change tracking, should ignore changes.*/\n  display: none;\n}\noffice|binary-data {\n  display: none;\n}\noffice|text {\n  display: block;\n  text-align: left;\n  overflow: visible;\n  word-wrap: break-word;\n}\n\noffice|text::selection {\n  /** Let's not draw selection highlight that overflows into the office|text\n   * node when selecting content across several paragraphs\n   */\n  background: transparent;\n}\n\n.webodf-virtualSelections *::selection {\n  background: transparent;\n}\n.webodf-virtualSelections *::-moz-selection {\n  background: transparent;\n}\n\noffice|text * draw|text-box {\n/** only for text documents */\n    display: block;\n    border: 1px solid #d3d3d3;\n}\noffice|text draw|frame {\n  /** make sure frames are above the main text. */\n  z-index: 1;\n}\noffice|spreadsheet {\n  display: block;\n  border-collapse: collapse;\n  empty-cells: show;\n  font-family: sans-serif;\n  font-size: 10pt;\n  text-align: left;\n  page-break-inside: avoid;\n  overflow: hidden;\n}\noffice|presentation {\n  display: inline-block;\n  text-align: left;\n}\n#shadowContent {\n  display: inline-block;\n  text-align: left;\n}\ndraw|page {\n  display: block;\n  position: relative;\n  overflow: hidden;\n}\npresentation|notes, presentation|footer-decl, presentation|date-time-decl {\n    display: none;\n}\n@media print {\n  draw|page {\n    border: 1pt solid black;\n    page-break-inside: avoid;\n  }\n  presentation|notes {\n    /*TODO*/\n  }\n}\noffice|spreadsheet text|p {\n  border: 0px;\n  padding: 1px;\n  margin: 0px;\n}\noffice|spreadsheet table|table {\n  margin: 3px;\n}\noffice|spreadsheet table|table:after {\n  /* show sheet name the end of the sheet */\n  /*content: attr(table|name);*/ /* gives parsing error in opera */\n}\noffice|spreadsheet table|table-row {\n  counter-increment: row;\n}\noffice|spreadsheet table|table-row:before {\n  width: 3em;\n  background: #cccccc;\n  border: 1px solid black;\n  text-align: center;\n  content: counter(row);\n  display: table-cell;\n}\noffice|spreadsheet table|table-cell {\n  border: 1px solid #cccccc;\n}\ntable|table {\n  display: table;\n}\ndraw|frame table|table {\n  width: 100%;\n  height: 100%;\n  background: white;\n}\ntable|table-header-rows {\n  display: table-header-group;\n}\ntable|table-row {\n  display: table-row;\n}\ntable|table-column {\n  display: table-column;\n}\ntable|table-cell {\n  width: 0.889in;\n  display: table-cell;\n  word-break: break-all; /* prevent long words from extending out the table cell */\n}\ndraw|frame {\n  display: block;\n}\ndraw|image {\n  display: block;\n  width: 100%;\n  height: 100%;\n  top: 0px;\n  left: 0px;\n  background-repeat: no-repeat;\n  background-size: 100% 100%;\n  -moz-background-size: 100% 100%;\n}\n/* only show the first image in frame */\ndraw|frame > draw|image:nth-of-type(n+2) {\n  display: none;\n}\ntext|list:before {\n    display: none;\n    content:\"\";\n}\ntext|list {\n    display: block;\n}\ntext|list-item {\n    display: block;\n}\ntext|number {\n    display:none;\n}\n\ntext|a {\n    color: blue;\n    text-decoration: underline;\n    cursor: pointer;\n}\n.webodf-inactiveLinks text|a {\n    cursor: text;\n}\ntext|note-citation {\n    vertical-align: super;\n    font-size: smaller;\n}\ntext|note-body {\n    display: none;\n}\ntext|note:hover text|note-citation {\n    background: #dddddd;\n}\ntext|note:hover text|note-body {\n    display: block;\n    left:1em;\n    max-width: 80%;\n    position: absolute;\n    background: #ffffaa;\n}\ntext|bibliography-source {\n  display: none;\n}\nsvg|title, svg|desc {\n    display: none;\n}\nvideo {\n    width: 100%;\n    height: 100%\n}\n\n/* below set up the cursor */\ncursor|anchor {\n    display: none;\n}\n\ncursor|cursor {\n    display: none;\n}\n\n.webodf-caretOverlay {\n    position: absolute;\n    top: 5%; /* push down the caret; 0px can do the job, 5% looks better, 10% is a bit over */\n    height: 1em;\n    z-index: 10;\n    padding-left: 1px; /* centre 2px caret into middle of overlay */\n    pointer-events: none;\n}\n\n.webodf-caretOverlay .caret {\n    position: absolute;\n    border-left: 2px solid black;\n    top: 0;\n    bottom: 0;\n    right: 0;\n}\n\n.webodf-caretOverlay .handle {\n    position: absolute;\n    margin-top: 5px;\n    padding-top: 3px;\n    margin-left: auto;\n    margin-right: auto;\n    width: 64px;\n    height: 68px;\n    border-radius: 5px;\n    opacity: 0.3;\n    text-align: center;\n    background-color: black;\n    box-shadow: 0px 0px 5px rgb(90, 90, 90);\n    border: 1px solid black;\n\n    top: -85px;\n    right: -32px;\n}\n\n.webodf-caretOverlay .handle > img {\n    box-shadow: 0px 0px 5px rgb(90, 90, 90) inset;\n    background-color: rgb(200, 200, 200);\n    border-radius: 5px;\n    border: 2px solid;\n    height: 60px;\n    width: 60px;\n    display: block;\n    margin: auto;\n}\n\n.webodf-caretOverlay .handle.active {\n    opacity: 0.8;\n}\n\n.webodf-caretOverlay .handle:after {\n    content: ' ';\n    position: absolute;\n    width: 0px;\n    height: 0px;\n    border-style: solid;\n    border-width: 8.7px 5px 0 5px;\n    border-color: black transparent transparent transparent;\n\n    top: 100%;\n    left: 43%;\n}\n\n.webodf-caretSizer {\n    display: inline-block; /* inline-block is necessary so the width can be set to 0 */\n    width: 0; /* the caret sizer shouldn't take up any horizontal space */\n    visibility: hidden; /* \"hidden\" means the client rects are still calculated, but the node content is not shown */\n}\n\n/** Input Method Editor input pane & behaviours */\n/* not within a cursor */\n#eventTrap {\n    display: block;\n    position: absolute;\n    bottom: 0;\n    left: 0;\n    outline: none;\n    opacity: 0;\n    color: rgba(255, 255, 255, 0); /* hide the blinking caret by setting the colour to fully transparent */\n    pointer-events: none;\n    /* prevent any text wrapping from occurring within the text area */\n    white-space: pre;\n    overflow: hidden;\n}\n\n/* within a cursor */\ncursor|cursor > #composer {\n    text-decoration: underline;\n}\n\ncursor|cursor[cursor|caret-sizer-active=\"true\"],\ncursor|cursor[cursor|composing=\"true\"] {\n    display: inline;\n}\n\neditinfo|editinfo {\n    /* Empty or invisible display:inline elements respond very badly to mouse selection.\n       Inline blocks are much more reliably selectable in Chrome & friends */\n    display: inline-block;\n}\n\n.editInfoMarker {\n    position: absolute;\n    width: 10px;\n    height: 100%;\n    left: -20px;\n    opacity: 0.8;\n    top: 0;\n    border-radius: 5px;\n    background-color: transparent;\n    box-shadow: 0px 0px 5px rgba(50, 50, 50, 0.75);\n}\n.editInfoMarker:hover {\n    box-shadow: 0px 0px 8px rgba(0, 0, 0, 1);\n}\n\n.editInfoHandle {\n    position: absolute;\n    background-color: black;\n    padding: 5px;\n    border-radius: 5px;\n    opacity: 0.8;\n    box-shadow: 0px 0px 5px rgba(50, 50, 50, 0.75);\n    bottom: 100%;\n    margin-bottom: 10px;\n    z-index: 3;\n    left: -25px;\n}\n.editInfoHandle:after {\n    content: ' ';\n    position: absolute;\n    width: 0px;\n    height: 0px;\n    border-style: solid;\n    border-width: 8.7px 5px 0 5px;\n    border-color: black transparent transparent transparent;\n\n    top: 100%;\n    left: 5px;\n}\n.editInfo {\n    font-family: sans-serif;\n    font-weight: normal;\n    font-style: normal;\n    text-decoration: none;\n    color: white;\n    width: 100%;\n    height: 12pt;\n}\n.editInfoColor {\n    float: left;\n    width: 10pt;\n    height: 10pt;\n    border: 1px solid white;\n}\n.editInfoAuthor {\n    float: left;\n    margin-left: 5pt;\n    font-size: 10pt;\n    text-align: left;\n    height: 12pt;\n    line-height: 12pt;\n}\n.editInfoTime {\n    float: right;\n    margin-left: 30pt;\n    font-size: 8pt;\n    font-style: italic;\n    color: yellow;\n    height: 12pt;\n    line-height: 12pt;\n}\n\n.annotationWrapper {\n    display: inline;\n    position: relative;\n}\n\n.annotationRemoveButton:before {\n    content: '\u00d7';\n    color: white;\n    padding: 5px;\n    line-height: 1em;\n}\n\n.annotationRemoveButton {\n    width: 20px;\n    height: 20px;\n    border-radius: 10px;\n    background-color: black;\n    box-shadow: 0px 0px 5px rgba(50, 50, 50, 0.75);\n    position: absolute;\n    top: -10px;\n    left: -10px;\n    z-index: 3;\n    text-align: center;\n    font-family: sans-serif;\n    font-style: normal;\n    font-weight: normal;\n    text-decoration: none;\n    font-size: 15px;\n}\n.annotationRemoveButton:hover {\n    cursor: pointer;\n    box-shadow: 0px 0px 5px rgba(0, 0, 0, 1);\n}\n\n.annotationNote {\n    width: 4cm;\n    position: absolute;\n    display: inline;\n    z-index: 10;\n    top: 0;\n}\n.annotationNote > office|annotation {\n    display: block;\n    text-align: left;\n}\n\n.annotationConnector {\n    position: absolute;\n    display: inline;\n    top: 0;\n    z-index: 2;\n    border-top: 1px dashed brown;\n}\n.annotationConnector.angular {\n    -moz-transform-origin: left top;\n    -webkit-transform-origin: left top;\n    -ms-transform-origin: left top;\n    transform-origin: left top;\n}\n.annotationConnector.horizontal {\n    left: 0;\n}\n.annotationConnector.horizontal:before {\n    content: '';\n    display: inline;\n    position: absolute;\n    width: 0px;\n    height: 0px;\n    border-style: solid;\n    border-width: 8.7px 5px 0 5px;\n    border-color: brown transparent transparent transparent;\n    top: -1px;\n    left: -5px;\n}\n\noffice|annotation {\n    width: 100%;\n    height: 100%;\n    display: none;\n    background: rgb(198, 238, 184);\n    background: -moz-linear-gradient(90deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);\n    background: -webkit-linear-gradient(90deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);\n    background: -o-linear-gradient(90deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);\n    background: -ms-linear-gradient(90deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);\n    background: linear-gradient(180deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);\n    box-shadow: 0 3px 4px -3px #ccc;\n}\n\noffice|annotation > dc|creator {\n    display: block;\n    font-size: 10pt;\n    font-weight: normal;\n    font-style: normal;\n    font-family: sans-serif;\n    color: white;\n    background-color: brown;\n    padding: 4px;\n}\noffice|annotation > dc|date {\n    display: block;\n    font-size: 10pt;\n    font-weight: normal;\n    font-style: normal;\n    font-family: sans-serif;\n    border: 4px solid transparent;\n    color: black;\n}\noffice|annotation > text|list {\n    display: block;\n    padding: 5px;\n}\n\n/* This is very temporary CSS. This must go once\n * we start bundling webodf-default ODF styles for annotations.\n */\noffice|annotation text|p {\n    font-size: 10pt;\n    color: black;\n    font-weight: normal;\n    font-style: normal;\n    text-decoration: none;\n    font-family: sans-serif;\n}\n\n#annotationsPane {\n    background-color: #EAEAEA;\n    width: 4cm;\n    height: 100%;\n    display: none;\n    position: absolute;\n    outline: 1px solid #ccc;\n}\n\n.webodf-annotationHighlight {\n    background-color: yellow;\n    position: relative;\n}\n\n.webodf-selectionOverlay {\n    position: absolute;\n    pointer-events: none;\n    top: 0;\n    left: 0;\n    top: 0;\n    left: 0;\n    width: 100%;\n    height: 100%;\n    z-index: 15;\n}\n.webodf-selectionOverlay > polygon {\n    fill-opacity: 0.3;\n    stroke-opacity: 0.8;\n    stroke-width: 1;\n    fill-rule: evenodd;\n}\n\n.webodf-selectionOverlay > .webodf-draggable {\n    fill-opacity: 0.8;\n    stroke-opacity: 0;\n    stroke-width: 8;\n    pointer-events: all;\n    display: none;\n\n    -moz-transform-origin: center center;\n    -webkit-transform-origin: center center;\n    -ms-transform-origin: center center;\n    transform-origin: center center;\n}\n\n#imageSelector {\n    display: none;\n    position: absolute;\n    border-style: solid;\n    border-color: black;\n}\n\n#imageSelector > div {\n    width: 5px;\n    height: 5px;\n    display: block;\n    position: absolute;\n    border: 1px solid black;\n    background-color: #ffffff;\n}\n\n#imageSelector > .topLeft {\n    top: -4px;\n    left: -4px;\n}\n\n#imageSelector > .topRight {\n    top: -4px;\n    right: -4px;\n}\n\n#imageSelector > .bottomRight {\n    right: -4px;\n    bottom: -4px;\n}\n\n#imageSelector > .bottomLeft {\n    bottom: -4px;\n    left: -4px;\n}\n\n#imageSelector > .topMiddle {\n    top: -4px;\n    left: 50%;\n    margin-left: -2.5px; /* half of the width defined in #imageSelector > div */\n}\n\n#imageSelector > .rightMiddle {\n    top: 50%;\n    right: -4px;\n    margin-top: -2.5px; /* half of the height defined in #imageSelector > div */\n}\n\n#imageSelector > .bottomMiddle {\n    bottom: -4px;\n    left: 50%;\n    margin-left: -2.5px; /* half of the width defined in #imageSelector > div */\n}\n\n#imageSelector > .leftMiddle {\n    top: 50%;\n    left: -4px;\n    margin-top: -2.5px; /* half of the height defined in #imageSelector > div */\n}\n\ndiv.webodf-customScrollbars::-webkit-scrollbar\n{\n    width: 8px;\n    height: 8px;\n    background-color: transparent;\n}\n\ndiv.webodf-customScrollbars::-webkit-scrollbar-track\n{\n    background-color: transparent;\n}\n\ndiv.webodf-customScrollbars::-webkit-scrollbar-thumb\n{\n    background-color: #444;\n    border-radius: 4px;\n}\n\n.webodf-hyperlinkTooltip {\n    display: none;\n    color: white;\n    background-color: black;\n    border-radius: 5px;\n    box-shadow: 2px 2px 5px gray;\n    padding: 3px;\n    position: absolute;\n    max-width: 210px;\n    text-align: left;\n    word-break: break-all;\n    z-index: 16;\n}\n\n.webodf-hyperlinkTooltipText {\n    display: block;\n    font-weight: bold;\n}\n";
+var webodf_css = '@namespace draw url(urn:oasis:names:tc:opendocument:xmlns:drawing:1.0);@namespace fo url(urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0);@namespace office url(urn:oasis:names:tc:opendocument:xmlns:office:1.0);@namespace presentation url(urn:oasis:names:tc:opendocument:xmlns:presentation:1.0);@namespace style url(urn:oasis:names:tc:opendocument:xmlns:style:1.0);@namespace svg url(urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0);@namespace table url(urn:oasis:names:tc:opendocument:xmlns:table:1.0);@namespace text url(urn:oasis:names:tc:opendocument:xmlns:text:1.0);@namespace webodfhelper url(urn:webodf:names:helper);@namespace cursor url(urn:webodf:names:cursor);@namespace editinfo url(urn:webodf:names:editinfo);@namespace annotation url(urn:webodf:names:annotation);@namespace dc url(http://purl.org/dc/elements/1.1/);@namespace svgns url(http://www.w3.org/2000/svg);office|document > *, office|document-content > * {display: none;}office|body, office|document {display: inline-block;position: relative;}text|p, text|h {display: block;padding: 0;margin: 0;line-height: normal;position: relative;}text|p::after, text|h::after {content: "\\200B";white-space: pre;}*[webodfhelper|containsparagraphanchor] {position: relative;}text|s {white-space: pre;}text|tab {display: inline;white-space: pre;}text|tracked-changes {display: none;}office|binary-data {display: none;}office|text {display: block;text-align: left;overflow: visible;word-wrap: break-word;}office|text::selection {background: transparent;}.webodf-virtualSelections *::selection {background: transparent;}.webodf-virtualSelections *::-moz-selection {background: transparent;}office|text * draw|text-box {display: block;border: 1px solid #d3d3d3;}office|text draw|frame {z-index: 1;}office|spreadsheet {display: block;border-collapse: collapse;empty-cells: show;font-family: sans-serif;font-size: 10pt;text-align: left;page-break-inside: avoid;overflow: hidden;}office|presentation {display: inline-block;text-align: left;}#shadowContent {display: inline-block;text-align: left;}draw|page {display: block;position: relative;overflow: hidden;}presentation|notes, presentation|footer-decl, presentation|date-time-decl {display: none;}@media print {draw|page {border: 1pt solid black;page-break-inside: avoid;}presentation|notes {}}office|spreadsheet text|p {border: 0px;padding: 1px;margin: 0px;}office|spreadsheet table|table {margin: 3px;}office|spreadsheet table|table:after {}office|spreadsheet table|table-row {counter-increment: row;}office|spreadsheet table|table-row:before {width: 3em;background: #cccccc;border: 1px solid black;text-align: center;content: counter(row);display: table-cell;}office|spreadsheet table|table-cell {border: 1px solid #cccccc;}table|table {display: table;}draw|frame table|table {width: 100%;height: 100%;background: white;}table|table-header-rows {display: table-header-group;}table|table-row {display: table-row;}table|table-column {display: table-column;}table|table-cell {width: 0.889in;display: table-cell;word-break: break-all;}draw|frame {display: block;}draw|image {display: block;width: 100%;height: 100%;top: 0px;left: 0px;background-repeat: no-repeat;background-size: 100% 100%;-moz-background-size: 100% 100%;}draw|frame > draw|image:nth-of-type(n+2) {display: none;}text|list:before {display: none;content:"";}text|list {display: block;}text|list-item {display: block;}text|number {display:none;}text|a {color: blue;text-decoration: underline;cursor: pointer;}.webodf-inactiveLinks text|a {cursor: text;}text|note-citation {vertical-align: super;font-size: smaller;}text|note-body {display: none;}text|note:hover text|note-citation {background: #dddddd;}text|note:hover text|note-body {display: block;left:1em;max-width: 80%;position: absolute;background: #ffffaa;}text|bibliography-source {display: none;}svg|title, svg|desc {display: none;}video {width: 100%;height: 100%}cursor|anchor {display: none;}cursor|cursor {display: none;}.webodf-caretOverlay {position: absolute;top: 5%;height: 1em;z-index: 10;padding-left: 1px;pointer-events: none;}.webodf-caretOverlay .caret {position: absolute;border-left: 2px solid black;top: 0;bottom: 0;right: 0;}.webodf-caretOverlay .handle {position: absolute;margin-top: 5px;padding-top: 3px;margin-left: auto;margin-right: auto;width: 64px;height: 68px;border-radius: 5px;opacity: 0.3;text-align: center;background-color: black;box-shadow: 0px 0px 5px rgb(90, 90, 90);border: 1px solid black;top: -85px;right: -32px;}.webodf-caretOverlay .handle > img {box-shadow: 0px 0px 5px rgb(90, 90, 90) inset;background-color: rgb(200, 200, 200);border-radius: 5px;border: 2px solid;height: 60px;width: 60px;display: block;margin: auto;}.webodf-caretOverlay .handle.active {opacity: 0.8;}.webodf-caretOverlay .handle:after {content: " ";position: absolute;width: 0px;height: 0px;border-style: solid;border-width: 8.7px 5px 0 5px;border-color: black transparent transparent transparent;top: 100%;left: 43%;}.webodf-caretSizer {display: inline-block;width: 0;visibility: hidden;}#eventTrap {display: block;position: absolute;bottom: 0;left: 0;outline: none;opacity: 0;color: rgba(255, 255, 255, 0);pointer-events: none;white-space: pre;overflow: hidden;}cursor|cursor > #composer {text-decoration: underline;}cursor|cursor[cursor|caret-sizer-active="true"],cursor|cursor[cursor|composing="true"] {display: inline;}editinfo|editinfo {display: inline-block;}.editInfoMarker {position: absolute;width: 10px;height: 100%;left: -20px;opacity: 0.8;top: 0;border-radius: 5px;background-color: transparent;box-shadow: 0px 0px 5px rgba(50, 50, 50, 0.75);}.editInfoMarker:hover {box-shadow: 0px 0px 8px rgba(0, 0, 0, 1);}.editInfoHandle {position: absolute;background-color: black;padding: 5px;border-radius: 5px;opacity: 0.8;box-shadow: 0px 0px 5px rgba(50, 50, 50, 0.75);bottom: 100%;margin-bottom: 10px;z-index: 3;left: -25px;}.editInfoHandle:after {content: " ";position: absolute;width: 0px;height: 0px;border-style: solid;border-width: 8.7px 5px 0 5px;border-color: black transparent transparent transparent;top: 100%;left: 5px;}.editInfo {font-family: sans-serif;font-weight: normal;font-style: normal;text-decoration: none;color: white;width: 100%;height: 12pt;}.editInfoColor {float: left;width: 10pt;height: 10pt;border: 1px solid white;}.editInfoAuthor {float: left;margin-left: 5pt;font-size: 10pt;text-align: left;height: 12pt;line-height: 12pt;}.editInfoTime {float: right;margin-left: 30pt;font-size: 8pt;font-style: italic;color: yellow;height: 12pt;line-height: 12pt;}.annotationWrapper {display: inline;position: relative;}.annotationRemoveButton:before {content: "\u00d7";color: white;padding: 5px;line-height: 1em;}.annotationRemoveButton {width: 20px;height: 20px;border-radius: 10px;background-color: black;box-shadow: 0px 0px 5px rgba(50, 50, 50, 0.75);position: absolute;top: -10px;left: -10px;z-index: 3;text-align: center;font-family: sans-serif;font-style: normal;font-weight: normal;text-decoration: none;font-size: 15px;}.annotationRemoveButton:hover {cursor: pointer;box-shadow: 0px 0px 5px rgba(0, 0, 0, 1);}.annotationNote {width: 4cm;position: absolute;display: inline;z-index: 10;top: 0;}.annotationNote > office|annotation {display: block;text-align: left;}.annotationConnector {position: absolute;display: inline;top: 0;z-index: 2;border-top: 1px dashed brown;}.annotationConnector.angular {-moz-transform-origin: left top;-webkit-transform-origin: left top;-ms-transform-origin: left top;transform-origin: left top;}.annotationConnector.horizontal {left: 0;}.annotationConnector.horizontal:before {content: "";display: inline;position: absolute;width: 0px;height: 0px;border-style: solid;border-width: 8.7px 5px 0 5px;border-color: brown transparent transparent transparent;top: -1px;left: -5px;}office|annotation {width: 100%;height: 100%;display: none;background: rgb(198, 238, 184);background: -moz-linear-gradient(90deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);background: -webkit-linear-gradient(90deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);background: -o-linear-gradient(90deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);background: -ms-linear-gradient(90deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);background: linear-gradient(180deg, rgb(198, 238, 184) 30%, rgb(180, 196, 159) 100%);box-shadow: 0 3px 4px -3px #ccc;}office|annotation > dc|creator {display: block;font-size: 10pt;font-weight: normal;font-style: normal;font-family: sans-serif;color: white;background-color: brown;padding: 4px;}office|annotation > dc|date {display: block;font-size: 10pt;font-weight: normal;font-style: normal;font-family: sans-serif;border: 4px solid transparent;color: black;}office|annotation > text|list {display: block;padding: 5px;}office|annotation text|p {font-size: 10pt;color: black;font-weight: normal;font-style: normal;text-decoration: none;font-family: sans-serif;}#annotationsPane {background-color: #EAEAEA;width: 4cm;height: 100%;display: none;position: absolute;outline: 1px solid #ccc;}.webodf-annotationHighlight {background-color: yellow;position: relative;}.webodf-selectionOverlay {position: absolute;pointer-events: none;top: 0;left: 0;top: 0;left: 0;width: 100%;height: 100%;z-index: 15;}.webodf-selectionOverlay > polygon {fill-opacity: 0.3;stroke-opacity: 0.8;stroke-width: 1;fill-rule: evenodd;}.webodf-selectionOverlay > .webodf-draggable {fill-opacity: 0.8;stroke-opacity: 0;stroke-width: 8;pointer-events: all;display: none;-moz-transform-origin: center center;-webkit-transform-origin: center center;-ms-transform-origin: center center;transform-origin: center center;}#imageSelector {display: none;position: absolute;border-style: solid;border-color: black;}#imageSelector > div {width: 5px;height: 5px;display: block;position: absolute;border: 1px solid black;background-color: #ffffff;}#imageSelector > .topLeft {top: -4px;left: -4px;}#imageSelector > .topRight {top: -4px;right: -4px;}#imageSelector > .bottomRight {right: -4px;bottom: -4px;}#imageSelector > .bottomLeft {bottom: -4px;left: -4px;}#imageSelector > .topMiddle {top: -4px;left: 50%;margin-left: -2.5px;}#imageSelector > .rightMiddle {top: 50%;right: -4px;margin-top: -2.5px;}#imageSelector > .bottomMiddle {bottom: -4px;left: 50%;margin-left: -2.5px;}#imageSelector > .leftMiddle {top: 50%;left: -4px;margin-top: -2.5px;}div.webodf-customScrollbars::-webkit-scrollbar{width: 8px;height: 8px;background-color: transparent;}div.webodf-customScrollbars::-webkit-scrollbar-track{background-color: transparent;}div.webodf-customScrollbars::-webkit-scrollbar-thumb{background-color: #444;border-radius: 4px;}.webodf-hyperlinkTooltip {display: none;color: white;background-color: black;border-radius: 5px;box-shadow: 2px 2px 5px gray;padding: 3px;position: absolute;max-width: 210px;text-align: left;word-break: break-all;z-index: 16;}.webodf-hyperlinkTooltipText {display: block;font-weight: bold;}';
 
