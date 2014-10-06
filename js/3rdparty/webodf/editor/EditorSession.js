@@ -1,37 +1,23 @@
 /**
- * @license
  * Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
  *
  * @licstart
- * The JavaScript code in this page is free software: you can redistribute it
- * and/or modify it under the terms of the GNU Affero General Public License
- * (GNU AGPL) as published by the Free Software Foundation, either version 3 of
- * the License, or (at your option) any later version.  The code is distributed
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU AGPL for more details.
+ * This file is part of WebODF.
+ *
+ * WebODF is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Affero General Public License (GNU AGPL)
+ * as published by the Free Software Foundation, either version 3 of
+ * the License, or (at your option) any later version.
+ *
+ * WebODF is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
  *
  * You should have received a copy of the GNU Affero General Public License
- * along with this code.  If not, see <http://www.gnu.org/licenses/>.
- *
- * As additional permission under GNU AGPL version 3 section 7, you
- * may distribute non-source (e.g., minimized or compacted) forms of
- * that code without the copy of the GNU GPL normally required by
- * section 4, provided you include this license notice and a URL
- * through which recipients can access the Corresponding Source.
- *
- * As a special exception to the AGPL, any HTML file which merely makes function
- * calls to this code, and for that purpose includes it by reference shall be
- * deemed a separate work for copyright law purposes. In addition, the copyright
- * holders of this code give you permission to combine this code with free
- * software libraries that are released under the GNU LGPL. You may copy and
- * distribute such a system following the terms of the GNU AGPL for this code
- * and the LGPL for the libraries. If you modify this code, you may extend this
- * exception to your version of the code, but you are not obligated to do so.
- * If you do not wish to do so, delete this exception statement from your
- * version.
- *
- * This license applies to this entire compilation.
+ * along with WebODF.  If not, see <http://www.gnu.org/licenses/>.
  * @licend
+ *
  * @source: http://www.webodf.org/
  * @source: https://github.com/kogmbh/WebODF/
  */
@@ -43,10 +29,11 @@ define("webodf/editor/EditorSession", [
 ], function (fontsCSS) { // fontsCSS is retrieved as a string, using dojo's text retrieval AMD plugin
     "use strict";
 
+    runtime.loadClass("core.Async");
     runtime.loadClass("core.DomUtils");
     runtime.loadClass("odf.OdfUtils");
     runtime.loadClass("ops.OdtDocument");
-    runtime.loadClass("ops.StepsTranslator");
+    runtime.loadClass("ops.OdtStepsTranslator");
     runtime.loadClass("ops.Session");
     runtime.loadClass("odf.Namespaces");
     runtime.loadClass("odf.OdfCanvas");
@@ -55,17 +42,19 @@ define("webodf/editor/EditorSession", [
     runtime.loadClass("gui.Caret");
     runtime.loadClass("gui.SessionController");
     runtime.loadClass("gui.SessionView");
+    runtime.loadClass("gui.HyperlinkTooltipView");
     runtime.loadClass("gui.TrivialUndoManager");
     runtime.loadClass("gui.SvgSelectionView");
     runtime.loadClass("gui.SelectionViewManager");
     runtime.loadClass("core.EventNotifier");
     runtime.loadClass("gui.ShadowCursor");
+    runtime.loadClass("gui.CommonConstraints");
 
     /**
      * Instantiate a new editor session attached to an existing operation session
      * @param {!ops.Session} session
      * @param {!string} localMemberId
-     * @param {{viewOptions:gui.SessionViewOptions,directParagraphStylingEnabled:boolean}} config
+     * @param {{viewOptions:gui.SessionViewOptions,directParagraphStylingEnabled:boolean,annotationsEnabled:boolean}} config
      * @constructor
      */
     var EditorSession = function EditorSession(session, localMemberId, config) {
@@ -75,6 +64,7 @@ define("webodf/editor/EditorSession", [
             currentStyleName = null,
             caretManager,
             selectionViewManager,
+            hyperlinkTooltipView,
             odtDocument = session.getOdtDocument(),
             textns = odf.Namespaces.textns,
             fontStyles = document.createElement('style'),
@@ -93,7 +83,10 @@ define("webodf/editor/EditorSession", [
                 EditorSession.signalCommonStyleDeleted,
                 EditorSession.signalParagraphStyleModified,
                 EditorSession.signalUndoStackChanged]),
-            shadowCursor = new gui.ShadowCursor(odtDocument);
+            shadowCursor = new gui.ShadowCursor(odtDocument),
+            sessionConstraints,
+            /**@const*/
+            NEXT = core.StepDirection.NEXT;
 
         /**
          * @return {Array.<!string>}
@@ -195,7 +188,7 @@ define("webodf/editor/EditorSession", [
         function trackCursor(cursor) {
             var node;
 
-            node = odtDocument.getParagraphElement(cursor.getNode());
+            node = odfUtils.getParagraphElement(cursor.getNode());
             if (!node) {
                 return;
             }
@@ -308,15 +301,6 @@ define("webodf/editor/EditorSession", [
         };
 
         /**
-         * Round the step up to the next step
-         * @param {!number} step
-         * @return {!boolean}
-         */
-        function roundUp(step) {
-            return step === ops.StepsTranslator.NEXT_STEP;
-        }
-
-        /**
          * Applies the paragraph style with the given
          * style name to all the paragraphs within
          * the cursor selection.
@@ -329,7 +313,7 @@ define("webodf/editor/EditorSession", [
                 opQueue = [];
 
             paragraphs.forEach(function (paragraph) {
-                var paragraphStartPoint = odtDocument.convertDomPointToCursorStep(paragraph, 0, roundUp),
+                var paragraphStartPoint = odtDocument.convertDomPointToCursorStep(paragraph, 0, NEXT),
                     paragraphStyleName = paragraph.getAttributeNS(odf.Namespaces.textns, "style-name"),
                     opSetParagraphStyle;
 
@@ -368,13 +352,15 @@ define("webodf/editor/EditorSession", [
          * element. If the style name is an empty string, the default style
          * is returned.
          * @param {!string} styleName
-         * @return {Element}
+         * @return {?Element}
          */
-        this.getParagraphStyleElement = function (styleName) {
+        function getParagraphStyleElement(styleName) {
             return (styleName === "")
                 ? formatting.getDefaultStyleElement('paragraph')
-                : odtDocument.getParagraphStyleElement(styleName);
-        };
+                : formatting.getStyleElement(styleName, 'paragraph');
+        }
+
+        this.getParagraphStyleElement = getParagraphStyleElement;
 
         /**
          * Returns if the style is used anywhere in the document
@@ -385,26 +371,22 @@ define("webodf/editor/EditorSession", [
             return formatting.isStyleUsed(styleElement);
         };
 
-        function getDefaultParagraphStyleAttributes() {
-            var styleNode = formatting.getDefaultStyleElement('paragraph');
-            if (styleNode) {
-                return formatting.getInheritedStyleAttributes(styleNode);
-            }
-
-            return null;
-        }
-
         /**
          * Returns the attributes of a given paragraph style name
          * (with inheritance). If the name is an empty string,
          * the attributes of the default style are returned.
          * @param {!string} styleName
-         * @return {Object}
+         * @return {?odf.Formatting.StyleData}
          */
         this.getParagraphStyleAttributes = function (styleName) {
-            return (styleName === "")
-                ? getDefaultParagraphStyleAttributes()
-                : odtDocument.getParagraphStyleAttributes(styleName);
+            var styleNode = getParagraphStyleElement(styleName),
+                includeSystemDefault = styleName === "";
+
+            if (styleNode) {
+                return formatting.getInheritedStyleAttributes(styleNode, includeSystemDefault);
+            }
+
+            return null;
         };
 
         /**
@@ -436,7 +418,7 @@ define("webodf/editor/EditorSession", [
          */
         this.cloneParagraphStyle = function (styleName, newStyleDisplayName) {
             var newStyleName = uniqueParagraphStyleNCName(newStyleDisplayName),
-                styleNode = self.getParagraphStyleElement(styleName),
+                styleNode = getParagraphStyleElement(styleName),
                 formatting = odtDocument.getFormatting(),
                 op, setProperties, attributes, i;
 
@@ -547,18 +529,6 @@ define("webodf/editor/EditorSession", [
         };
 
         /**
-         *
-         * @param {!string} mimetype
-         * @param {!string} content base64 encoded string
-         * @param {!number} width
-         * @param {!number} height
-         */
-        this.insertImage = function (mimetype, content, width, height) {
-            self.sessionController.getTextController().removeCurrentSelection();
-            self.sessionController.getImageController().insertImage(mimetype, content, width, height);
-        };
-
-        /**
          * @param {!string} memberId
          * @return {?ops.Member}
          */
@@ -567,11 +537,12 @@ define("webodf/editor/EditorSession", [
         };
 
         /**
-         * @param {!function(!Object=)} callback, passing an error object in case of error
+         * @param {!function(!Object=)} callback passing an error object in case of error
          * @return {undefined}
          */
-        this.destroy = function(callback) {
-            var head = document.getElementsByTagName('head')[0];
+        function destroy(callback) {
+            var head = document.getElementsByTagName('head')[0],
+                eventManager = self.sessionController.getEventManager();
 
             head.removeChild(fontStyles);
 
@@ -587,37 +558,34 @@ define("webodf/editor/EditorSession", [
             odtDocument.unsubscribe(ops.OdtDocument.signalParagraphChanged, trackCurrentParagraph);
             odtDocument.unsubscribe(ops.OdtDocument.signalUndoStackChanged, undoStackModified);
 
-            self.sessionView.destroy(function(err) {
-                if (err) {
-                    callback(err);
-                } else {
-                    delete self.sessionView;
-                    caretManager.destroy(function(err) {
-                        if (err) {
-                            callback(err);
-                        } else {
-                            selectionViewManager.destroy(function(err) {
-                                if (err) {
-                                    callback(err);
-                                } else {
-                                    self.sessionController.destroy(function(err) {
-                                        if (err) {
-                                            callback(err);
-                                        } else {
-                                            delete self.sessionController;
-                                            callback();
-                                        }
-                                    });
-                                }
-                            });
-                        }
-                    });
-                }
-            });
+            eventManager.unsubscribe("mousemove", hyperlinkTooltipView.showTooltip);
+            eventManager.unsubscribe("mouseout", hyperlinkTooltipView.hideTooltip);
+            delete self.sessionView;
+            delete self.sessionController;
+            callback();
+        }
+
+        /**
+         * @param {!function(!Error=)} callback passing an error object in case of error
+         * @return {undefined}
+         */
+        this.destroy = function(callback) {
+                var cleanup = [
+                    self.sessionView.destroy,
+                    caretManager.destroy,
+                    selectionViewManager.destroy,
+                    self.sessionController.destroy,
+                    hyperlinkTooltipView.destroy,
+                    destroy
+                ];
+
+            core.Async.destroyAll(cleanup, callback);
         };
 
         function init() {
-            var head = document.getElementsByTagName('head')[0];
+            var head = document.getElementsByTagName('head')[0],
+                odfCanvas = session.getOdtDocument().getOdfCanvas(),
+                eventManager;
 
             // TODO: fonts.css should be rather done by odfCanvas, or?
             fontStyles.type = 'text/css';
@@ -626,13 +594,31 @@ define("webodf/editor/EditorSession", [
             head.appendChild(fontStyles);
 
             self.sessionController = new gui.SessionController(session, localMemberId, shadowCursor, {
+                annotationsEnabled: config.annotationsEnabled,
+                directTextStylingEnabled: config.directTextStylingEnabled,
                 directParagraphStylingEnabled: config.directParagraphStylingEnabled
             });
-            caretManager = new gui.CaretManager(self.sessionController);
+            sessionConstraints = self.sessionController.getSessionConstraints();
+
+            eventManager = self.sessionController.getEventManager();
+            hyperlinkTooltipView = new gui.HyperlinkTooltipView(odfCanvas,
+                                                    self.sessionController.getHyperlinkClickHandler().getModifier);
+            eventManager.subscribe("mousemove", hyperlinkTooltipView.showTooltip);
+            eventManager.subscribe("mouseout", hyperlinkTooltipView.hideTooltip);
+
+            caretManager = new gui.CaretManager(self.sessionController, odfCanvas.getViewport());
             selectionViewManager = new gui.SelectionViewManager(gui.SvgSelectionView);
-            self.sessionView = new gui.SessionView(config.viewOptions, localMemberId, session, caretManager, selectionViewManager);
+            self.sessionView = new gui.SessionView(config.viewOptions, localMemberId, session, sessionConstraints, caretManager, selectionViewManager);
             self.availableFonts = getAvailableFonts();
             selectionViewManager.registerCursor(shadowCursor, true);
+
+            // Session Constraints can be applied once the controllers are instantiated.
+            if (config.reviewModeEnabled) {
+                // Disallow deleting other authors' annotations.
+                sessionConstraints.setState(gui.CommonConstraints.EDIT.ANNOTATIONS.ONLY_DELETE_OWN, true);
+                sessionConstraints.setState(gui.CommonConstraints.EDIT.REVIEW_MODE, true);
+            }
+
             // Custom signals, that make sense in the Editor context. We do not want to expose webodf's ops signals to random bits of the editor UI.
             odtDocument.subscribe(ops.Document.signalMemberAdded, onMemberAdded);
             odtDocument.subscribe(ops.Document.signalMemberUpdated, onMemberUpdated);

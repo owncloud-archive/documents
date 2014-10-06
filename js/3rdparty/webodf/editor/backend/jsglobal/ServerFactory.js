@@ -1,5 +1,4 @@
 /**
- * @license
  * Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
  *
  * @licstart
@@ -23,37 +22,28 @@
  * @source: https://github.com/kogmbh/WebODF/
  */
 
-/*global define, require, OC*/
+/*global define, document, require, runtime, ops */
 
-define("owncloud/ServerFactory", [
-    "webodf/editor/backend/pullbox/Server",
-    "webodf/editor/backend/pullbox/OperationRouter",
-    "webodf/editor/backend/pullbox/SessionList"],
-    function (PullBoxServer, PullBoxOperationRouter, PullBoxSessionList) {
+define("webodf/editor/backend/jsglobal/ServerFactory", [
+    "webodf/editor/backend/jsglobal/Server",
+    "webodf/editor/backend/jsglobal/SessionBackend",
+    "webodf/editor/backend/jsglobal/SessionList"],
+    function (JsGlobalServer, JsGlobalSessionBackend, JsGlobalSessionList) {
         "use strict";
 
         /**
         * @constructor
         * @implements ServerFactory
         */
-        return function OwnCloudServerFactory() {
+        return function JsGlobalServerFactory() {
             this.createServer = function (args) {
-                var server;
-                args = args || {};
-                args.url = OC.filePath('documents', 'ajax', 'otpoll.php');
-                args.sessionStateToFileUrl = OC.generateUrl('apps/documents/ajax/session/save');
-
-                server = new PullBoxServer(args);
-                server.getGenesisUrl = function(sid) {
-                    return OC.generateUrl('apps/documents/ajax/genesis/{es_id}', {es_id: sid}) + '?requesttoken=' + oc_requesttoken;
-                };
-                return server;
+                return new JsGlobalServer(args);
             };
-            this.createOperationRouter = function (sid, mid, server, odfContainer, errorCallback) {
-                return new PullBoxOperationRouter(sid, mid, server, odfContainer, errorCallback);
+            this.createSessionBackend = function (sid, mid, server) {
+                return new JsGlobalSessionBackend(sid, mid, server);
             };
             this.createSessionList = function (server) {
-                return new PullBoxSessionList(server);
+                return new JsGlobalSessionList(server);
             };
         };
 });
