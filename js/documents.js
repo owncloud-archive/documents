@@ -109,7 +109,6 @@ $.widget('oc.documentGrid', {
 				var docElem = $(that.options.context + ' .document[data-id="'+session.file_id+'"]');
 				if (docElem.length > 0) {
 					docElem.attr('data-esid', session.es_id);
-					docElem.find('label').after('<img class="svg session-active" src="'+OC.imagePath('core','places/contacts-dark')+'">');
 					docElem.addClass('session');
 				} else {
 					console.log('Could not find file '+session.file_id+' for session '+session.es_id);

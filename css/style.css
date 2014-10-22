@@ -82,11 +82,8 @@
 	background-color: #ddd;
 }
 
-.documentslist .session-active {
-	position: relative;
-	margin-left: 128px;
-	margin-top: 128px;
-	width: 32px;
+.documentslist .session label {
+	font-weight: bold;
 }
 .document a {
 	display: block;
