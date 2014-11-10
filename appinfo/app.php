@@ -42,7 +42,8 @@ OC::$CLASSPATH['OCA\Documents\UserController'] = 'documents/ajax/userController.
 //Script for registering file actions
 OCP\Util::addScript('documents', 'viewer/viewer');
 
-$docFilter = new OCA\Documents\Filter\Office(
+if (OCA\Documents\Config::getConverter() !== 'off'){
+	$docFilter = new OCA\Documents\Filter\Office(
 			array(
 				'read' => 
 					array (
@@ -57,9 +58,9 @@ $docFilter = new OCA\Documents\Filter\Office(
 						'extension' => 'doc'
 					)
 			)
-);
+	);
 
-$docxFilter = new OCA\Documents\Filter\Office(
+	$docxFilter = new OCA\Documents\Filter\Office(
 		array (
 				'read' => 
 					array (
@@ -74,7 +75,8 @@ $docxFilter = new OCA\Documents\Filter\Office(
 						'extension' => 'docx'
 					)
 			)
-);
+	);
+}
 
 //Listen to delete file signal
 OCP\Util::connectHook('OC_Filesystem', 'delete', "OCA\Documents\Storage", "onDelete");
