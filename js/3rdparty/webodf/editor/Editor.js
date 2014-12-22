@@ -532,7 +532,7 @@ define("webodf/editor/Editor", [
                     inviteButton.onclick = window.inviteButtonProxy.clicked;
                 }
 
-                tools = new Tools('toolbar-inner', {
+                tools = new Tools('toolbar', {
                     onToolDone: setFocusToOdfCanvas,
                     saveOdtFile: saveOdtFile,
                     close: close,
