@@ -1,5 +1,4 @@
 /**
- * @license
  * Copyright (C) 2013 KO GmbH <copyright@kogmbh.com>
  *
  * @licstart
@@ -25,7 +24,7 @@
 
 /*global define, ops, runtime */
 
-define("webodf/editor/server/pullbox/SessionList", [], function () {
+define("webodf/editor/backend/pullbox/SessionList", [], function () {
     "use strict";
 
     return function PullBoxSessionList(server) {
