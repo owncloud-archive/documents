@@ -1,0 +1,84 @@
+diff --git a/programs/editor/dojo-deps/profiles/app.profile.js b/programs/editor/dojo-deps/profiles/app.profile.js
+index 35df011..6ac7fe5 100644
+--- a/programs/editor/dojo-deps/profiles/app.profile.js
++++ b/programs/editor/dojo-deps/profiles/app.profile.js
+@@ -71,6 +71,7 @@ var profile = {
+ 				"dojo/dom-construct",
+ 				"dojo/_base/NodeList",
+ 				"dojo/_base/browser",
++				"dojox/html/entities",
+ 				'dijit/layout/BorderContainer',
+ 				'dijit/layout/ContentPane',
+ 				'dojox/layout/ExpandoPane',
+diff --git a/programs/editor/widgets/fontPicker.js b/programs/editor/widgets/fontPicker.js
+index 039c21b..372df25 100644
+--- a/programs/editor/widgets/fontPicker.js
++++ b/programs/editor/widgets/fontPicker.js
+@@ -36,9 +36,10 @@
+  */
+ /*global define,require,document */
+ define("webodf/editor/widgets/fontPicker", [
+-    "dijit/form/Select"],
++    "dijit/form/Select",
++    "dojox/html/entities"],
+
+-    function (Select) {
++    function (Select, htmlEntities) {
+         "use strict";
+
+         /**
+@@ -101,7 +102,7 @@ define("webodf/editor/widgets/fontPicker", [
+                     name = documentFonts[i].name;
+                     family = documentFonts[i].family || name;
+                     selectionList.push({
+-                        label: '<span style="font-family: ' + family + ';">' + name + '</span>',
++                        label: '<span style="font-family: ' + htmlEntities.encode(family) + ';">' + htmlEntities.encode(name) + '</span>',
+                         value: name
+                     });
+                 }
+@@ -114,7 +115,7 @@ define("webodf/editor/widgets/fontPicker", [
+                 // Lastly populate the fonts provided by the editor
+                 for (i = 0; i < editorFonts.length; i += 1) {
+                     selectionList.push({
+-                        label: '<span style="font-family: ' + editorFonts[i] + ';">' + editorFonts[i] + '</span>',
++                        label: '<span style="font-family: ' + htmlEntities.encode(editorFonts[i]) + ';">' + htmlEntities.encode(editorFonts[i]) + '</span>',
+                         value: editorFonts[i]
+                     });
+                 }
+diff --git a/programs/editor/widgets/paragraphStyles.js b/programs/editor/widgets/paragraphStyles.js
+index 57acaac..0e1acec 100644
+--- a/programs/editor/widgets/paragraphStyles.js
++++ b/programs/editor/widgets/paragraphStyles.js
+@@ -39,9 +39,12 @@
+ /*global define,require */
+
+ define("webodf/editor/widgets/paragraphStyles",
+-       ["webodf/editor/EditorSession"],
++       [
++           "dojox/html/entities",
++           "webodf/editor/EditorSession"
++       ],
+
+-    function (EditorSession) {
++    function (htmlEntities, EditorSession) {
+     "use strict";
+     /**
+      * @constructor
+@@ -99,7 +102,7 @@ define("webodf/editor/widgets/paragraphStyles",
+
+             for (i = 0; i < availableStyles.length; i += 1) {
+                 selectionList.push({
+-                    label: availableStyles[i].displayName,
++                    label: htmlEntities.encode(availableStyles[i].displayName),
+                     value: availableStyles[i].name
+                 });
+             }
+@@ -120,7 +123,7 @@ define("webodf/editor/widgets/paragraphStyles",
+             if (select) {
+                 select.addOption({
+                     value: styleInfo.name,
+-                    label: newStyleElement.getAttributeNS(stylens, 'display-name')
++                    label: htmlEntities.encode(newStyleElement.getAttributeNS(stylens, 'display-name'))
+                 });
+             }
+

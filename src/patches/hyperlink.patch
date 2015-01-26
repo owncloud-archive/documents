@@ -1,0 +1,20 @@
+diff --git webodf/lib/gui/HyperlinkClickHandler.js b/webodf/lib/gui/HyperlinkClickHandler.js
+index a1cfbed..0804028 100644
+--- a/webodf/lib/gui/HyperlinkClickHandler.js
++++ b/webodf/lib/gui/HyperlinkClickHandler.js
+@@ -133,8 +133,13 @@ gui.HyperlinkClickHandler = function HyperlinkClickHandler(getRootNode) {
+                 bookmarks[0].scrollIntoView(true);
+             }
+         } else {
+-            // Ask the browser to open the link in a new window.
+-            runtime.getWindow().open(url);
++            // Ask the browser to open the link in a new window. `javascript` and `data` URIs are disabled for
++            // security reasons.
++            if(/^\s*(javascript|data):/.test(url)) {
++                runtime.log("WARN:", "potentially malicious URL ignored");
++            } else {
++                runtime.getWindow().open(url);
++            }
+         }
+
+         if (e.preventDefault) {
