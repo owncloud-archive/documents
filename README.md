@@ -20,33 +20,44 @@ If you don't want to mess around with dependencies, you need simply install `uno
 + Upload font files to **documents/css/fonts** directory
 + Edit **documents/css/fonts.css** adding `@font-face` rule for each uploaded file 
 
+
 ### WebODF upgrade ###
-1. Build WebODF:
+1. Clone WebODF:
 
         git clone https://github.com/kogmbh/WebODF.git webodf
+        cd webodf
+        git checkout 8d8fc0216874b9dd9e3e3eef68dd2474a11f02f3
+        cd ..
+
+2. Apply patches to WebODF
+
+        ./src/patchWebODF.sh webodf/
+
+3. Build WebODF
+
         mkdir build
         cd build
         cmake ../webodf
         make webodf-debug.js-target editor-compiled.js-target
 
-2. Refresh code and create a new branch:
+4. Refresh code and create a new branch:
 
         cd /path/to/documents
         git checkout master
         git pull --rebase
         git checkout -b new-branch
 
-3. Run upgrade script:
+5. Run upgrade script:
 
-        ./src/updateWebODF.sh /path/to/WebODF/buildDir
+        ./src/updateWebODF.sh /path/to/WebODF/build/dir
 
-4. Resolve confilcts in patches (if any). Commit changes.
-5. Update patches in `/path/to/documents/src/patches` according to conflicts. Commit changes.
-6. Test UI. Fix glitches by updating CSS. Commit changes.
-7. Run locale extraction script:
+6. Resolve confilcts in patches (if any). Commit changes.
+7. Update patches in `/path/to/documents/src/patches` according to conflicts. Commit changes.
+8. Test UI. Fix glitches by updating CSS. Commit changes.
+9. Run locale extraction script:
 
         ./src/updateWebODF.sh
 
-8. Commit changes
-9. Push the branch for testing
-10. You are done.
+10. Commit changes
+11. Push the branch for testing
+12. You are done.
