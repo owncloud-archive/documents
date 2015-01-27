@@ -12,6 +12,8 @@
 
 namespace OCA\Documents;
 
+use OCA\Documents\Filter;
+
 /**
  *  Session management 
  */
@@ -40,6 +42,12 @@ class Db_Session extends \OCA\Documents\Db {
 		$genesis = new Genesis($file);
 		
 		list($ownerView, $path) = $file->getOwnerViewAndPath();
+
+		$mimetype = $ownerView->getMimeType($path);
+		if (!Filter::isSupportedMimetype($mimetype)){
+			throw new \Exception( $path . ' is ' . $mimetype . ' and is not supported by Documents app');
+		}
+		
 		$oldSession = new Db_Session();
 		$oldSession->loadBy('file_id', $file->getFileId());
 		
