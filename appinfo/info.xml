@@ -9,9 +9,12 @@
 	<repository type="git">http://github.com/owncloud/documents.git</repository>
 	<category>productivity</category>
 	<requiremin>8.0</requiremin>
-	<requiremax>8.5</requiremax>
+	<requiremax>9</requiremax>
 	<public>
 		<documents>public.php</documents>
 	</public>
+	<dependencies>
+		<owncloud min-version="8.0" max-version="9.0"/>
+	</dependencies>
 	<ocsid>168711</ocsid>
 </info>
