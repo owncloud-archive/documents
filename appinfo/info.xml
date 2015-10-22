@@ -6,6 +6,7 @@
 	<licence>AGPL</licence>
 	<author>Frank Karlitschek, Victor Dubiniuk</author>
 	<requiremin>8.0</requiremin>
+	<requiremax>8.1.0</requiremax>
 	<public>
 		<documents>public.php</documents>
 	</public>
