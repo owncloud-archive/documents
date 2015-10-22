@@ -8,7 +8,7 @@
 	<bugs>https://github.com/owncloud/documents/issues</bugs>
 	<repository type="git">http://github.com/owncloud/documents.git</repository>
 	<category>productivity</category>
-	<requiremin>8.0</requiremin>
+	<requiremin>8.1</requiremin>
 	<requiremax>8.5</requiremax>
 	<public>
 		<documents>public.php</documents>
