@@ -30,7 +30,10 @@ class DownloadResponse extends \OCP\AppFramework\Http\Response {
 		$this->user = $user;
 		$this->path = $path;
 		
-		$this->view = new View('/' . $user);
+		$data_dir = \OC::$server->getConfig()->getSystemValue('datadirectory', \OC::$SERVERROOT . '/data');
+		$fake_root = str_replace($data_dir, '', \OC::$server->getUserManager()->get($user)->getHome());
+
+		$this->view = new View($fake_root);
 		if (!$this->view->file_exists($path)){
 			$this->setStatus(Http::STATUS_NOT_FOUND);
 		}
