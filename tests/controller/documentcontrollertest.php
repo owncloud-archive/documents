@@ -51,6 +51,9 @@ class DocumentControllerTest extends \PHPUnit_Framework_TestCase {
 		\OC_Util::setupFS();
 	}
 	
+	/**
+	 * @expectedException \OCP\Files\NotFoundException
+	 */
 	public function testRename(){
 		$result = array(
 			'status' => 'error',
@@ -61,7 +64,6 @@ class DocumentControllerTest extends \PHPUnit_Framework_TestCase {
 			'name' => 'newname.ext'
 		);
 		$response = $this->controller->rename(500);
-		$this->assertEquals($result, $response);
 	}
 	
 	public function testCreate(){
