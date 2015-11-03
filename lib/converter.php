@@ -39,7 +39,7 @@ class Converter {
  		$exists = file_exists($outfile);
 		
 		if (!$exists){
-			\OC::$server->getLogger()->warn(
+			\OC::$server->getLogger()->warning(
 				'Conversion test failed. Raw output:' . $result,
 				['app' => 'documents']
 				
@@ -59,7 +59,7 @@ class Converter {
 		}
 		
 		if (empty($output)){
-			\OC::$server->getLogger()->warn(
+			\OC::$server->getLogger()->warning(
 				'Empty conversion output',
 				['app' => 'documents']
 				
