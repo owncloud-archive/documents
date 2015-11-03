@@ -160,7 +160,7 @@ class Helper {
 		}
 		
 		if (empty($cmd)){
-			\OC::$server->getLogger()->warn(
+			\OC::$server->getLogger()->warning(
 				'Pure configuration issue. Missing open office binary that is mandatory for conversion.',
 				['app' => 'documents']
 				
