@@ -2,6 +2,7 @@ OC.L10N.register(
     "documents",
     {
     "Documents" : "Documentos",
+    "Can't create document" : "No es posible crear el documento",
     "You don't have permission to rename this document" : "No tienes permisos para cambiar de nombre a este documento.",
     "Saved" : "Guardado",
     "Saving..." : "Guardando...",
