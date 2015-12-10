@@ -124,7 +124,7 @@
     "Upload (max. %s)" : "アップロード ( 最大 %s )",
     "Upload" : "アップロード",
     "Save new documents to" : "新規ドキュメントの保存先:",
-    "Wrong password. Please retry." : "間違ったパスワード。もう一度入力してください。",
+    "Wrong password. Please retry." : "パスワードが間違っています。もう一度入力してください。",
     "Guest %s" : "ゲスト %s",
     "This link has been expired or is never existed. Please contact the person who shared it with you for details." : "このリンクは期限が切れているか、すでに存在しません。詳細は、それを共有した方に連絡していください。",
     "Advanced feature-set" : "高度な機能セット",
