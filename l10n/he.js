@@ -119,6 +119,7 @@ OC.L10N.register(
     "openOffice/libreOffice is installed on external server running a format filter server" : "openOffice/libreOffice מותקן על שרת חיצוני ומפעיל שרת החלפת פורמט",
     "Disabled" : "מנוטרל",
     "No MS Word support" : "אין תמיכה לוורד",
+    "scheme://domain.tld[:port]" : "scheme://domain.tld[:port]",
     "Server URL" : "נתיב השרת",
     "Apply and test" : "ביצוע ובדיקה",
     "New document" : "מסמך חדש",
