@@ -80,7 +80,6 @@ use \OCP\IConfig;
 	 * @return string
 	 */
 	public function setUserValue($userId, $key, $value) {
-		return $this->config->setAppValue($userId, $this->appName, $key, $value);
+		return $this->config->setUserValue($userId, $this->appName, $key, $value);
 	}
  }
- 
