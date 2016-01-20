@@ -102,7 +102,7 @@ OC.L10N.register(
     "can edit" : "lahko ureja",
     "access control" : "nadzor dostopa",
     "create" : "ustvari",
-    "change" : "sprememba",
+    "change" : "spremeni",
     "delete" : "izbriši",
     "Password protected" : "Zaščiteno z geslom",
     "Error unsetting expiration date" : "Napaka brisanja datuma preteka",
