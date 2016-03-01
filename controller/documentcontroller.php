@@ -163,10 +163,14 @@ class DocumentController extends Controller{
 		$fileIds = array();
 		$documents = array();
 		foreach ($found as $key=>$document) {
-			if (is_object($document)){
-				$documents[] = $document->getData();
+			$fileData = $document->getData();
+			if (is_object($fileData)){
+				$documents[$key]['fileid'] = $document->getId();
+				$documents[$key]['path'] = $document->getPath();
+				$documents[$key]['name'] = $document->getName();
+				$documents[$key]['etag'] = $document->getEtag();
 			} else {
-				$documents[$key] = $document;
+				$documents[$key] = $fileData;
 			}
 			$documents[$key]['icon'] = preg_replace('/\.png$/', '.svg', \OCP\Template::mimetype_icon($document['mimetype']));
 			$documents[$key]['hasPreview'] = \OC::$server->getPreviewManager()->isMimeSupported($document['mimetype']);
