@@ -26,6 +26,11 @@ namespace OCA\Documents;
 
 class Storage {
 	const MIMETYPE_LIBREOFFICE_WORDPROCESSOR = 'application/vnd.oasis.opendocument.text';
+	private static $SUPPORTED_MIMES_READ = array(
+		'application/vnd.oasis.opendocument.spreadsheet',
+		'application/vnd.oasis.opendocument.presentation',
+		'application/vnd.oasis.opendocument.graphics',
+	);
 
 	public static function getDocuments() {
 		$list = array_filter(
@@ -92,7 +97,9 @@ class Storage {
 	protected static function searchDocuments(){
 		$documents = array();
 		foreach (self::getSupportedMimetypes() as $mime){
-			$documents = array_merge($documents, \OCP\Files::searchByMime($mime));
+			if (!in_array($mime, self::$SUPPORTED_MIMES_READ)) {
+				$documents = array_merge($documents, \OCP\Files::searchByMime($mime));
+			}
 		}
 		return $documents;
 	}
@@ -100,6 +107,7 @@ class Storage {
 	public static function getSupportedMimetypes(){
 		return array_merge(
 			array(self::MIMETYPE_LIBREOFFICE_WORDPROCESSOR),
+			self::$SUPPORTED_MIMES_READ,
 			Filter::getAll()
 		);
 	}
