@@ -118,6 +118,7 @@ $TRANSLATIONS = array(
 "openOffice/libreOffice is installed on external server running a format filter server" => "openOffice/libreOffice on asennettu erillisille palvelimelle, joka tarjoaa muotosuodatuspalvelimen ominaisuudet",
 "Disabled" => "Ei käytössä",
 "No MS Word support" => "Ei MS Word -tukea",
+"scheme://domain.tld[:port]" => "scheme://domain.tld[:port]",
 "Server URL" => "Palvelimen osoite",
 "Apply and test" => "Toteuta ja testaa",
 "New document" => "Uusi asiakirja",
@@ -126,6 +127,7 @@ $TRANSLATIONS = array(
 "Save new documents to" => "Uusien asiakirjojen tallennussijainti",
 "Wrong password. Please retry." => "Väärä salasana. Yritä uudelleen.",
 "Guest %s" => "Vieras %s",
+"This link has been expired or is never existed. Please contact the person who shared it with you for details." => "Linkki on vanhentunut tai se ei ole ollutkaan toimiva. Ota yhteyttä henkilöön jolta sait linkin saadaksesi lisätietoja.",
 "Advanced feature-set" => "Tarkemmat toiminto-asetukset",
 "(Unstable)" => "(Epävakaa)"
 );
