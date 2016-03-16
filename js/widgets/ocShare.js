@@ -26,9 +26,10 @@ define("owncloud/widgets/ocShare",
 							};
 						})();
 
+						var path = $(".document[data-id='2126'][data-path]").attr('data-path');
 						OC.Share.showDropDown(
 								'file',
-								parent.location.hash.replace(/\W*/g, ''),
+								path,
 								$("#header"),
 								true,
 								OC.PERMISSION_READ | OC.PERMISSION_SHARE | OC.PERMISSION_UPDATE
