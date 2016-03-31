@@ -171,18 +171,6 @@ class File {
 		$this->path = $this->ownerView->getPath($this->fileId);
 		$this->pathFiles = $this->ownerViewFiles->getPath($this->fileId);
 		
-		if (!$this->path || !$this->pathFiles) {
-			throw new \Exception($this->fileId . ' can not be resolved');
-		}
-		
-		if (!$this->ownerView->file_exists($this->path)) {
-			throw new \Exception($this->path . ' doesn\'t exist');
-		}
-		
-		if (!$this->ownerViewFiles->file_exists($this->pathFiles)) {
-			throw new \Exception($this->pathFiles . ' doesn\'t exist');
-		}
-		
 		if (!$this->ownerView->is_file($this->path)){
 			throw new \Exception('Object ' . $this->path . ' is not a file.');
 		}

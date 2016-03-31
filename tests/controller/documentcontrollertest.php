@@ -51,19 +51,15 @@ class DocumentControllerTest extends \PHPUnit_Framework_TestCase {
 		\OC_Util::setupFS();
 	}
 	
-	/**
-	 * @expectedException \OCP\Files\NotFoundException
-	 */
+
 	public function testRename(){
-		$result = array(
-			'status' => 'error',
-			'message' => (string) $this->l10n->t('You don\'t have permission to rename this document')
-		);
+
 		$this->request->post = array(
-			'fileId' => 500,
+			'fileId' => 1500,
 			'name' => 'newname.ext'
 		);
-		$response = $this->controller->rename(500);
+		$response = $this->controller->rename(1500);
+		$this->assertEquals('error', $response['status']);
 	}
 	
 	public function testCreate(){
