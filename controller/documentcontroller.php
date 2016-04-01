@@ -136,20 +136,27 @@ class DocumentController extends Controller{
 	 */
 	public function rename($fileId){
 		$name = $this->request->post['name'];
-
-		$view = \OC\Files\Filesystem::getView();
-		$path = $view->getPath($fileId);
-
-		if ($name && $view->is_file($path) && $view->isUpdatable($path)) {
-			$newPath = dirname($path) . '/' . $name;
-			if ($view->rename($path, $newPath)) {
-						return array('status' => 'success');
-			}
-		}
-		return array(
+		$result = [
 			'status' => 'error',
 			'message' => (string) $this->l10n->t('You don\'t have permission to rename this document')
-		);
+		];
+
+		$view = \OC\Files\Filesystem::getView();
+		try {
+			$path = $view->getPath($fileId);
+			if ($name && $view->is_file($path) && $view->isUpdatable($path)) {
+				$newPath = dirname($path) . '/' . $name;
+				if ($view->rename($path, $newPath)) {
+					$result = ['status' => 'success'];
+				}
+			}
+		} catch (\Exception $e){
+			$result = [
+				'status' => 'error',
+				'message' => (string) $this->l10n->t('File does not exist')
+			];
+		}
+		return $result;
 	}
 
 	/**
