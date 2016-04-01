@@ -166,7 +166,7 @@ class DocumentController extends Controller{
 			$fileData = $document->getData();
 			if (is_object($fileData)){
 				$documents[$key]['fileid'] = $document->getId();
-				$documents[$key]['path'] = $document->getPath();
+				$documents[$key]['path'] = $fileData['path'];
 				$documents[$key]['name'] = $document->getName();
 				$documents[$key]['etag'] = $document->getEtag();
 			} else {
