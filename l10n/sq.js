@@ -4,6 +4,7 @@ OC.L10N.register(
     "Documents" : "Dokumente",
     "Can't create document" : "S’krijohet dot dokumenti",
     "You don't have permission to rename this document" : "Nuk keni leje të riemërtoni këtë dokument",
+    "File does not exist" : "S’ka kartelë të tillë",
     "Directory saved successfully." : "Drejtoria u ruajt me sukses.",
     "An error occurred while changing directory." : "Ndodhi një gabim gjatë ndryshimit të drejtorisë.",
     "Saved" : "U ruajt",
@@ -129,6 +130,7 @@ OC.L10N.register(
     "Wrong password. Please retry." : "Fjalëkalim gabuar. Ju lutemi, riprovoni.",
     "Guest %s" : "Vizitori %s",
     "This link has been expired or is never existed. Please contact the person who shared it with you for details." : "Kjo lidhje ka skaduar ose s’ka ekzistuar kurrë. Ju lutemi, për hollësi, lidhuni me personin që e ndau atë me ju.",
+    "Advanced feature-set" : "Grup veçorish të thelluara",
     "(Unstable)" : "(E paqëndrueshme)"
 },
 "nplurals=2; plural=(n != 1);");

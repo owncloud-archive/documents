@@ -3,6 +3,7 @@ $TRANSLATIONS = array(
 "Documents" => "Asiakirjat",
 "Can't create document" => "Asiakirjan luominen epäonnistui",
 "You don't have permission to rename this document" => "Oikeutesi eivät riitä nimeämään tätä asiakirjaa uudelleen",
+"File does not exist" => "Tiedostoa ei ole olemassa",
 "Directory saved successfully." => "Kansio tallennettiin onnistuneesti.",
 "An error occurred while changing directory." => "Virhe kansiota vaihtaessa.",
 "Saved" => "Tallennettu",

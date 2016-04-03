@@ -2,6 +2,7 @@
     "Documents" : "Documenti",
     "Can't create document" : "Impossibile creare il documento",
     "You don't have permission to rename this document" : "Non hai i permessi per rinominare questo documento",
+    "File does not exist" : "Il file non esiste",
     "Directory saved successfully." : "Cartella salvata correttamente.",
     "An error occurred while changing directory." : "Si è verificato un errore durante il cambio di cartella.",
     "Saved" : "Salvato",
