@@ -4,6 +4,7 @@ OC.L10N.register(
     "Documents" : "Documentos",
     "Can't create document" : "Impedido de criar documentos",
     "You don't have permission to rename this document" : "Você não tem permissão para renomear este documento",
+    "File does not exist" : "O arquivo não existe",
     "Directory saved successfully." : "Diretório salvo com sucesso.",
     "An error occurred while changing directory." : "Ocorreu um erro ao mudar de diretório.",
     "Saved" : "Salvo",
