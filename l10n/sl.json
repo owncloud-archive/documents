@@ -2,6 +2,7 @@
     "Documents" : "Dokumenti",
     "Can't create document" : "Dokumenta ni mogoče ustvariti",
     "You don't have permission to rename this document" : "Ni ustreznih dovoljenj za preimenovanje tega dokumenta ...",
+    "File does not exist" : "Datoteka ne obstaja",
     "Directory saved successfully." : "Mapa je uspešno shranjena.",
     "An error occurred while changing directory." : "Med spreminjanjem mape je prišlo do napake.",
     "Saved" : "Shranjeno",
