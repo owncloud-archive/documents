@@ -3,6 +3,7 @@ $TRANSLATIONS = array(
 "Documents" => "Dokument",
 "Can't create document" => "Kan inte skapa dokument",
 "You don't have permission to rename this document" => "Du har inte behörighet att döpa om detta dokument",
+"File does not exist" => "Filen finns inte",
 "Directory saved successfully." => "Katalog sparades.",
 "An error occurred while changing directory." => "Ett fel uppstod vid byte av katalog",
 "Saved" => "Sparad",
