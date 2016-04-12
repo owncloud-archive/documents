@@ -3,6 +3,7 @@ $TRANSLATIONS = array(
 "Documents" => "Documenten",
 "Can't create document" => "Kan document niet creëren",
 "You don't have permission to rename this document" => "U hebt niet de autorisatie om die document te hernoemen",
+"File does not exist" => "Bestand bestaat niet",
 "Directory saved successfully." => "Directory succesvol bewaard.",
 "An error occurred while changing directory." => "Er trad een fout op bij het wijzigen van de directory",
 "Saved" => "Bewaard",
