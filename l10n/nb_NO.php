@@ -3,6 +3,7 @@ $TRANSLATIONS = array(
 "Documents" => "Dokumenter",
 "Can't create document" => "Kan ikke opprette dokument",
 "You don't have permission to rename this document" => "Du har ikke tillatelse til å gi nytt navn til dette dokumentet",
+"File does not exist" => "Filen eksisterer ikke",
 "Directory saved successfully." => "Vellykket lagring av mappe.",
 "An error occurred while changing directory." => "En feil oppstod ved endring av mappe.",
 "Saved" => "Lagret",
