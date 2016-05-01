@@ -82,7 +82,7 @@ OC.L10N.register(
     "Share link" : "แชร์ลิงค์",
     "The public link will expire no later than {days} days after it is created" : "ลิงค์สาธารณะจะหมดอายุภายใน {days} วัน หลังจากที่มันถูกสร้างขึ้น",
     "Link" : "ลิงค์",
-    "Password protect" : "รหัสผ่านป้องกัน",
+    "Password protect" : "ป้องกันด้วยรหัสผ่าน",
     "Password" : "รหัสผ่าน",
     "Choose a password for the public link" : "เลือกรหัสผ่านสำหรับลิงค์สาธารณะ",
     "Allow editing" : "อนุญาตให้แก้ไข",
