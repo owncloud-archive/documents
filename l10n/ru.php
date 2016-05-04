@@ -3,6 +3,7 @@ $TRANSLATIONS = array(
 "Documents" => "Документы",
 "Can't create document" => "Невозможно создать документ",
 "You don't have permission to rename this document" => "У вас нет прав для переименования этого документа.",
+"File does not exist" => "Файл не существует",
 "Directory saved successfully." => "Каталог успешно сохранён.",
 "An error occurred while changing directory." => "При смене каталога произошла ошибка.",
 "Saved" => "Сохранено",
