@@ -296,7 +296,7 @@
 		showDropDown:function(itemType, itemSource, appendTo, link, possiblePermissions, filename) {
 			var data = OC.Share.loadItem(itemType, itemSource);
 			var dropDownEl;
-			var html = '<div id="dropdown" class="drop shareDropDown" data-item-type="'+itemType+'" data-item-source="'+itemSource+'">';
+			var html = '<div id="dropdown" class="drop shareDropDown" data-item-type="'+escapeHTML(itemType)+'" data-item-source="'+escapeHTML(itemSource)+'">';
 			if (data !== false && data.reshare !== false && data.reshare.uid_owner !== undefined && data.reshare.uid_owner !== OC.currentUser) {
 				html += '<span class="reshare">';
 				if (oc_config.enable_avatars === true) {
