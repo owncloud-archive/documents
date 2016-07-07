@@ -109,7 +109,7 @@ class File {
 		$shareId  = $this->sharing['id'];
 		if (!$this->isPasswordProtected()
 			|| (\OC::$server->getSession()->exists('public_link_authenticated')
-				&& \OC::$server->getSession()->get('public_link_authenticated') === $shareId
+				&& \OC::$server->getSession()->get('public_link_authenticated') === (string)$shareId
 			)
 		){
 			return true;
@@ -118,7 +118,7 @@ class File {
 		// Check Password
 		$newHash = '';
 		if(\OC::$server->getHasher()->verify($password, $this->getPassword(), $newHash)) {
-			\OC::$server->getSession()->set('public_link_authenticated', $shareId);
+			\OC::$server->getSession()->set('public_link_authenticated', (string)$shareId);
 
 			/**
 			 * FIXME: Migrate old hashes to new hash format
