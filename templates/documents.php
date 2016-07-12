@@ -5,7 +5,6 @@ style( 'documents', '3rdparty/webodf/dojo-app' );
 script('documents', 'share');
 script('documents', 'documents');
 script('files', 'file-upload');
-script('files', 'jquery.iframe-transport');
 script('files', 'jquery.fileupload');
 ?>
 <div id="documents-content">
