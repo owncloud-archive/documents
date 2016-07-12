@@ -674,6 +674,13 @@ FileList.getCurrentDirectory = function(){
 	return $('#dir').val() || '/';
 };
 
+FileList.setViewerMode = function(){
+};
+FileList.findFile = function(fileName){
+	fullPath = escapeHTML(FileList.getCurrentDirectory + '/' + fileName);
+	return !!$('.documentslist .document:not(.template,.progress) a[original-title="' + fullPath + '"]').length
+}
+
 $(document).ready(function() {
 	documentsMain.docs = $('.documentslist').documentGrid();
 	documentsMain.overlay = $('<div id="documents-overlay" class="icon-loading"></div><div id="documents-overlay-below" class="icon-loading-dark"></div>').documentOverlay();
@@ -694,6 +701,10 @@ $(document).ready(function() {
 	});
 	
 	$('.add-document').on('click', '.add', documentsMain.onCreate);
+
+	OC.Upload._isReceivedSharedFile = function () {
+		return false;
+	}
 
 	var file_upload_start = $('#file_upload_start');
 	if (typeof supportAjaxUploadWithProgress !== 'undefined' && supportAjaxUploadWithProgress()) {
