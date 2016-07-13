@@ -673,7 +673,12 @@ FileList = FileList || {};
 FileList.getCurrentDirectory = function(){
 	return $('#dir').val() || '/';
 };
-
+FileList.findFile = function(fileName){
+ 	fullPath = escapeHTML(FileList.getCurrentDirectory + '/' + fileName);
+ 	return !!$('.documentslist .document:not(.template,.progress) a[original-title="' + fullPath + '"]').length
+};
+FileList.highlightFiles = function(){};
+ 
 $(document).ready(function() {
 	documentsMain.docs = $('.documentslist').documentGrid();
 	documentsMain.overlay = $('<div id="documents-overlay" class="icon-loading"></div><div id="documents-overlay-below" class="icon-loading-dark"></div>').documentOverlay();
