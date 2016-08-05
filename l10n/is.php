@@ -3,6 +3,7 @@ $TRANSLATIONS = array(
 "Documents" => "Skjöl",
 "Can't create document" => "Get ekki búið til skjal",
 "You don't have permission to rename this document" => "Þú hefur ekki heimild til að endurnefna þetta skjal",
+"File does not exist" => "Skráin er ekki til",
 "Directory saved successfully." => "Tókst að vista möppuna.",
 "An error occurred while changing directory." => "Villa kom upp við að skipta um möppu.",
 "Saved" => "Vistað",

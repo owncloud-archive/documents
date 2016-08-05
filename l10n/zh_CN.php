@@ -3,6 +3,7 @@ $TRANSLATIONS = array(
 "Documents" => "文档",
 "Can't create document" => "无法创建文档",
 "You don't have permission to rename this document" => "您没有重命名该文档的权限",
+"File does not exist" => "文件不存在",
 "Directory saved successfully." => "目录保存成功。",
 "An error occurred while changing directory." => "修改目录时发生了一个错误。",
 "Saved" => "已保存",

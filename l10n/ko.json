@@ -2,6 +2,7 @@
     "Documents" : "문서",
     "Can't create document" : "문서를 만들 수 없음",
     "You don't have permission to rename this document" : "이 문서의 이름을 변경할 권한이 없습니다",
+    "File does not exist" : "파일이 존재하지 않습니다.",
     "Directory saved successfully." : "디렉터리를 저장했습니다.",
     "An error occurred while changing directory." : "디렉터리를 변경하는 중 오류가 발생했습니다.",
     "Saved" : "저장됨",

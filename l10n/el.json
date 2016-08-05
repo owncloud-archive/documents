@@ -2,6 +2,7 @@
     "Documents" : "Έγγραφα",
     "Can't create document" : "Δεν είναι δυνατή η δημιουργία του εγγράφου",
     "You don't have permission to rename this document" : "Δεν έχετε άδεια να μετονομάσετε αυτό το έγγραφο",
+    "File does not exist" : "Το αρχείο δεν υπάρχει",
     "Directory saved successfully." : "Η βιβλιοθήκη αποθηκεύτηκε επιτυχημένα.",
     "An error occurred while changing directory." : "Παρουσιάστηκε ένα πρόβλημα κατά την αλλαγή βιβλιοθήκης.",
     "Saved" : "Αποθηκεύτηκαν",

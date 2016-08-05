@@ -3,6 +3,7 @@ $TRANSLATIONS = array(
 "Documents" => "Documents",
 "Can't create document" => "El document no es pot crear",
 "You don't have permission to rename this document" => "No teniu permisos per canviar de nom aquest document",
+"File does not exist" => "El fitxer no existeix",
 "Directory saved successfully." => "La carpeta s'ha desat correctament",
 "An error occurred while changing directory." => "S'ha produït un error en canviar de carpeta",
 "Saved" => "Desat",

@@ -4,6 +4,7 @@ OC.L10N.register(
     "Documents" : "Belgeler",
     "Can't create document" : "Belge oluşturulamıyor",
     "You don't have permission to rename this document" : "Bu belgeyi adlandırmak için izniniz yok.",
+    "File does not exist" : "Dosya mevcut değil",
     "Directory saved successfully." : "Dizin başarıyla kaydedildi.",
     "An error occurred while changing directory." : "Dizin değiştirilirken bir hata oluştu.",
     "Saved" : "Kaydedildi",

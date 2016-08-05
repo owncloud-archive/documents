@@ -4,6 +4,7 @@ OC.L10N.register(
     "Documents" : "מסמכים",
     "Can't create document" : "לא ניתן ליצור מסמך",
     "You don't have permission to rename this document" : "אין לך הרשאות לשנות את שם המשמך",
+    "File does not exist" : "הקובץ אינו קיים",
     "Directory saved successfully." : "תיקייה נשמרה בהצלחה",
     "An error occurred while changing directory." : "שגיאה אירעה בזמן שינוי התיקייה",
     "Saved" : "נשמר",

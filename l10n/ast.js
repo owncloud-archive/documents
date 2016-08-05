@@ -4,6 +4,7 @@ OC.L10N.register(
     "Documents" : "Documentos",
     "Can't create document" : "Nun pue crease'l documentu",
     "You don't have permission to rename this document" : "Nun tienes permisu pa camudar de nome a esti documentu",
+    "File does not exist" : "El ficheru nun esiste",
     "Directory saved successfully." : "El direutoriu guardóse correchamente.",
     "An error occurred while changing directory." : "Asocedió un fallu cuando se camudaba'l direutoriu.",
     "Saved" : "Guardáu",

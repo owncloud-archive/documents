@@ -4,6 +4,7 @@ OC.L10N.register(
     "Documents" : "Документи",
     "Can't create document" : "Неможливо створити документ",
     "You don't have permission to rename this document" : "Вам бракує прав на зміну імені цього документу",
+    "File does not exist" : "Файл не існує",
     "Directory saved successfully." : "Директорію збережено.",
     "An error occurred while changing directory." : "При зміні теки виникла помилка.",
     "Saved" : "Збереженно",
