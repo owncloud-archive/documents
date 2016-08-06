@@ -25,8 +25,17 @@ $.widget('oc.documentGrid', {
 			a = docElem.find('a')
 		;
 
+		var path = document.path;
+		if (path[0] === "/") {
+			path = path.substr(1);
+		}
+		path = path.substr(path.indexOf("/") + 7);
+
 		//Fill an element
-		docElem.removeClass('template').attr('data-id', document.fileid);
+		docElem.removeClass('template')
+			.attr('data-id', document.fileid)
+			.attr('data-path',path);
+
 		a.css('background-image', 'url("'+document.icon+'")')
 			.attr('href', OC.generateUrl('apps/files/download{file}',{file:document.path}))
 			.attr('original-title', document.path)
