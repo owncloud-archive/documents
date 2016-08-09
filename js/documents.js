@@ -673,6 +673,12 @@ FileList = FileList || {};
 FileList.getCurrentDirectory = function(){
 	return $('#dir').val() || '/';
 };
+FileList.findFile = function(fileName){
+ 	fullPath = escapeHTML(FileList.getCurrentDirectory + '/' + fileName);
+ 	return !!$('.documentslist .document:not(.template,.progress) a[original-title="' + fullPath + '"]').length
+};
+FileList.highlightFiles = function(){};
+
 
 $(document).ready(function() {
 	documentsMain.docs = $('.documentslist').documentGrid();
@@ -694,6 +700,10 @@ $(document).ready(function() {
 	});
 	
 	$('.add-document').on('click', '.add', documentsMain.onCreate);
+
+	OC.Upload._isReceivedSharedFile = function () {
+		return false;
+	}
 
 	var file_upload_start = $('#file_upload_start');
 	if (typeof supportAjaxUploadWithProgress !== 'undefined' && supportAjaxUploadWithProgress()) {
