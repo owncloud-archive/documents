@@ -6,9 +6,15 @@
 	<licence>AGPL</licence>
 	<version>0.13.0</version>
 	<author>Frank Karlitschek, Victor Dubiniuk</author>
+	<website>https://github.com/owncloud/documents</website>
 	<bugs>https://github.com/owncloud/documents/issues</bugs>
 	<repository type="git">http://github.com/owncloud/documents.git</repository>
 	<category>productivity</category>
+	<documentation>
+		<user>https://doc.owncloud.org/server/9.0/user_manual/documents.html</user>
+		<admin>https://doc.owncloud.org/server/9.1/admin_manual/configuration_files/collaborative_documents_configuration.html</admin>
+		<developer>https://github.com/owncloud/documents/blob/master/README.md</developer>
+	</documentation>
 	<dependencies>
 		<owncloud min-version="9.0" max-version="9.1" />
 	</dependencies>
