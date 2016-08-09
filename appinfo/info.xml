@@ -4,13 +4,13 @@
 	<name>Documents</name>
 	<description>An ownCloud app to work with office documents</description>
 	<licence>AGPL</licence>
-	<version>0.13.0</version>
+	<version>0.13.1</version>
 	<author>Frank Karlitschek, Victor Dubiniuk</author>
 	<bugs>https://github.com/owncloud/documents/issues</bugs>
 	<repository type="git">http://github.com/owncloud/documents.git</repository>
 	<category>productivity</category>
 	<dependencies>
-		<owncloud min-version="9.0" max-version="9.1" />
+		<owncloud min-version="9.1" max-version="9.2" />
 	</dependencies>
 	<public>
 		<documents>public.php</documents>
