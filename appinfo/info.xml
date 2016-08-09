@@ -4,7 +4,7 @@
 	<name>Documents</name>
 	<description>An ownCloud app to work with office documents</description>
 	<licence>AGPL</licence>
-	<version>0.13.0</version>
+	<version>0.14.0</version>
 	<author>Frank Karlitschek, Victor Dubiniuk</author>
 	<website>https://github.com/owncloud/documents</website>
 	<bugs>https://github.com/owncloud/documents/issues</bugs>
@@ -16,7 +16,7 @@
 		<developer>https://github.com/owncloud/documents/blob/master/README.md</developer>
 	</documentation>
 	<dependencies>
-		<owncloud min-version="9.0" max-version="9.1" />
+		<owncloud min-version="9.1" max-version="9.2" />
 	</dependencies>
 	<public>
 		<documents>public.php</documents>
