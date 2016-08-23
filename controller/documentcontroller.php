@@ -167,17 +167,11 @@ class DocumentController extends Controller{
 	public function listAll(){
 		$found = Storage::getDocuments();
 
-		$fileIds = array();
-		$documents = array();
+		$fileIds = [];
+		$documents = [];
 		foreach ($found as $key=>$document) {
 			$fileData = $document->getData();
-			$documents[$key]['fileid'] = $document->getId();
-			$documents[$key]['path'] = $fileData->getPath();
-			$documents[$key]['name'] = $document->getName();
-			$documents[$key]['etag'] = $document->getEtag();
-
-			$documents[$key]['icon'] = preg_replace('/\.png$/', '.svg', \OCP\Template::mimetype_icon($document['mimetype']));
-			$documents[$key]['hasPreview'] = \OC::$server->getPreviewManager()->isMimeSupported($document['mimetype']);
+			$documents[$key] = \OCA\Files\Helper::formatFileInfo($document);
 			$fileIds[] = $document['fileid'];
 		}
 
@@ -194,9 +188,12 @@ class DocumentController extends Controller{
 			$members[$session['es_id']] = $member->getActiveCollection($session['es_id']);
 		}
 
-		return array(
-			'status' => 'success', 'documents' => $documents,'sessions' => $sessions,'members' => $members
-		);
+		return [
+			'status' => 'success',
+			'data' => ['files' => $documents],
+			'sessions' => $sessions,
+			'members' => $members
+		];
 	}
 	
 }

@@ -7,6 +7,11 @@
 }
 /* end IE 8 fixes */
 
+.nav-icon-documents{
+	background-image: url('../img/documents.svg');
+}
+
+
 #editor {
 	box-shadow: none !important;
 }
