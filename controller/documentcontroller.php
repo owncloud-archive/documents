@@ -198,5 +198,40 @@ class DocumentController extends Controller{
 			'status' => 'success', 'documents' => $documents,'sessions' => $sessions,'members' => $members
 		);
 	}
+
+    /**
+     * @NoAdminRequired
+     */
+	public function generate($id) {
+	    if((!empty($id))) {
+            $view = \OC\Files\Filesystem::getView();
+            try {
+                $path = $view->getPath($id);
+                if ($view->is_file($path) && $view->isReadable($path)) {
+                    $secret = \OC::$server->getConfig()->getSystemValue("secret");
+                    $instanceID = \OC::$server->getConfig()->getSystemValue("instanceid");
+                    $chatRoomPassword = hash('sha512', "chatroom-password".$instanceID.$secret.$id);
+                    $chatRoomName = hash('sha512', "chatroom-name".$instanceID.$secret.$id);
+                    return  array(
+                        'status' => 'success','password' => $chatRoomPassword,'name' => $chatRoomName
+                    );
+                } else {
+                    return  array(
+                        'status' => 'unauthorised'
+                    );
+                }
+
+            } catch (\Exception $e) {
+                return  array(
+                    'status' => 'unauthorised'
+                );
+            }
+
+	    }
+        return  array(
+            'status' => 'no id received'
+        );
+
+    }
 	
 }
