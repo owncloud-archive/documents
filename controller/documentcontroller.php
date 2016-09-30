@@ -199,7 +199,7 @@ class DocumentController extends Controller{
 		);
 	}
 
-    /**
+	/**
 	 * @NoAdminRequired
 	 */
 	public function generate($id) {
