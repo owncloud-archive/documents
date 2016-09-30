@@ -32,7 +32,7 @@ $application->registerRoutes($this, [
 		['name' => 'document#rename', 'url' => 'ajax/documents/rename/{fileId}', 'verb' => 'POST'],
 		['name' => 'document#listAll', 'url' => 'ajax/documents/list', 'verb' => 'GET'],
 		['name' => 'document#download', 'url' => 'ajax/download.php', 'verb' => 'GET'],
-        ['name' => 'document#generate', 'url' => 'ajax/generate.php', 'verb' => 'GET'],
+		['name' => 'document#generate', 'url' => 'ajax/generate.php', 'verb' => 'GET'],
 		//settings
 		['name' => 'settings#savePersonal', 'url' => 'ajax/personal.php', 'verb' => 'POST'],
 		['name' => 'settings#setUnstable', 'url' => 'ajax/config/unstable', 'verb' => 'POST'],
