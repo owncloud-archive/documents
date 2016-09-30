@@ -2,12 +2,12 @@
 define("owncloud/widgets/titleBar",
 		["dojo/_base/declare", "dijit/_WidgetBase", "dijit/_TemplatedMixin", "dojox/html/entities", "webodf/editor/EditorSession"],
 		function (declare, _WidgetBase, _TemplatedMixin, Entities, EditorSession) {
-            var password;
+			var password;
 			var name;
-            var id = window.location.href.split('#',2);
-            console.log(id[1]);
-            $.ajax({type: 'GET', url: OC.filePath('documents', 'ajax', 'generate.php'), data: {id: id[1]}, async: false, success: function(result) {
-            	if(result.status=="success"){
+			var id = window.location.href.split('#',2);
+			console.log(id[1]);
+			$.ajax({type: 'GET', url: OC.filePath('documents', 'ajax', 'generate.php'), data: {id: id[1]}, async: false, success: function(result) {
+				if(result.status=="success"){
 					password=result.password;
 					name=result.name;
 				} else {
@@ -16,8 +16,8 @@ define("owncloud/widgets/titleBar",
 				}
 
 			}, error: function(xhr, textStatus, errorThrown){
-                password=errorThrown;
-            }});
+				password=errorThrown;
+			}});
 			return declare("TitleBar", [_WidgetBase, _TemplatedMixin], {
 				title : '',
 				templateString:
