@@ -98,6 +98,7 @@ OC.L10N.register(
     "Edit" : "Editar",
     "Disabled" : "Deshabilitado",
     "New document" : "Nuevo documento",
+    "Upload (max. %s)" : "Subir (max. %s)",
     "Upload" : "Subir",
     "Save new documents to" : "Guardar nuevos documentos en",
     "Wrong password. Please retry." : "Contraseña incorrecta. Inténtelo de nuevo.",
