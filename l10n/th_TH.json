@@ -7,7 +7,7 @@
     "An error occurred while changing directory." : "เกิดข้อผิดพลาดขณะที่เปลี่ยนไดเรกทอรี",
     "Saved" : "บันทึกแล้ว",
     "Format filter server is down or misconfigured" : "ตัวกรองรูปแบบเซิร์ฟเวอร์ล่มหรือตั้งค่าผิดพลาด",
-    "Conversion failed. Check log for details." : "การแปลงไฟล์ล้มเหลว ตรวจสอบบันทึกเพื่อดูรายละเอียด",
+    "Conversion failed. Check log for details." : "การแปลงไฟล์ล้มเหลว ตรวจสอบไฟล์ log เพื่อดูรายละเอียดเพิ่มเติม",
     "Saving..." : "กำลังบันทึกข้อมูล...",
     "Failed to load documents." : "ไม่สามารถโหลดเอกสาร",
     "No documents were found. Upload or create a document to get started!" : "ยังไม่มีเอกสารเลย คุณสามารถเริ่มต้นอัพโหลดหรือสร้างเอกสารได้เลย!",
