@@ -97,6 +97,7 @@ OC.L10N.register(
     "Email sent" : "Correo electrónico enviado",
     "Warning" : "Precaución",
     "Edit" : "Editar",
+    "Local" : "Local",
     "Disabled" : "Deshabilitado",
     "New document" : "Nuevo documento",
     "Upload (max. %s)" : "Subir (max. %s)",
