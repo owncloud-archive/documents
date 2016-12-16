@@ -115,7 +115,7 @@ OC.L10N.register(
     "guest" : "gost",
     "MS Word support (requires openOffice/libreOffice)" : "Podpora za MS Word (zahteva namestitev OpenOffice/LibreOffice)",
     "Local" : "Krajevno",
-    "openOffice/libreOffice is installed on this server. Path to binary is provided via preview_libreoffice_path in config.php" : "OpenOffice oziroma LibreOffice je nameščen na strežniku. Pot to izvedljive datoteke je podana preko možnosti preview_libreoffice_path v datoteki config.php",
+    "openOffice/libreOffice is installed on this server. Path to binary is provided via preview_libreoffice_path in config.php" : "OpenOffice oziroma LibreOffice je nameščen na strežniku. Pot to izvedljive datoteke je podana z možnostjo preview_libreoffice_path v datoteki config.php",
     "External" : "Zunanje",
     "openOffice/libreOffice is installed on external server running a format filter server" : "Pisarniški paket OpenOffice.org oziroma LibreOffice je nameščen na zunanjem strežniku z zagnanim strežnikom filtra za odpiranje pisarniških datotek.",
     "Disabled" : "Onemogočeno",
