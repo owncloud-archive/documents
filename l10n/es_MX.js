@@ -4,6 +4,7 @@ OC.L10N.register(
     "Documents" : "Documentos",
     "Can't create document" : "No se puede crear documento",
     "You don't have permission to rename this document" : "No tiene permiso para cambiar de nombre a este documento",
+    "File does not exist" : "El archivo no existe",
     "Saved" : "Guardado",
     "Saving..." : "Guardando...",
     "Failed to load documents." : "Error al cargar los documentos.",
