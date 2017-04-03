@@ -27,7 +27,7 @@ script:
 
   # Run phpunit tests
   - cd tests
-  - phpunit --configuration phpunit.xml
+  - ../../../lib/composer/bin/phpunit --configuration phpunit.xml
 
   # Create coverage report
   - sh -c "if [ '$TRAVIS_PHP_VERSION' != 'hhvm' ]; then wget https://scrutinizer-ci.com/ocular.phar; fi"
