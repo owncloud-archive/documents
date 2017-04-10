@@ -48,12 +48,14 @@ $eventDispatcher = \OC::$server->getEventDispatcher();
 $eventDispatcher->addListener(
 	'OCA\Files::loadAdditionalScripts',
 	function() {
+		\OCP\Util::addStyle('documents', 'style');
 		\OCP\Util::addScript('documents', 'viewer/viewer');
+		\OCP\Util::addScript('documents', 'filelist');
 	}
 );
 
 if ($c->query('AppConfig')->isConverterEnabled()){
-	$docFilter = new Office(
+	new Office(
 		[
 			'read' =>
 				[
@@ -70,7 +72,7 @@ if ($c->query('AppConfig')->isConverterEnabled()){
 		]
 	);
 
-	$docxFilter = new Office(
+	new Office(
 		[
 			'read' =>
 				[
@@ -87,6 +89,16 @@ if ($c->query('AppConfig')->isConverterEnabled()){
 		]
 	);
 }
+
+\OCA\Files\App::getNavigationManager()->add(
+	[
+		"id" => 'documents',
+		"appname" => 'documents',
+		"script" => 'list.php',
+		"order" => 10,
+		"name" => \OC::$server->getL10N('documents')->t('Documents')
+	]
+);
 
 //Listen to delete file signal
 \OCP\Util::connectHook('OC_Filesystem', 'delete', "OCA\Documents\Storage", "onDelete");

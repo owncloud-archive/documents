@@ -11,7 +11,7 @@
 
 namespace OCA\Documents;
 
-$application = new \OCA\Documents\AppInfo\Application();
+$application = new AppInfo\Application();
 $application->registerRoutes($this, [
 	'routes' => [
 		//users
