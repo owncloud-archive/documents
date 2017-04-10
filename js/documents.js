@@ -702,9 +702,9 @@ $(document).ready(function() {
 	
 	$('.add-document').on('click', '.add', documentsMain.onCreate);
 
-	OC.Upload._isReceivedSharedFile = function () {
-		return false;
-	}
+	//OC.Upload._isReceivedSharedFile = function () {
+	//	return false;
+	//}
 
 	var file_upload_start = $('#file_upload_start');
 	if (typeof supportAjaxUploadWithProgress !== 'undefined' && supportAjaxUploadWithProgress()) {
